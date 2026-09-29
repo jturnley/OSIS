@@ -93,6 +93,9 @@ namespace Face::Output
 	[[nodiscard]] bool IsPainted(RE::Actor* a_actor);
 	[[nodiscard]] std::size_t PaintedCount();
 
-	// Called from the per-frame animation hook.
+	// Called from the per-frame animation hooks.
 	void Update(RE::Actor* a_actor, float a_delta);
+	// Fallback when the NPC animation hook couldn't be installed: every painted NPC, from
+	// the main-thread heartbeat.
+	void UpdateNPCs(float a_delta);
 }

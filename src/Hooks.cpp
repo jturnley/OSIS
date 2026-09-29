@@ -7,33 +7,73 @@ namespace Hooks
 {
 	namespace
 	{
-		// Actor::UpdateAnimation (vfunc 0x7D). After the original has posed the skeleton
-		// for this frame, write the face and curl the toes/fingers so neither the
-		// animation nor OStim's face updater overwrites them before the frame renders.
-		template <class T>
-		struct UpdateAnimation
+		std::atomic_bool g_npcHook{ false };
+		std::atomic_bool g_playerViaJob{ false };
+
+		// After the original has posed the skeleton for this frame, write the face and curl
+		// the toes/fingers so neither the animation nor OStim's face updater overwrites them
+		// before the frame renders.
+		void AfterAnimation(RE::Actor* a_actor, float a_delta)
 		{
-			static void thunk(T* a_actor, float a_delta)
+			Face::Output::Update(a_actor, a_delta);
+			Body::Update(a_actor, a_delta);
+		}
+
+		// The player is animated on the main thread through PlayerCharacter::UpdateAnimation
+		// (vfunc 0x7D).
+		struct PlayerUpdateAnimation
+		{
+			static void thunk(RE::PlayerCharacter* a_this, float a_delta)
 			{
-				func(a_actor, a_delta);
-				Face::Output::Update(a_actor, a_delta);
-				Body::Update(a_actor, a_delta);
+				func(a_this, a_delta);
+				if (!g_playerViaJob.load(std::memory_order_relaxed)) AfterAnimation(a_this, a_delta);
 			}
 			static inline REL::Relocation<decltype(thunk)> func;
 		};
 
-		template <class T>
-		void Install(REL::VariantID a_vtbl)
+		// NPCs are animated from parallel jobs (RunOneActorAnimationUpdateJob) that call the
+		// internal update directly, never through the vtable, so a vfunc hook on Character
+		// never sees them. This is the call Precision 1.x and Simple Timed Block hook.
+		struct NPCUpdateAnimation
 		{
-			REL::Relocation<std::uintptr_t> vtbl{ a_vtbl };
-			UpdateAnimation<T>::func = vtbl.write_vfunc(0x7D, UpdateAnimation<T>::thunk);
+			static void thunk(RE::Actor* a_this, float a_delta)
+			{
+				func(a_this, a_delta);
+				if (!a_this) return;
+				if (a_this->IsPlayerRef() && !g_playerViaJob.exchange(true)) {
+					logger::info("The player is animated through the actor job too; using that path for them");
+				}
+				AfterAnimation(a_this, a_delta);
+			}
+			static inline REL::Relocation<decltype(thunk)> func;
+		};
+
+		void InstallNPC()
+		{
+			REL::Relocation<std::uintptr_t> job{ RELOCATION_ID(40436, 41453) };
+			const auto site = job.address() + 0x74;
+			const auto base = REL::Module::get().base();
+			const auto op = *reinterpret_cast<const std::uint8_t*>(site);
+			if (op != 0xE8) {
+				logger::error("NPC animation hook not installed: expected a call at SkyrimSE+{:X}, found opcode {:02X}. "
+							  "NPC faces fall back to 20 Hz main-thread writes; NPC toe/finger curl is off",
+					site - base, op);
+				return;
+			}
+			const auto target = site + 5 + *reinterpret_cast<const std::int32_t*>(site + 1);
+			NPCUpdateAnimation::func = SKSE::GetTrampoline().write_call<5>(site, NPCUpdateAnimation::thunk);
+			g_npcHook = true;
+			logger::info("Installed NPC animation hook at SkyrimSE+{:X} (was calling {:X})", site - base, target - base);
 		}
 	}
 
+	bool NPCHooked() { return g_npcHook.load(std::memory_order_relaxed); }
+
 	void Install()
 	{
-		Install<RE::Character>(RE::VTABLE_Character[0]);
-		Install<RE::PlayerCharacter>(RE::VTABLE_PlayerCharacter[0]);
-		logger::info("Installed animation update hooks");
+		REL::Relocation<std::uintptr_t> vtbl{ RE::VTABLE_PlayerCharacter[0] };
+		PlayerUpdateAnimation::func = vtbl.write_vfunc(0x7D, PlayerUpdateAnimation::thunk);
+		logger::info("Installed player animation hook");
+		InstallNPC();
 	}
 }

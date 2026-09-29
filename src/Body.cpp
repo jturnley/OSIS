@@ -153,6 +153,12 @@ namespace Body
 	void Update(RE::Actor* a, float)
 	{
 		if (g_count.load(std::memory_order_relaxed) == 0 || !a) return;
+		{
+			// Runs for every animated actor on the job threads; skip the settings lock for
+			// the ones that aren't curling.
+			std::scoped_lock l(g_lock);
+			if (!g_states.contains(a->GetFormID())) return;
+		}
 		bool toe, hand;
 		float toeDeg, fingerDeg;
 		int axis;

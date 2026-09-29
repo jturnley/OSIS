@@ -45,6 +45,7 @@ namespace Face::Output
 			bool reseedAll = true;
 			bool releasing = false;
 			bool exprUsed = false;
+			bool reported = false;     // logged the first write
 
 			// lip-sync track
 			std::shared_ptr<const Envelope> track;
@@ -246,6 +247,10 @@ namespace Face::Output
 		auto* fg = a->GetFaceGenAnimationData();
 		if (!fg) return;
 		dt = std::clamp(dt, 0.0f, 0.1f);
+		if (!st.reported) {
+			st.reported = true;
+			logger::info("Face: writing {:08X} {} every animation update", a->GetFormID(), a->GetDisplayFullName());
+		}
 
 		RE::BSSpinLockGuard guard(fg->lock);
 		if (st.reseedAll) {
@@ -337,6 +342,21 @@ namespace Face::Output
 			}
 			g_states.erase(it);
 			g_count = g_states.size();
+		}
+	}
+
+	void UpdateNPCs(float dt)
+	{
+		if (g_count.load(std::memory_order_relaxed) == 0) return;
+		std::vector<RE::FormID> ids;
+		{
+			std::scoped_lock l(g_lock);
+			ids.reserve(g_states.size());
+			for (const auto& kv : g_states) ids.push_back(kv.first);
+		}
+		for (const auto id : ids) {
+			auto* a = RE::TESForm::LookupByID<RE::Actor>(id);
+			if (a && !a->IsPlayerRef()) Update(a, dt);
 		}
 	}
 }

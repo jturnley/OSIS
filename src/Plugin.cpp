@@ -21,10 +21,16 @@ namespace Scheduler
 		std::atomic_bool g_pending = false;
 		std::mutex g_lock;
 		std::vector<std::pair<float, std::function<void()>>> g_delayed;
+		float g_lastTick = 0.0f;
 
 		void MainTick()
 		{
 			g_pending = false;
+			const float tickNow = Scenes::Now();
+			const float tickDt = g_lastTick > 0.0f ? tickNow - g_lastTick : 0.05f;
+			g_lastTick = tickNow;
+			// Without the NPC animation hook, faces still get written, just at 20 Hz.
+			if (!Hooks::NPCHooked() && !RE::UI::GetSingleton()->GameIsPaused()) Face::Output::UpdateNPCs(tickDt);
 			SpellCast::Tick();
 			Scenes::Tick();
 			LipSync::Poll();
@@ -128,7 +134,7 @@ namespace
 SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 {
 	InitLogger();
-	SKSE::Init(a_skse);
+	SKSE::Init(a_skse, { .trampoline = true, .trampolineSize = 64 });
 	Settings::Load();
 	logger::info("OSEDReborn v{} loading", SKSE::PluginDeclaration::GetSingleton()->GetVersion().string("."));
 
