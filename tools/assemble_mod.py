@@ -53,12 +53,16 @@ def place(src, dest, origin):
 
 
 def reset_output():
-    if os.path.exists(OUT):
-        build = os.path.join(OUT, 'BUILD.txt')
-        if not (os.path.exists(build) and open(build, encoding='utf-8').readline().startswith(MARKER)):
-            raise SystemExit('%s exists but was not made by this script; not deleting it.' % OUT)
-        shutil.rmtree(OUT)
-    os.makedirs(OUT)
+    """Empty the output folder. The folder itself stays: Windows can't remove a folder that is
+    open in Explorer or is some process's working directory."""
+    os.makedirs(OUT, exist_ok=True)
+    entries = os.listdir(OUT)
+    build = os.path.join(OUT, 'BUILD.txt')
+    if entries and not (os.path.exists(build) and open(build, encoding='utf-8').readline().startswith(MARKER)):
+        raise SystemExit('%s has files that were not made by this script; not deleting them.' % OUT)
+    for name in entries:
+        p = os.path.join(OUT, name)
+        shutil.rmtree(p) if os.path.isdir(p) and not os.path.islink(p) else os.remove(p)
 
 
 def find_dll():
