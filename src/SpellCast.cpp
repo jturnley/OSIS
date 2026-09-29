@@ -33,7 +33,7 @@ namespace SpellCast
 		struct Ended
 		{
 			float time;
-			std::vector<RE::FormID> npcs;
+			std::vector<RE::FormID> victims;
 		};
 
 		std::mutex g_lock;
@@ -181,86 +181,102 @@ namespace SpellCast
 		g_talks.clear();
 	}
 
-	void ThreadEnded(const std::vector<RE::FormID>& a_npcs)
+	void ThreadEnded(const std::vector<RE::FormID>& a_victims)
 	{
-		if (a_npcs.empty()) return;
+		if (a_victims.empty()) return;
 		std::scoped_lock l(g_lock);
-		g_ended.push_back({ g_clock, a_npcs });
+		g_ended.push_back({ g_clock, a_victims });
 		Prune();
 	}
 
-	bool StartedBySpell(const std::vector<RE::Actor*>& a_actors)
+	std::vector<RE::FormID> StartedBySpell(const std::vector<RE::Actor*>& a_actors)
 	{
 		std::scoped_lock l(g_lock);
 		Prune();
-		// The scene's NPCs, and the latest conversation with any of them.
 		std::vector<RE::Actor*> npcs;
-		float talk = -1.0f;
-		RE::Actor* talker = nullptr;
 		for (auto* a : a_actors) {
-			if (!a || a->IsPlayerRef()) continue;
-			npcs.push_back(a);
-			if (auto t = g_talks.find(a->GetFormID()); t != g_talks.end() && t->second > talk) {
-				talk = t->second;
-				talker = a;
-			}
+			if (a && !a->IsPlayerRef()) npcs.push_back(a);
 		}
 		const auto npc = [&](RE::FormID a_id) {
 			auto it = std::ranges::find_if(npcs, [&](RE::Actor* a) { return a->GetFormID() == a_id; });
 			return it != npcs.end() ? *it : nullptr;
 		};
+		// The player's latest conversation with this NPC, or -1.
+		const auto talk = [&](RE::FormID a_id) {
+			auto it = g_talks.find(a_id);
+			return it != g_talks.end() ? it->second : -1.0f;
+		};
+		std::vector<RE::FormID> victims;
+		const auto victim = [&](RE::FormID a_id) { return std::ranges::find(victims, a_id) != victims.end(); };
 
-		// A spell-started thread with one of these NPCs just ended, and nobody has talked to them
-		// since: the same scene, restarted (Followers Ask To Join stops the thread and starts a
-		// bigger one once the follower has asked).
+		// A spell-started thread just ended: its victims are still victims here, unless they have
+		// talked with the player since (Followers Ask To Join stops the thread and starts a bigger
+		// one once the follower has asked; the follower is no victim).
 		for (auto e = g_ended.rbegin(); e != g_ended.rend(); ++e) {
-			if (talk > e->time) continue;
-			for (auto id : e->npcs) {
-				if (auto* a = npc(id)) {
-					logger::info("Scene continues a spell-started scene with {:08X} {} that ended {:.1f}s before it",
-						id, a->GetDisplayFullName(), g_clock - e->time);
-					return true;
+			for (auto id : e->victims) {
+				auto* a = npc(id);
+				if (!a || victim(id)) continue;
+				if (talk(id) > e->time) {
+					logger::info("{:08X} {} talked with the player after the spell-started scene they were in ended: not a victim",
+						id, a->GetDisplayFullName());
+					continue;
 				}
+				logger::info("Scene continues a spell-started scene that ended {:.1f}s before it: {:08X} {} is still its victim",
+					g_clock - e->time, id, a->GetDisplayFullName());
+				victims.push_back(id);
 			}
 		}
 
-		// The spell hit on a scene NPC that set the scene going most recently: the hit itself, or
-		// a later cast from the same plugin that completed it.
-		const Hit* hit = nullptr;
-		const Cast* cast = nullptr;
-		const Cast* later = nullptr;
-		float trigger = -1.0f;
+		// Per NPC, the spell hit that set the scene going most recently: the hit itself, or a later
+		// cast from the same plugin that completed it.
+		struct Spelled
+		{
+			RE::FormID target;
+			const Hit* hit;
+			const Cast* cast;
+			const Cast* later;
+			float trigger;
+		};
+		std::vector<Spelled> spelled;
 		for (const auto& h : g_hits) {
 			if (!npc(h.target)) continue;
 			const Cast* c = CastOf(h);
 			if (!c) continue;
 			const Cast* f = FollowUp(h, *c);
 			const float t = f ? f->time : h.time;
-			if (g_clock - t > kSceneWindow || t < trigger) continue;
-			hit = &h;
-			cast = c;
-			later = f;
-			trigger = t;
+			if (g_clock - t > kSceneWindow) continue;
+			const Spelled s{ h.target, &h, c, f, t };
+			if (auto it = std::ranges::find(spelled, h.target, &Spelled::target); it == spelled.end()) spelled.push_back(s);
+			else if (t >= it->trigger) *it = s;
 		}
-		if (!hit) return false;
+		bool fromHits = false;
+		for (const auto& s : spelled) {
+			auto* target = npc(s.target);
+			auto* spell = RE::TESForm::LookupByID<RE::MagicItem>(s.cast->spell);
+			auto* laterSpell = s.later ? RE::TESForm::LookupByID<RE::MagicItem>(s.later->spell) : nullptr;
+			const std::string completed = s.later ? std::format(", completed by {:08X} {} {:.1f}s before the scene", s.later->spell,
+			                                                    laterSpell ? laterSpell->GetName() : "", g_clock - s.later->time) :
+			                                        std::string{};
+			// Talking came after the spell: the NPC asked, or was asked, and the scene came out of that.
+			if (const float said = talk(s.target); said >= s.trigger) {
+				logger::info("{:08X} {} asked for the scene in dialogue {:.1f}s before it, after the player's spell {:08X} {} hit them{}: not a victim",
+					s.target, target->GetDisplayFullName(), g_clock - said, s.cast->spell, spell ? spell->GetName() : "", completed);
+				continue;
+			}
+			fromHits = true;
+			if (victim(s.target)) continue;
+			logger::info("Scene started by the player's spell: {:08X} {} hit {:08X} {} {:.1f}s before the scene{}",
+				s.cast->spell, spell ? spell->GetName() : "", s.target, target->GetDisplayFullName(), g_clock - s.hit->time, completed);
+			victims.push_back(s.target);
+		}
+		if (victims.empty()) return victims;
 
-		auto* target = npc(hit->target);
-		auto* spell = RE::TESForm::LookupByID<RE::MagicItem>(cast->spell);
-		auto* laterSpell = later ? RE::TESForm::LookupByID<RE::MagicItem>(later->spell) : nullptr;
-		const std::string completed = later ? std::format(", completed by {:08X} {} {:.1f}s before the scene", later->spell,
-		                                                  laterSpell ? laterSpell->GetName() : "", g_clock - later->time) :
-		                                      std::string{};
-		// Talking came after the spell: the NPC asked, or was asked, and the scene came out of that.
-		if (talker && talk >= trigger) {
-			logger::info("Scene asked for in dialogue with {:08X} {} {:.1f}s before the scene, after the player's spell {:08X} {} hit {:08X} {}{}: not spell-started",
-				talker->GetFormID(), talker->GetDisplayFullName(), g_clock - talk, cast->spell, spell ? spell->GetName() : "",
-				target->GetFormID(), target->GetDisplayFullName(), completed);
-			return false;
+		// Whoever else is in the scene came of their own accord.
+		for (auto* a : npcs) {
+			if (!victim(a->GetFormID())) logger::info("{:08X} {} is in the spell-started scene of their own accord: aggressor", a->GetFormID(), a->GetDisplayFullName());
 		}
-		logger::info("Scene started by the player's spell: {:08X} {} hit {:08X} {} {:.1f}s before the scene{}",
-			cast->spell, spell ? spell->GetName() : "", target->GetFormID(), target->GetDisplayFullName(), g_clock - hit->time, completed);
 		// These hits have set their scene going; a later scene with these NPCs needs a new spell.
-		std::erase_if(g_hits, [&](const Hit& h) { return npc(h.target) != nullptr; });
-		return true;
+		if (fromHits) std::erase_if(g_hits, [&](const Hit& h) { return npc(h.target) != nullptr; });
+		return victims;
 	}
 }

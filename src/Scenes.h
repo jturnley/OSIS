@@ -104,8 +104,8 @@ namespace Scenes
 		bool toneForced = false;  // forced/rape/aggressive tags: non-consent when Aggressor grammar is on
 		bool toneRough = false;   // consensual rough play / BDSM (never set together with toneForced)
 		bool victimKnown = false; // non-consent and at least one actor identified as the victim
-		bool spellForced = false;     // started by the player's spell (SpellCast), latched when the actors are first known
-		bool spellNonConsent = false; // spellForced and bSpellNonConsent: every actor but the player is a victim
+		std::vector<RE::FormID> spellVictims;  // started by the player's spell (SpellCast): the NPCs it hit, latched when the actors are first known
+		bool spellNonConsent = false;          // bSpellNonConsent and a spell victim is in the thread: they are the victims, everyone else an aggressor
 		bool toneLoving = false;
 		bool sceneOral = false;
 		bool gasp = false;
@@ -123,6 +123,7 @@ namespace Scenes
 		[[nodiscard]] Slot* Find(RE::Actor* a);
 		[[nodiscard]] Slot* FindPos(int pos);
 		[[nodiscard]] int PaintedCount() const;
+		[[nodiscard]] bool SpellVictim(const Slot& s) const;
 	};
 
 	// Seconds since the plugin loaded (Utility.GetCurrentRealTime equivalent).

@@ -6,29 +6,33 @@
 // cast) and where their script effects land; a scene whose actors were just hit that way was
 // started by the spell.
 //
+// The NPCs the spell hit are its victims. Anyone else in the scene (a follower who asked to join)
+// came of their own accord.
+//
 // Matchmaker tags its targets one cast at a time and starts the scene only once the player has
 // cast on everyone in it, so a later cast of a spell from the same plugin completes an older hit
-// (up to 10 minutes). A spell-started thread that is stopped and restarted with the same NPCs
+// (up to 10 minutes). A spell-started thread that is stopped and restarted with its victims
 // (Followers Ask To Join adding a follower) stays spell-started. Attacks don't count: hostile
 // effects and spells on an enemy fighting the player are ignored.
 //
-// Asking is not forcing: when the player talked with one of the scene's NPCs after the spell
-// hit (the NPC came to ask, as in ODragonSeed, or the player asked them), the scene came out of
-// that conversation and is not spell-started.
+// Asking is not forcing: an NPC who talked with the player after the spell hit them (they came
+// to ask, as in ODragonSeed, or the player asked them) is no victim; the scene came out of that
+// conversation.
 namespace SpellCast
 {
 	void Init();   // kDataLoaded: event sinks
 	void Tick();   // main thread heartbeat: advances the unpaused clock, notes who the player is talking to
 	void Clear();  // game load: forget casts and conversations from the previous session
 
-	// A spell-started thread ended; a thread with one of a_npcs starting within 10 s, with no
-	// conversation in between, continues it.
-	void ThreadEnded(const std::vector<RE::FormID>& a_npcs);
+	// A spell-started thread ended. A thread starting within 10 s with one of a_victims, who hasn't
+	// talked with the player in between, continues it: they are still victims.
+	void ThreadEnded(const std::vector<RE::FormID>& a_victims);
 
-	// True when an NPC among a_actors received a script effect from a spell the player cast
-	// within the last 30 s of unpaused play (or earlier, completed by a later cast from the same
-	// plugin within the last 30 s), and the player hasn't talked with any of them (Dialogue Menu)
-	// since; or when the thread continues a spell-started one. Called once, when a new thread's
-	// actors are first known. Logs what matched.
-	[[nodiscard]] bool StartedBySpell(const std::vector<RE::Actor*>& a_actors);
+	// The spell's victims among a_actors' NPCs; empty when the thread is not spell-started. A
+	// victim received a script effect from a spell the player cast within the last 30 s of
+	// unpaused play (or earlier, completed by a later cast from the same plugin within the last
+	// 30 s) and hasn't talked with the player (Dialogue Menu) since, or is a victim of a
+	// spell-started thread this one continues. Called once, when a new thread's actors are first
+	// known. Logs victims and everyone else.
+	[[nodiscard]] std::vector<RE::FormID> StartedBySpell(const std::vector<RE::Actor*>& a_actors);
 }

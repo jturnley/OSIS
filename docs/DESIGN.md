@@ -106,35 +106,41 @@ body flush together.
     `domination`, `dominant`, `bdsm`, `bondage`, `spank`, `spanking`, `choking`, `slave`, and
     only when no non-consent tag is present. These scenes stay consensual and only add rough
     intensity (brow tension, squint) to faces and bystanders.
-  - **Started by the player's spell** (`spellForced`, `SpellCast`): OStim NPCs' Matchmaker and
+  - **Started by the player's spell** (`spellVictims`, `SpellCast`): OStim NPCs' Matchmaker and
     similar spells run a script effect on their targets, and the script starts the scene a few
     seconds later. The DLL records the player's real casts (`TESSpellCastEvent`: spells, powers,
     shouts, scrolls, staffs; not abilities, cloaks or potions) that carry a Script-archetype
     effect, and where those effects land on NPCs (`TESMagicEffectApplyEvent`, caster = player). When
     a new thread's actors are first known, the thread is spell-started if one of its NPCs took such
     an effect within the last 30 s of unpaused play (the clock Papyrus updates run on; menus don't
-    count). The flag is latched for the life of the thread and logged with the spell and target.
+    count). Those NPCs are the spell's victims. The victims are latched for the life of the thread
+    and logged with the spell; every other NPC in the thread is logged as there of their own accord.
     - **Completed casts:** Matchmaker tags its targets one cast at a time and only starts the scene
       once the player has cast on everyone in it, the player included (a separate Self spell). A hit
       up to 10 minutes old still counts when the player cast another spell from the same plugin
       after it, within the last 30 s. That later cast is the scene's trigger time. Hits are used up
       by the scene they start, so a later scene with the same NPCs needs a new spell.
-    - **Restarts:** when a spell-started thread ends, its NPCs are remembered for 10 s. A new thread
-      with one of them, and no conversation with its NPCs since the end, continues the same scene.
-      Followers Ask To Join stops the thread and starts a bigger one after the follower asks.
+    - **Restarts:** when a spell-started thread ends, its victims are remembered for 10 s. A new
+      thread with one of them continues the same scene, and they are still its victims unless they
+      talked with the player since the end. Followers Ask To Join stops the thread and starts a
+      bigger one after the follower asks; the follower was never cast on and is no victim.
     - **Attacks don't count:** hostile effects, and effects on an enemy who is fighting the player,
       are not recorded. A defeat scene after a fight (Yamete) keeps the roles its mod gave it.
   - **Asking is not forcing:** a scene that came out of a conversation is not spell-started, even
     right after a spell. The DLL notes who the player is in dialogue with (the Dialogue Menu's
-    speaker, every heartbeat while it is open). If the player's latest conversation with one of
-    the scene's NPCs is at or after the trigger time (the hit, or the cast that completed it), the NPC
-    asked (ODragonSeed's NPCs walk up and ask; OFriends' "somewhere private") or was asked, and only
-    the tags decide consent. A spell cast after the conversation still counts.
-- `consent = !(toneForced && bAggressorGrammar) && !(spellForced && bSpellNonConsent)`. The victim
-  is an actor tagged `victim`/`submissive`/…, or, failing that, the receiving partner by position.
-  In a spell-started scene the tags don't matter: every actor but the player is a victim, so in
-  an NPC-only scene the player cast on, all of them are. The player is the aggressor. Scene
-  changes can't make a spell-started thread consensual.
+    speaker, every heartbeat while it is open). If the player's latest conversation with an NPC
+    the spell hit is at or after that NPC's trigger time (the hit, or the cast that completed it),
+    the NPC asked (ODragonSeed's NPCs walk up and ask; OFriends' "somewhere private") or was asked,
+    and is no victim. With no victims left, only the tags decide consent. A spell cast after the
+    conversation still counts.
+- `consent = !(toneForced && bAggressorGrammar) && !spellNonConsent`, where `spellNonConsent` is
+  `bSpellNonConsent` and one of the spell's victims still in the thread. The victim is an actor
+  tagged `victim`/`submissive`/…, or, failing that, the receiving partner by position. In a
+  spell-started scene the tags don't matter: the spell's victims are the victims (in an NPC-only
+  scene the player cast on everyone, all of them), and everyone else is an aggressor: the player,
+  and an NPC who joined without being cast on (a follower who asked to join). Scene changes can't
+  make a spell-started thread consensual. In a consensual scene a joiner is consensual like
+  everyone else.
 - A non-consensual scene gets distress faces (hard gate: even at climax), guardrails, no
   anime/tongue. Nobody in the scene gets blush or saliva. Faces are role-aware:
   - **Victim**: reacts by personality (`VictimReaction`):

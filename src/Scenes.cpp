@@ -101,13 +101,7 @@ namespace Scenes
 			auto it = g_threads.find(tid);
 			if (it == g_threads.end()) return;
 			auto& t = it->second;
-			if (t.spellForced) {
-				std::vector<RE::FormID> npcs;
-				for (const auto& s : t.slots) {
-					if (!s.player && s.id) npcs.push_back(s.id);
-				}
-				SpellCast::ThreadEnded(npcs);
-			}
+			SpellCast::ThreadEnded(t.spellVictims);
 			if (t.active) Face::Engine::EndScene(t);
 			else {
 				for (auto& s : t.slots) ClearSlot(t, s);
@@ -137,7 +131,7 @@ namespace Scenes
 					}
 					const bool first = !t.actorsKnown;
 					ApplyActors(t, list);
-					if (first) t.spellForced = SpellCast::StartedBySpell(list);
+					if (first) t.spellVictims = SpellCast::StartedBySpell(list);
 					if (!WithinRange(t)) {
 						if (t.active) Face::Engine::EndScene(t);
 						t.active = false;
@@ -313,6 +307,11 @@ namespace Scenes
 	int Thread::PaintedCount() const
 	{
 		return static_cast<int>(std::ranges::count_if(slots, [](const Slot& s) { return s.painted; }));
+	}
+
+	bool Thread::SpellVictim(const Slot& s) const
+	{
+		return !s.player && std::ranges::find(spellVictims, s.id) != spellVictims.end();
 	}
 
 	// ------------------------------------------------------------------ public

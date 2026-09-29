@@ -523,9 +523,9 @@ namespace Face::Engine
 
 		bool IsSubmissive(Thread& t, const Slot& s)
 		{
-			// The player's magic compelled everyone else, whatever the animation's roles say. In an
-			// NPC-only scene the player cast on, every actor is a victim.
-			if (t.spellNonConsent) return !s.player;
+			// The player's magic compelled the NPCs it hit, whatever the animation's roles say.
+			// Everyone else (the player, a follower who asked to join) is an aggressor.
+			if (t.spellNonConsent) return t.SpellVictim(s);
 			if (!S::bAggressorGrammar) return false;
 			if (t.meta && s.pos >= 0) {
 				if (OStimData::HasAnyActorTag(*t.meta, s.pos, T().tagSub)) return true;
@@ -924,7 +924,8 @@ namespace Face::Engine
 		t.toneForced = t.meta && OStimData::HasAnySceneTag(*t.meta, T().tagForced);
 		t.toneRough = !t.toneForced && t.meta && OStimData::HasAnySceneTag(*t.meta, T().tagRough);
 		t.toneLoving = t.meta && OStimData::HasAnySceneTag(*t.meta, T().tagLoving);
-		t.spellNonConsent = t.spellForced && S::bSpellNonConsent;
+		// Only while one of the spell's victims is still in the thread.
+		t.spellNonConsent = S::bSpellNonConsent && std::ranges::any_of(t.slots, [&](const Slot& s) { return t.SpellVictim(s); });
 		t.consent = !(t.toneForced && S::bAggressorGrammar) && !t.spellNonConsent;
 		t.victimKnown = false;
 		if (!t.consent) {
