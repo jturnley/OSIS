@@ -103,6 +103,7 @@ namespace Scenes
 		int plateau = 0;
 		bool toneForced = false;  // forced/rape/aggressive tags: non-consent when Aggressor grammar is on
 		bool toneRough = false;   // consensual rough play / BDSM (never set together with toneForced)
+		bool victimKnown = false; // non-consent and at least one actor identified as the victim
 		bool toneLoving = false;
 		bool sceneOral = false;
 		bool gasp = false;

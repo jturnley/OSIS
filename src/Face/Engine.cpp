@@ -115,15 +115,7 @@ namespace Face::Engine
 		// own rate. The original rate comes back if the thread turns consensual.
 		void UpdateExcitementRates(Thread& t)
 		{
-			bool anyVictim = false;
-			if (!t.consent) {
-				for (auto& s : t.slots) {
-					if (s.Get() && IsSubmissive(t, s)) {
-						anyVictim = true;
-						break;
-					}
-				}
-			}
+			const bool anyVictim = t.victimKnown;
 			for (auto& s : t.slots) {
 				auto* a = s.Get();
 				if (!a) continue;
@@ -524,6 +516,11 @@ namespace Face::Engine
 			return 0;
 		}
 
+		bool FaceVictim(Thread& t, const Slot& s)
+		{
+			return !t.consent && (!t.victimKnown || IsSubmissive(t, s));
+		}
+
 		bool IsSubmissive(Thread& t, const Slot& s)
 		{
 			if (!S::bAggressorGrammar) return false;
@@ -793,6 +790,33 @@ namespace Face::Engine
 		return Seed(a) % 5;
 	}
 
+	Reaction VictimReaction(int arch)
+	{
+		switch (arch) {
+		case 1: return Reaction::kNumb;      // stoic
+		case 2: return Reaction::kPanic;     // vocal
+		case 3: return Reaction::kFear;      // shy
+		case 4: return Reaction::kDefiance;  // dominant
+		default: return Reaction::kBalanced;
+		}
+	}
+
+	const char* ReactionName(Reaction r)
+	{
+		switch (r) {
+		case Reaction::kFear: return "fear";
+		case Reaction::kPanic: return "panic";
+		case Reaction::kNumb: return "numb";
+		case Reaction::kDefiance: return "defiance";
+		default: return "sad-to-fear";
+		}
+	}
+
+	bool VictimCries(RE::Actor* a)
+	{
+		return a && VictimReaction(Archetype(a)) != Reaction::kDefiance;
+	}
+
 	const char* PersonalityName(int arch)
 	{
 		switch (arch) {
@@ -898,6 +922,15 @@ namespace Face::Engine
 		t.toneRough = !t.toneForced && t.meta && OStimData::HasAnySceneTag(*t.meta, T().tagRough);
 		t.toneLoving = t.meta && OStimData::HasAnySceneTag(*t.meta, T().tagLoving);
 		t.consent = !(t.toneForced && S::bAggressorGrammar);
+		t.victimKnown = false;
+		if (!t.consent) {
+			for (auto& s : t.slots) {
+				if (s.Get() && IsSubmissive(t, s)) {
+					t.victimKnown = true;
+					break;
+				}
+			}
+		}
 		UpdateNormalStateFlag(t, sceneChanged);
 	}
 

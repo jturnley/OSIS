@@ -50,7 +50,45 @@ namespace Face::Engine::detail
 		}
 
 		// The only mood-setter + base shape for the chosen dominant state.
-		Preset BasePreset(Thread& t, int dom, int enj, bool sub, int seed, int role, int tone)
+		// Victim mood for a reaction; balanced keeps its sad/fear choice.
+		float ReactionMood(Reaction r, float current)
+		{
+			switch (r) {
+			case Reaction::kDefiance: return 8.0f;  // anger
+			case Reaction::kNumb: return 11.0f;     // sad
+			case Reaction::kFear:
+			case Reaction::kPanic: return 9.0f;     // fear
+			default: return current == 11.0f ? 11.0f : 9.0f;
+			}
+		}
+
+		// Non-consensual distress face. The victim's follows their personality (VictimReaction);
+		// the other actor's is aggressive.
+		Preset DistressPreset(int enj, bool victim, Reaction react, float m)
+		{
+			const bool peak = enj >= 90;
+			if (!victim) {  // aggressor: scowl, narrowed eyes, lowered brows
+				if (peak) return Build(8, 0.70f, 0.0f, 0.50f * m, 0.55f, 0.0f, 0.45f, 0.50f);
+				return Build(8, 0.45f, 0.0f, 0.25f * m, 0.45f, 0.0f, 0.35f, 0.40f);
+			}
+			switch (react) {
+			case Reaction::kDefiance:  // resists: anger, jaw set, glaring
+				return Build(8, peak ? 0.75f : 0.55f, 0.0f, 0.0f, peak ? 0.65f : 0.55f, 0.0f, 0.40f, peak ? 0.65f : 0.55f);
+			case Reaction::kFear:  // freezes: wide fearful brows, small mouth
+				if (peak) return Build(9, 0.90f, 0.30f * m, 0.0f, 0.35f, 0.45f, 0.55f, 0.10f);
+				return Build(9, enj < 45 ? 0.70f : 0.80f, 0.10f * m, 0.0f, 0.20f, 0.40f, 0.55f, 0.10f);
+			case Reaction::kPanic:  // cries out
+				return Build(9, peak ? 0.95f : 0.75f, (peak ? 0.55f : 0.35f) * m, 0.0f, 0.45f, 0.35f, 0.55f, 0.20f);
+			case Reaction::kNumb:  // endures: restrained sadness, closed mouth
+				return Build(11, peak ? 0.45f : 0.30f, 0.0f, 0.0f, 0.20f, 0.05f, 0.30f, 0.20f);
+			default:  // balanced: sadness, turning to fear as excitement rises
+				if (peak) return Build(9, 0.85f, 0.55f * m, 0.0f, 0.65f, 0.30f, 0.55f, 0.45f);
+				if (enj < 45) return Build(11, 0.45f, 0.10f * m, 0.0f, 0.35f, 0.10f, 0.55f, 0.40f);
+				return Build(9, 0.60f, 0.30f * m, 0.0f, 0.55f, 0.20f, 0.55f, 0.45f);
+			}
+		}
+
+		Preset BasePreset(Thread& t, int dom, int enj, bool victim, int arch, int seed, int role, int tone)
 		{
 			const float m = MouthGate();
 			if (dom == kClimax) {
@@ -68,22 +106,14 @@ namespace Face::Engine::detail
 						Add2(e, 20, over);
 					}
 				}
-				if (!t.consent) {  // forced climax: fear-tinged
-					e[30] = 9.0f;
+				if (!t.consent && victim) {  // forced climax: the victim's own reaction colors it
+					e[30] = ReactionMood(VictimReaction(arch), 9.0f);
 					Add2(e, 20, 0.20f);
 				}
 				return e;
 			}
 			if (dom == kAfterglow) return Build(10, 0.35f, 0.10f * m, 0.0f, 0.45f, 0.20f, 0.0f, 0.0f);
-			if (dom == kDistress) {
-				if (sub) {
-					if (enj >= 90) return Build(9, 0.85f, 0.55f * m, 0.0f, 0.65f, 0.30f, 0.55f, 0.45f);
-					if (enj < 45) return Build(11, 0.45f, 0.10f * m, 0.0f, 0.35f, 0.10f, 0.55f, 0.40f);
-					return Build(9, 0.60f, 0.30f * m, 0.0f, 0.55f, 0.20f, 0.55f, 0.45f);
-				}
-				if (enj >= 90) return Build(8, 0.70f, 0.0f, 0.50f * m, 0.55f, 0.0f, 0.45f, 0.50f);
-				return Build(8, 0.45f, 0.0f, 0.25f * m, 0.45f, 0.0f, 0.35f, 0.40f);
-			}
+			if (dom == kDistress) return DistressPreset(enj, victim, VictimReaction(arch), m);
 			if (dom == kPlateau) return Build(8, 0.40f, 0.20f * m, 0.0f, 0.55f, 0.45f, 0.30f, 0.20f);
 			if (dom == kAnticipation) return Build(7, 0.30f, 0.10f * m, 0.0f, 0.15f, 0.10f, 0.0f, 0.0f);
 
@@ -427,27 +457,53 @@ namespace Face::Engine::detail
 			for (int i = 22; i <= 29; ++i) e[i] = ClampF(e[i] * eyes, 0.0f, 1.0f);
 		}
 
-		void ApplyConsentGuardrails(Thread& t, Preset& e, int phase, int dom)
+		// Non-consensual scenes only, and by role. The victim's face is held to their reaction
+		// (see VictimReaction); the other actor's to an aggressive one. Before this was role-aware,
+		// every actor got the victim's fear and averted eyes.
+		void ApplyConsentGuardrails(Thread& t, Preset& e, int phase, int dom, bool victim, Reaction react)
 		{
 			if (t.consent) return;
-			for (int i = 0; i <= 15; ++i) e[i] = ClampF(e[i] * 0.35f, 0.0f, 0.22f);
-			Add(e, 18, 0.18f, 0.85f);
-			Add(e, 19, 0.18f, 0.85f);
-			Add(e, 20, 0.25f, 0.90f);
-			Add(e, 21, 0.25f, 0.90f);
-			e[22] = ClampF(e[22], 0.0f, 0.25f);
-			e[23] = ClampF(e[23], 0.0f, 0.25f);
-			Add(e, 24, 0.18f, 0.55f);
-			if ((phase % 2) == 0) Add(e, 25, 0.12f, 0.45f);
-			else Add(e, 26, 0.12f, 0.45f);
-			Add(e, 28, 0.16f, 0.80f);
-			Add(e, 29, 0.16f, 0.80f);
-			if (S::bNoDistressOverwhelm) {
+			if (S::bNoDistressOverwhelm) {  // no gaping mouth or rolled-up eyes for anyone
 				e[1] = 0.0f;
 				e[27] = 0.0f;
 				e[31] = ClampF(e[31], 0.20f, 0.85f);
 			}
-			if (dom != kAfterglow) e[30] = 9.0f;
+			if (!victim) {
+				// Aggressor: scowl, narrowed eyes fixed on the victim; nothing fearful or sad.
+				for (int i = 0; i <= 15; ++i) e[i] = ClampF(e[i], 0.0f, 0.45f);
+				Add(e, 18, 0.15f, 0.85f);
+				Add(e, 19, 0.15f, 0.85f);
+				Add(e, 20, 0.10f, 0.80f);
+				Add(e, 21, 0.10f, 0.80f);
+				e[22] = ClampF(e[22], 0.0f, 0.10f);
+				e[23] = ClampF(e[23], 0.0f, 0.10f);
+				e[24] = e[25] = e[26] = 0.0f;
+				Add(e, 28, 0.12f, 0.80f);
+				Add(e, 29, 0.12f, 0.80f);
+				if (dom != kAfterglow && dom != kClimax) e[30] = 8.0f;
+				return;
+			}
+			const bool defiant = react == Reaction::kDefiance;
+			const bool panic = react == Reaction::kPanic;
+			for (int i = 0; i <= 15; ++i) e[i] = ClampF(e[i] * (panic ? 0.60f : 0.35f), 0.0f, panic ? 0.40f : 0.22f);
+			Add(e, 18, 0.18f, 0.85f);
+			Add(e, 19, 0.18f, 0.85f);
+			Add(e, 20, 0.25f, 0.90f);
+			Add(e, 21, 0.25f, 0.90f);
+			// Raised brows read as fear; a defiant face keeps them down.
+			const float browUpCap = defiant ? 0.05f : (react == Reaction::kFear || panic ? 0.45f : 0.25f);
+			e[22] = ClampF(e[22], 0.0f, browUpCap);
+			e[23] = ClampF(e[23], 0.0f, browUpCap);
+			if (defiant) {
+				e[24] = e[25] = e[26] = 0.0f;  // eyes forward: glaring, not averted
+			} else {
+				Add(e, 24, 0.18f, 0.55f);
+				if ((phase % 2) == 0) Add(e, 25, 0.12f, 0.45f);
+				else Add(e, 26, 0.12f, 0.45f);
+			}
+			Add(e, 28, 0.16f, 0.80f);
+			Add(e, 29, 0.16f, 0.80f);
+			if (dom != kAfterglow) e[30] = ReactionMood(react, e[30]);
 		}
 
 		void ApplyEyeScalar(Preset& e)
@@ -466,10 +522,10 @@ namespace Face::Engine::detail
 			}
 		}
 
-		void ApplyV2Controls(Thread& t, Preset& e, int phase, int dom, bool yieldMouth)
+		void ApplyV2Controls(Thread& t, Preset& e, int phase, int dom, bool yieldMouth, bool victim, Reaction react)
 		{
 			if (S::bPhraseGrammar) ApplyPhraseEnvelope(e, phase, dom, yieldMouth);
-			if (S::bConsentGuardrails) ApplyConsentGuardrails(t, e, phase, dom);
+			if (S::bConsentGuardrails) ApplyConsentGuardrails(t, e, phase, dom, victim, react);
 			ApplyEyeScalar(e);
 		}
 
@@ -537,7 +593,9 @@ namespace Face::Engine::detail
 	{
 		if (t.orgasm) return ClearLook(a);  // break gaze, lose focus at climax
 		if (!t.consent) {
-			if (IsSubmissive(t, s)) return ClearLook(a);  // forced victim: never gaze at assailant
+			// A frightened, panicked or numb victim never looks at the other actor; a defiant one
+			// may glare. The aggressor keeps normal gaze on the victim.
+			if (FaceVictim(t, s) && VictimReaction(Archetype(a)) != Reaction::kDefiance) return ClearLook(a);
 			if (S::bGazeConsentOnly) return ClearLook(a);
 		}
 		if (Archetype(a) == 3) return ClearLook(a);  // shy: avert
@@ -566,9 +624,15 @@ namespace Face::Engine::detail
 		const float side = ((idx + Seed(a)) % 2) == 0 ? -55.0f : 55.0f;
 		const float style = StyleValue();
 		if (dom == kDistress) {
-			LookAtOffset(s, a, side, 0.0f, 72.0f + style * 4.0f);
-			s.headOwner = "Brace aversion";
-			Pulse::Emit("SLED_Headflow", t.id, a, 1.0f);
+			// Only a victim who isn't defiant turns away; the aggressor and a defiant victim
+			// keep facing the other actor (gaze decides where they look).
+			if (FaceVictim(t, s) && VictimReaction(arch) != Reaction::kDefiance) {
+				LookAtOffset(s, a, side, 0.0f, 72.0f + style * 4.0f);
+				s.headOwner = "Brace aversion";
+				Pulse::Emit("SLED_Headflow", t.id, a, 1.0f);
+			} else {
+				s.headOwner = FaceVictim(t, s) ? "Defiant" : "Aggressor";
+			}
 		} else if (dom == kAfterglow) {
 			LookAtOffset(s, a, side * 0.25f, 0.0f, 68.0f + style * 6.0f);
 			s.headOwner = "Afterglow drop";
@@ -611,6 +675,8 @@ namespace Face::Engine::detail
 		s.archSource = archSource;
 		RE::Actor* partner = PrimaryPartner(t, s);
 		const bool sub = IsSubmissive(t, s);
+		const bool victim = FaceVictim(t, s);
+		const Reaction react = VictimReaction(arch);
 		const int role = ActRole(t, s, a);
 
 		// 1) DOMINANT
@@ -622,7 +688,7 @@ namespace Face::Engine::detail
 		const int phrase = PhrasePhase(t, idx, enjEff);
 		const int scenario = ScenarioCode(t, dom, enjEff, role, tone, posRole);
 		const float overwhelm = UpdateOverwhelmMeter(t, s, a, dom, rawEnj, arch, posRole, yieldMouth);
-		Preset e = BasePreset(t, dom, enjPhase, sub, seed, role, tone);
+		Preset e = BasePreset(t, dom, enjPhase, victim, arch, seed, role, tone);
 		if (dom == kClimax) ClimaxType(e, arch);
 
 		// 2) FLAVORS
@@ -636,7 +702,9 @@ namespace Face::Engine::detail
 			if (S::bExposureAware && t.consent && IsNude(a)) ExposureFlavor(e, ExposureStrength(t, enjEff, arch));
 		}
 		if (S::bNaturalDetail) {
-			if (dom != kClimax && dom != kAfterglow && (enjEff >= 88 || dom == kDistress)) WellingEyes(e);
+			// Welling eyes: near the peak in consensual scenes; in distress only for a victim who isn't defiant.
+			const bool welling = dom == kDistress ? (victim && react != Reaction::kDefiance) : enjEff >= 88;
+			if (dom != kClimax && dom != kAfterglow && welling) WellingEyes(e);
 			Asymmetry(e, seed);
 			if (!yieldMouth) MicroTic(t, e, pleasant);
 			GenderColor(e, ActorSex(a));
@@ -660,7 +728,7 @@ namespace Face::Engine::detail
 		ApplyScenarioCycler(e, scenario, phrase, seed);
 		ApplyOverwhelmFace(t, e, overwhelm, phrase, yieldMouth);
 		ApplyGroupConductor(t, e, idx, role, posRole, sub);
-		ApplyV2Controls(t, e, phrase, dom, yieldMouth);
+		ApplyV2Controls(t, e, phrase, dom, yieldMouth, victim, react);
 
 		// 5) EMIT + gaze
 		const float prof = ProfileScale() * ArchStrength(arch);

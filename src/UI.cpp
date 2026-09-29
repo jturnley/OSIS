@@ -305,9 +305,10 @@ namespace
 			}
 			if (ig::CollapsingHeader("Consent")) {
 				Check("Aggressor grammar (forced/rape/aggressive tags mean non-consent)", bAggressorGrammar);
-				Tip("Scenes tagged forced, rape or aggressive (OStim's non-consent marker) are non-consensual: distress faces, "
-				    "the victim never looks at the other actor, and only the victim gets tears. Rough play and BDSM tags "
-				    "(rough, dom, femdom, bdsm, spank...) without a forced tag stay consensual. Off: every scene is consensual.");
+				Tip("Scenes tagged forced, rape or aggressive (OStim's non-consent marker) are non-consensual. The victim reacts "
+				    "by personality (dominant: defiant anger, shy: fear, vocal: panic, stoic: numb endurance, balanced: sadness "
+				    "turning to fear); the other actor gets an aggressive face. Rough play and BDSM tags (rough, dom, femdom, "
+				    "bdsm, spank...) without a forced tag stay consensual. Off: every scene is consensual.");
 				Check("Consent guardrails", bConsentGuardrails);
 				Check("Hard exclusion gate (distress owns the face)", bHardExclusionGate);
 				Check("No overwhelm/ahegao in distress", bNoDistressOverwhelm);

@@ -28,6 +28,14 @@ namespace Face::Engine
 	// personality
 	[[nodiscard]] int Archetype(RE::Actor* a, std::string* a_source = nullptr);
 	[[nodiscard]] const char* PersonalityName(int a_arch);
+
+	// Consent: how the victim of a non-consensual scene reacts, from their personality.
+	// Dominant resists with anger, shy freezes in fear, vocal panics, stoic endures numbly,
+	// balanced moves from sadness to fear as OStim excitement rises.
+	enum class Reaction { kBalanced, kFear, kPanic, kNumb, kDefiance };
+	[[nodiscard]] Reaction VictimReaction(int a_arch);
+	[[nodiscard]] const char* ReactionName(Reaction a_reaction);
+	[[nodiscard]] bool VictimCries(RE::Actor* a);  // tears belong to every reaction but defiance
 	[[nodiscard]] int GetNpcPersonality(RE::Actor* a);
 	void SetNpcPersonality(RE::Actor* a, int a_arch);   // -1 clears
 	[[nodiscard]] std::unordered_map<RE::FormID, int> NpcPersonalities();

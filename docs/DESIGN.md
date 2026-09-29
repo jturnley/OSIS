@@ -109,7 +109,22 @@ body flush together.
 - `consent = !(toneForced && bAggressorGrammar)`. The victim is an actor tagged
   `victim`/`submissive`/…, or, failing that, the receiving partner by position.
 - A non-consensual scene gets distress faces (hard gate: even at climax), guardrails, no
-  anime/tongue, and no gaze from the victim. Nobody in the scene gets blush or saliva.
+  anime/tongue. Nobody in the scene gets blush or saliva. Faces are role-aware:
+  - **Victim**: reacts by personality (`VictimReaction`):
+
+    | Personality | Reaction | Face |
+    |---|---|---|
+    | Dominant | defiance | anger, jaw set, brows down, eyes forward; may glare; no tears |
+    | Shy | fear | fear, raised and pulled-in brows, small mouth, eyes down, head turned away |
+    | Vocal | panic | fear, mouth open (crying out), eyes down, head turned away |
+    | Stoic | numb | restrained sadness, closed mouth, eyes down, head turned away |
+    | Balanced | sad → fear | sadness at low excitement, fear from 45, open-mouthed fear from 90 |
+
+    Everyone but a defiant victim gets welling eyes, averted gaze, the brace head-turn and tears.
+  - **Aggressor** (everyone else, once a victim is identified): anger, lowered brows, narrowed
+    eyes, gaze held on the victim, no fear or averted eyes, no head-turn.
+  - If nobody can be identified as the victim, every actor keeps the victim treatment for their
+    own personality rather than guessing an aggressor.
 - **Tears are reserved for non-consent.** The victim wells up when distress starts and at a
   forced climax, at most once every 20 s. Consensual scenes never get tears. When a thread
   moves on to a consensual scene, the victim marking is cleared.

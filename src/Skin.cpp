@@ -207,6 +207,7 @@ namespace Skin
 				if (!Settings::Skin::bTears) return;
 			}
 			if (!st.victim || Scenes::Now() < st.nextTear) return;
+			if (!Face::Engine::VictimCries(a)) return;  // a defiant (dominant) victim doesn't cry
 			Tear(a, st);
 		}
 	}

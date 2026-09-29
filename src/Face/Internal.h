@@ -75,6 +75,9 @@ namespace Face::Engine::detail
 	[[nodiscard]] int ActRole(Thread& t, Slot& s, RE::Actor* a);
 	[[nodiscard]] int PositionRole(Thread& t, const Slot& s);
 	[[nodiscard]] bool IsSubmissive(Thread& t, const Slot& s);
+	// Faces only: the victim of a non-consensual scene. When nobody can be identified, every
+	// actor keeps the victim treatment rather than guessing an aggressor.
+	[[nodiscard]] bool FaceVictim(Thread& t, const Slot& s);
 	[[nodiscard]] bool ActorIsOralMouthActor(Thread& t, const Slot& s);
 	[[nodiscard]] bool DialogueMouthYielded(Thread& t, RE::Actor* a);
 	[[nodiscard]] bool HeadCommittedToAnimation(Thread& t, Slot& s, RE::Actor* a);
