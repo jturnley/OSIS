@@ -114,6 +114,12 @@ body flush together.
     a new thread's actors are first known, the thread is spell-started if one of its NPCs took such
     an effect within the last 30 s of unpaused play (the clock Papyrus updates run on; menus don't
     count). The flag is latched for the life of the thread and logged with the spell and target.
+  - **Asking is not forcing:** a scene that came out of a conversation is not spell-started, even
+    right after a spell. The DLL notes who the player is in dialogue with (the Dialogue Menu's
+    speaker, every heartbeat while it is open). If the player's latest conversation with one of
+    the scene's NPCs is at or after the latest spell hit on them, the NPC asked (ODragonSeed's
+    NPCs walk up and ask) or was asked, and only the tags decide consent. A spell cast after the
+    conversation still counts.
 - `consent = !(toneForced && bAggressorGrammar) && !(spellForced && bSpellNonConsent)`. The victim
   is an actor tagged `victim`/`submissive`/…, or, failing that, the receiving partner by position.
   In a spell-started scene the tags don't matter: every actor but the player is a victim, so in

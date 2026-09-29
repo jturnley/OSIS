@@ -35,11 +35,36 @@ namespace SpellCast
 		float g_lastReal = -1.0f;
 		std::deque<Cast> g_casts;
 		std::deque<Hit> g_hits;
+		std::unordered_map<RE::FormID, float> g_talks;  // NPC -> last time the player was in dialogue with them
 
 		void Prune()
 		{
 			while (!g_casts.empty() && g_clock - g_casts.front().time > kKeep) g_casts.pop_front();
 			while (!g_hits.empty() && g_clock - g_hits.front().time > kKeep) g_hits.pop_front();
+			std::erase_if(g_talks, [](const auto& t) { return g_clock - t.second > kKeep; });
+		}
+
+		// The player's cast that delivered this effect: one of the spell's own effects, landing
+		// between just before the cast and the end of a projectile's flight.
+		const Cast* CastOf(const Hit& a_hit)
+		{
+			for (const auto& c : g_casts) {
+				if (a_hit.time < c.time - kCastSlack || a_hit.time > c.time + kCastFlight) continue;
+				if (std::ranges::find(c.effects, a_hit.effect) != c.effects.end()) return &c;
+			}
+			return nullptr;
+		}
+
+		// Whoever the player is in dialogue with. Only while the Dialogue Menu is open: lastSpeaker
+		// outlives the conversation.
+		RE::FormID Speaker()
+		{
+			if (!RE::UI::GetSingleton()->IsMenuOpen(RE::DialogueMenu::MENU_NAME)) return 0;
+			auto* topics = RE::MenuTopicManager::GetSingleton();
+			if (!topics) return 0;
+			auto ref = topics->speaker.get();
+			if (!ref) ref = topics->lastSpeaker.get();
+			return ref && !ref->IsPlayerRef() ? ref->GetFormID() : 0;
 		}
 
 		bool IsScriptEffect(const RE::EffectSetting* e) { return e && e->GetArchetype() == RE::EffectSetting::Archetype::kScript; }
@@ -113,9 +138,11 @@ namespace SpellCast
 	{
 		const float real = Scenes::Now();
 		const bool paused = RE::UI::GetSingleton()->GameIsPaused();
+		const RE::FormID speaker = Speaker();
 		std::scoped_lock l(g_lock);
 		if (g_lastReal >= 0.0f && !paused) g_clock += std::clamp(real - g_lastReal, 0.0f, 1.0f);  // a hitch or load is not play time
 		g_lastReal = real;
+		if (speaker) g_talks[speaker] = g_clock;
 	}
 
 	void Clear()
@@ -123,27 +150,49 @@ namespace SpellCast
 		std::scoped_lock l(g_lock);
 		g_casts.clear();
 		g_hits.clear();
+		g_talks.clear();
 	}
 
 	bool StartedBySpell(const std::vector<RE::Actor*>& a_actors)
 	{
 		std::scoped_lock l(g_lock);
 		Prune();
+		// The latest spell hit on any of the scene's NPCs, and the latest conversation with any of them.
+		const Hit* hit = nullptr;
+		const Cast* cast = nullptr;
+		RE::Actor* target = nullptr;
+		float talk = -1.0f;
+		RE::Actor* talker = nullptr;
 		for (auto* a : a_actors) {
 			if (!a || a->IsPlayerRef()) continue;
 			const RE::FormID id = a->GetFormID();
+			if (auto t = g_talks.find(id); t != g_talks.end() && t->second > talk) {
+				talk = t->second;
+				talker = a;
+			}
 			for (auto h = g_hits.rbegin(); h != g_hits.rend() && g_clock - h->time <= kSceneWindow; ++h) {
+				if (hit && h->time <= hit->time) break;  // newest first: nothing later than the hit we have
 				if (h->target != id) continue;
-				for (const auto& c : g_casts) {
-					if (h->time < c.time - kCastSlack || h->time > c.time + kCastFlight) continue;
-					if (std::ranges::find(c.effects, h->effect) == c.effects.end()) continue;
-					auto* spell = RE::TESForm::LookupByID<RE::MagicItem>(c.spell);
-					logger::info("Scene started by the player's spell: {:08X} {} hit {:08X} {} {:.1f}s before the scene",
-						c.spell, spell ? spell->GetName() : "", id, a->GetDisplayFullName(), g_clock - h->time);
-					return true;
+				if (auto* c = CastOf(*h)) {
+					hit = &*h;
+					cast = c;
+					target = a;
+					break;
 				}
 			}
 		}
-		return false;
+		if (!hit) return false;
+
+		auto* spell = RE::TESForm::LookupByID<RE::MagicItem>(cast->spell);
+		// Talking came after the spell: the NPC asked, or was asked, and the scene came out of that.
+		if (talker && talk >= hit->time) {
+			logger::info("Scene asked for in dialogue with {:08X} {} {:.1f}s before the scene, after the player's spell {:08X} {} hit {:08X} {}: not spell-started",
+				talker->GetFormID(), talker->GetDisplayFullName(), g_clock - talk, cast->spell, spell ? spell->GetName() : "",
+				target->GetFormID(), target->GetDisplayFullName());
+			return false;
+		}
+		logger::info("Scene started by the player's spell: {:08X} {} hit {:08X} {} {:.1f}s before the scene",
+			cast->spell, spell ? spell->GetName() : "", target->GetFormID(), target->GetDisplayFullName(), g_clock - hit->time);
+		return true;
 	}
 }
