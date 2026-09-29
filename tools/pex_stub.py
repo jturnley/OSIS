@@ -7,6 +7,11 @@ caller: bodies are left empty and the output is never compiled into anything we 
 .pex files don't record parameter defaults (the compiler applies them at the call site from
 source), so DEFAULTS restores the ones the SkyUI SDK declares, matched by parameter name.
 
+Properties keep their real kind. An Auto property in the header makes the compiler read the
+parent's hidden `::Name_var` directly; SkyUI's constants (TOP_TO_BOTTOM, OPTION_FLAG_*) are
+AutoReadOnly, which has no such variable, so they must stay full properties or the compiled
+script fails at runtime with "Failed to find variable ::TOP_TO_BOTTOM_var".
+
 Usage: python tools/pex_stub.py <in.pex> <out.psc>
 """
 import struct
@@ -70,20 +75,31 @@ def parse(data):
             return r.take('B')
         return None
 
+    def value_ident():
+        """Like value(), but also reports whether it was an identifier (a variable reference)."""
+        t = r.i
+        v = value()
+        return v, r.d[t] == 1
+
     def function():
         ret, _doc, uflags, flags = S(), S(), r.take('I'), r.take('B')
         params = [(S(), S()) for _ in range(r.take('H'))]
         for _ in range(r.take('H')):
             S(); S()
+        idents = set()
         for _ in range(r.take('H')):
             op = r.take('B')
             for _ in range(OP_ARGS[op]):
-                value()
+                v, is_ident = value_ident()
+                if is_ident:
+                    idents.add(v)
             if op in VARARG_OPS:
                 for _ in range(value()):
-                    value()
+                    v, is_ident = value_ident()
+                    if is_ident:
+                        idents.add(v)
         return {'ret': ret, 'uflags': uflags, 'global': bool(flags & 1), 'native': bool(flags & 2),
-                'params': params}
+                'params': params, 'idents': idents}
 
     if r.take('B'):  # debug info
         r.take('Q')
@@ -99,25 +115,27 @@ def parse(data):
         name = S()
         r.take('I')
         obj = {'name': name, 'parent': S(), 'doc': S(), 'uflags': r.take('I'), 'auto_state': S(),
-               'props': [], 'funcs': []}
-        for _ in range(r.take('H')):  # variables (private to the script)
-            S(); S(); r.take('I'); value()
+               'vars': set(), 'props': [], 'funcs': [], 'idents': set()}
+        for _ in range(r.take('H')):  # variables (private to the script, but a child may read ::X_var)
+            obj['vars'].add(S()); S(); r.take('I'); value()
         for _ in range(r.take('H')):
             p = {'name': S(), 'type': S(), 'doc': S(), 'uflags': r.take('I')}
             flags = r.take('B')
+            p['read'], p['write'], p['auto'] = bool(flags & 1), bool(flags & 2), bool(flags & 4)
             if flags & 4:
                 S()
             else:
                 if flags & 1:
-                    function()
+                    obj['idents'] |= function()['idents']
                 if flags & 2:
-                    function()
+                    obj['idents'] |= function()['idents']
             obj['props'].append(p)
         for _ in range(r.take('H')):  # states
             state = S()
             for _ in range(r.take('H')):
                 fname = S()
                 f = function()
+                obj['idents'] |= f['idents']
                 if state == '':
                     f['name'] = fname
                     obj['funcs'].append(f)
@@ -138,7 +156,16 @@ def render(obj):
         head += ' Hidden'
     out += [head, '']
     for p in obj['props']:
-        out.append('%s Property %s Auto%s' % (p['type'], p['name'], ' Hidden' if p['uflags'] & 1 else ''))
+        hidden = ' Hidden' if p['uflags'] & 1 else ''
+        if p['auto']:
+            out.append('%s Property %s Auto%s' % (p['type'], p['name'], hidden))
+            continue
+        out.append('%s Property %s%s' % (p['type'], p['name'], hidden))
+        if p['read']:
+            out += ['	%s Function Get()' % p['type'], '	EndFunction']
+        if p['write']:
+            out += ['	Function Set(%s a_value)' % p['type'], '	EndFunction']
+        out.append('EndProperty')
     out.append('')
     for f in obj['funcs']:
         if f['name'].lower() in COMPILER_GENERATED:

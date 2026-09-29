@@ -72,6 +72,7 @@ New Core API used by the add-ons: `IsFaceTakenOver(a)`, `HoldEyes(a, untilRealTi
 
 - With C1 fixed, the Core's eye writes land every tick and would wipe Living Skin's tear look immediately. Living Skin now calls `Core.HoldEyes(a, now + 4)`, and the Core skips eye/brow writes and its preset repaint for that actor during the hold.
 - S6 above only mattered once C2 made the takeover real.
+- The first compiled MCMs read `::TOP_TO_BOTTOM_var`, which SkyUI doesn't have: the compile-only SkyUI headers declared its AutoReadOnly constants as Auto properties. Every MCM logged "Failed to find variable" and lost its page layout. The headers now copy each property's real kind, and `compile_papyrus.py` fails the build if a script reads a hidden property variable that its real parent chain lacks.
 
 ### Not fixed (known limitations)
 

@@ -66,7 +66,53 @@ def compile_mod(mod):
     imports += [DEPS, SKSE] + DEP_SOURCES + [VANILLA]  # SKSE before vanilla: its natives win
     cmd = [COMPILER, src, '-all', '-f=TESV_Papyrus_Flags.flg', '-o=' + out, '-i=' + ';'.join(imports)]
     print('== %s' % mod, flush=True)
-    return subprocess.call(cmd)
+    rc = subprocess.call(cmd)
+    return rc if rc else check_inherited_vars(mod)
+
+
+_real_vars = {}
+
+
+def real_vars(script):
+    """Variables of a parent script as the game will load it, or None if we can't know."""
+    key = script.lower()
+    if key not in _real_vars:
+        found = None
+        if key.startswith('ski_'):
+            pex = bsa_member(SKYUI_BSA, 'scripts\\%s.pex' % key)
+            obj = pex_stub.parse(pex)[0]
+            parent = real_vars(obj['parent']) if obj['parent'] else set()
+            found = obj['vars'] | (parent or set())
+        else:
+            for mod in ALL_MODS:
+                p = os.path.join(ROOT, 'mods', mod, 'Scripts', script + '.pex')
+                if os.path.exists(p):
+                    obj = pex_stub.parse(open(p, 'rb').read())[0]
+                    parent = real_vars(obj['parent']) if obj['parent'] else set()
+                    found = obj['vars'] | (parent or set())
+        _real_vars[key] = found
+    return _real_vars[key]
+
+
+def check_inherited_vars(mod):
+    """Every hidden auto-property variable (::X_var) a compiled script reads must exist in that
+    script or in the real parent chain. A compile-only header that got a property's kind wrong
+    produces exactly this, and the game only reports it at runtime."""
+    src = os.path.join(ROOT, 'mods', mod, 'Scripts', 'Source')
+    bad = 0
+    for psc in sorted(os.listdir(src)):
+        name = os.path.splitext(psc)[0]
+        obj = pex_stub.parse(open(os.path.join(ROOT, 'mods', mod, 'Scripts', name + '.pex'), 'rb').read())[0]
+        wanted = {i for i in obj['idents'] if i.startswith('::') and i.lower().endswith('_var')}
+        have = set(obj['vars'])
+        parent = real_vars(obj['parent']) if obj['parent'] else set()
+        missing = sorted(v for v in wanted - have if parent is None or v not in parent)
+        for v in missing:
+            print('  %s.pex reads %s, which %s does not have' % (name, v, obj['parent'] or name))
+        bad += len(missing)
+    if bad:
+        print('  %d unresolvable variable reference(s)' % bad)
+    return 1 if bad else 0
 
 
 def main():
