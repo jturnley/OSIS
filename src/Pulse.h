@@ -15,6 +15,7 @@ namespace Pulse
 		int dom = 0;          // Scenes::Dom
 		int phrase = 0;       // 0..4
 		bool consent = true;
+		bool victim = false;  // judged the submissive actor of a non-consensual scene
 		bool yieldMouth = false;
 		bool orgasm = false;
 		float sceneTime = 0.0f;

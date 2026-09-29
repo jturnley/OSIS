@@ -100,7 +100,8 @@ namespace Scenes
 		int orgCount = 0;
 		int afterglow = 0;
 		int plateau = 0;
-		bool toneRough = false;
+		bool toneForced = false;  // forced/rape/aggressive tags: non-consent when Aggressor grammar is on
+		bool toneRough = false;   // consensual rough play / BDSM (never set together with toneForced)
 		bool toneLoving = false;
 		bool sceneOral = false;
 		bool gasp = false;
@@ -144,7 +145,7 @@ namespace Scenes
 	{
 		int id;
 		std::string scene;
-		bool player, consent, normal, orgasm, oral;
+		bool player, consent, rough, normal, orgasm, oral;
 		int speed, maxSpeed, afterglow, plateau;
 		float time;
 		std::string probe;

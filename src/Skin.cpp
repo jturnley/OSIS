@@ -22,7 +22,8 @@ namespace Skin
 		{
 			bool female = false;
 			bool distress = false;
-			bool tearSeen = false;
+			bool victim = false;     // the submissive actor of a non-consensual scene
+			float nextTear = 0.0f;   // earliest time the next tear may start
 			std::array<bool, kCount> on{};
 			std::array<float, kCount> until{};
 			float blushAlpha = 0.0f;
@@ -142,9 +143,11 @@ namespace Skin
 			g_status = std::format("{}: tear expression", a->GetDisplayFullName());
 		}
 
+		constexpr float kTearCooldown = 20.0f;
+
 		void Tear(RE::Actor* a, State& st)
 		{
-			st.tearSeen = true;
+			st.nextTear = Scenes::Now() + kTearCooldown;
 			if (!Path(kTear).empty()) {
 				float alpha;
 				{
@@ -195,6 +198,17 @@ namespace Skin
 			st.female = female;
 			return st;
 		}
+
+		// Tears are reserved for non-consent: only an actor OnDistress marked as the victim.
+		void VictimTear(RE::Actor* a, State& st)
+		{
+			{
+				std::scoped_lock l(Settings::lock);
+				if (!Settings::Skin::bTears) return;
+			}
+			if (!st.victim || Scenes::Now() < st.nextTear) return;
+			Tear(a, st);
+		}
 	}
 
 	void OnDataLoaded()
@@ -219,17 +233,22 @@ namespace Skin
 		if (!Paintable(b.actor, female)) return;
 		std::scoped_lock l(g_lock);
 		auto& st = Track(b.actor, female);
-		if (st.distress) return;
+		if (!b.consent) {
+			st.victim = b.victim;  // roles can change with the scene
+			return;                // non-consensual: no blush or saliva
+		}
+		if (st.distress) {  // the thread moved on to a consensual scene: no more tears
+			st.distress = false;
+			st.victim = false;
+		}
 		const float enjoy = std::clamp(static_cast<float>(b.enj) / 100.0f, 0.0f, 1.0f);
-		bool tears, blush;
+		bool blush;
 		float strength;
 		{
 			std::scoped_lock sl(Settings::lock);
-			tears = Settings::Skin::bTears;
 			blush = Settings::Skin::bBlush;
 			strength = Settings::Skin::fStrength;
 		}
-		if (tears && !st.tearSeen && enjoy >= 0.88f) Tear(b.actor, st);
 		TrySaliva(b.actor, st, enjoy, false, false);
 		if (blush) {
 			if (Face::Engine::OBlushPresent()) {
@@ -258,7 +277,10 @@ namespace Skin
 		if (!Paintable(a, female)) return;
 		std::scoped_lock l(g_lock);
 		auto& st = Track(a, female);
-		if (st.distress) return;
+		if (st.distress) {
+			VictimTear(a, st);  // a forced climax
+			return;
+		}
 		TrySaliva(a, st, 1.0f, true, false);
 	}
 
@@ -277,13 +299,20 @@ namespace Skin
 		TrySaliva(a, st, 0.65f, false, true);
 	}
 
-	void OnDistress(RE::Actor* a)
+	void OnDistress(RE::Actor* a, bool victim)
 	{
 		if (!a) return;
+		bool female = false;
+		const bool paintable = Paintable(a, female);
 		std::scoped_lock l(g_lock);
-		auto& st = g_states[a->GetFormID()];
+		auto& st = paintable ? Track(a, female) : g_states[a->GetFormID()];
 		st.distress = true;
-		ClearState(a, st);
+		st.victim = victim;
+		// No blush or saliva for anyone in a non-consensual scene; tears only for the victim.
+		Clear(a, st, kBlush);
+		Clear(a, st, kSaliva);
+		if (!victim) Clear(a, st, kTear);
+		if (paintable) VictimTear(a, st);
 	}
 
 	void ClearActor(RE::Actor* a)
@@ -330,7 +359,7 @@ namespace Skin
 		std::scoped_lock l(g_lock);
 		auto& st = Track(a, female);
 		Tear(a, st);
-		st.tearSeen = false;
+		st.nextTear = 0.0f;  // a test must not delay a real tear
 	}
 
 	void TestSaliva(RE::Actor* a)

@@ -96,3 +96,20 @@ orgasm:
 
 Living Skin's face blush uses `max(scene excitement ramp, Arousal::Flush)`, so the face and
 body flush together.
+
+## Consent
+- Decided per thread from the scene's tags, recomputed on every scene change (`RefreshDerived`):
+  - **Non-consent** (`toneForced`): `forced`, `forceful`, `rape`, `fbrape`, `nonconsensual`,
+    `noncon`, `aggressive`, `aggressivedefault`, `aggressor`. `aggressive` is OStim's own marker
+    for aggressive threads.
+  - **Consensual rough play / BDSM** (`toneRough`): `rough`, `dom`, `femdom`, `maledom`,
+    `domination`, `dominant`, `bdsm`, `bondage`, `spank`, `spanking`, `choking`, `slave`, and
+    only when no non-consent tag is present. These scenes stay consensual and only add rough
+    intensity (brow tension, squint) to faces and bystanders.
+- `consent = !(toneForced && bAggressorGrammar)`. The victim is an actor tagged
+  `victim`/`submissive`/…, or, failing that, the receiving partner by position.
+- A non-consensual scene gets distress faces (hard gate: even at climax), guardrails, no
+  anime/tongue, and no gaze from the victim. Nobody in the scene gets blush or saliva.
+- **Tears are reserved for non-consent.** The victim wells up when distress starts and at a
+  forced climax, at most once every 20 s. Consensual scenes never get tears. When a thread
+  moves on to a consensual scene, the victim marking is cleared.

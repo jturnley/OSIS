@@ -40,7 +40,7 @@ notes = {
     "General": "Master switches. Everything here is also on the SKSE Menu Framework pages (default key F1).",
     "Face": "Face engine. iMode: 0 Assist, 1 Enhanced, 2 Director (OSED owns the face). fStyle: 0 realistic, 1 cinematic, 2 anime.",
     "Body": "Toe curl / hand grip at climax. iCurlAxis: 0 X, 1 Y, 2 Z (bone-local).",
-    "Skin": "Face overlays (\"Face [Ovl#]\"). Texture paths are relative to Data\\textures; an empty blush path auto-uses Female Makeup Suite's cheek blush if installed.",
+    "Skin": "Face overlays (\"Face [Ovl#]\"). Texture paths are relative to Data\\textures; an empty blush path auto-uses Female Makeup Suite's cheek blush if installed. Tears only appear in non-consensual scenes, on the victim.",
     "LipSync": "Mouth follows the moan OStim plays (decoded from your voice-set .wav files at startup).",
     "Arousal": "Softbody Arousal. iSource: 0 auto (OSL first), 1 OSL Aroused, 2 SLO Aroused NG, 3 OStim excitement only.\n; Body blush uses \"Body [Ovl#]\" slots iOverlayFirstSlot .. +iOverlaySlots-1; set skee64.ini [Overlays/Body] iNumOverlays to at least 12.",
 }

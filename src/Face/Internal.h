@@ -27,7 +27,7 @@ namespace Face::Engine::detail
 	struct Tags
 	{
 		TagList actionOral, actionKiss, actionVaginal, actionAnal, actionPenetration, actionAnySignal;
-		TagList tagOralAction, tagRough, tagLoving, tagSub, tagDom;
+		TagList tagOralAction, tagForced, tagRough, tagLoving, tagSub, tagDom;
 		TagList deepthroat;
 	};
 	[[nodiscard]] const Tags& T();

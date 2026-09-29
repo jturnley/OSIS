@@ -153,7 +153,7 @@ namespace
 		if (threads.empty()) ig::TextDisabled("No OStim scene running.");
 		for (const auto& t : threads) {
 			ig::Text("Thread %d%s  scene %s  speed %d/%d  %.0fs%s%s%s", t.id, t.player ? " (player)" : "", t.scene.empty() ? "<starting>" : t.scene.c_str(),
-				t.speed, t.maxSpeed, t.time, t.consent ? "" : "  [non-consent]", t.orgasm ? "  [climax]" : "", t.normal ? "  [pre-animation]" : "");
+				t.speed, t.maxSpeed, t.time, t.consent ? (t.rough ? "  [rough, consensual]" : "") : "  [non-consent]", t.orgasm ? "  [climax]" : "", t.normal ? "  [pre-animation]" : "");
 			if (ig::BeginTable(std::format("actors{}", t.id).c_str(), 7, ig::ImGuiTableFlags_Borders | ig::ImGuiTableFlags_RowBg)) {
 				for (const char* h : { "Actor", "Excite", "State", "Personality", "Face", "Mouth", "Head" }) ig::TableSetupColumn(h);
 				ig::TableHeadersRow();
@@ -304,7 +304,10 @@ namespace
 				Check("Group conductor (3+ actors)", bGroupConductor);
 			}
 			if (ig::CollapsingHeader("Consent")) {
-				Check("Aggressor grammar (rough tags gate distress)", bAggressorGrammar);
+				Check("Aggressor grammar (forced/rape/aggressive tags mean non-consent)", bAggressorGrammar);
+				Tip("Scenes tagged forced, rape or aggressive (OStim's non-consent marker) are non-consensual: distress faces, "
+				    "the victim never looks at the other actor, and only the victim gets tears. Rough play and BDSM tags "
+				    "(rough, dom, femdom, bdsm, spank...) without a forced tag stay consensual. Off: every scene is consensual.");
 				Check("Consent guardrails", bConsentGuardrails);
 				Check("Hard exclusion gate (distress owns the face)", bHardExclusionGate);
 				Check("No overwhelm/ahegao in distress", bNoDistressOverwhelm);
@@ -395,7 +398,8 @@ namespace
 			std::scoped_lock l(Settings::lock);
 			using namespace Settings::Skin;
 			ig::TextWrapped("Face overlays through RaceMenu's \"Face [Ovl#]\" slots. Blush follows excitement and the softbody arousal flush; "
-			                "tears and saliva are short climax beats. Without a tear texture, tears fall back to a welling-eyes expression.");
+			                "saliva is a short climax beat. Tears are reserved for non-consensual scenes: the victim wells up when distress starts "
+			                "and at a forced climax. Without a tear texture, tears fall back to a welling-eyes expression.");
 			Check("Enabled", bEnabled);
 			SliderF("Strength", fStrength, 0.0f, 1.5f);
 			Check("Blush", bBlush);

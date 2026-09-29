@@ -34,7 +34,7 @@ namespace Face::Engine::detail
 		{
 			if (!a || !S::bAnimeTongue || StyleValue() < 1.5f || !t.consent || !OSEDAnimationActive(t)) return false;
 			if (ActorSex(a) != 1) return false;
-			if (S::bConsentGuardrails && S::bHardExclusionGate && t.toneRough) return false;
+			if (S::bConsentGuardrails && S::bHardExclusionGate && t.toneForced) return false;
 			return t.orgasm || raw >= TongueThreshold();
 		}
 
@@ -50,7 +50,7 @@ namespace Face::Engine::detail
 
 		bool TongueLifeMoment(Thread& t, Slot& s, RE::Actor* a, int raw, bool yieldMouth)
 		{
-			if (!S::bTongueLife || !S::bAnimeTongue || !a || !t.consent || yieldMouth || t.toneRough || t.orgasm || !OSEDAnimationActive(t)) return false;
+			if (!S::bTongueLife || !S::bAnimeTongue || !a || !t.consent || yieldMouth || t.toneForced || t.orgasm || !OSEDAnimationActive(t)) return false;
 			if (StyleValue() < 1.5f || ActorSex(a) != 1) return false;
 			if (raw < 45 || raw > 84) return false;
 			if (s.exprOverride) return false;
@@ -274,7 +274,7 @@ namespace Face::Engine::detail
 	bool OSEDShouldAnime(Thread& t, Slot& s, RE::Actor* a, int raw, bool)
 	{
 		if (!a || AhegaoYield() || !t.consent || StyleValue() < 1.5f || !OSEDAnimationActive(t)) return false;
-		if (S::bConsentGuardrails && S::bHardExclusionGate && t.toneRough) return false;
+		if (S::bConsentGuardrails && S::bHardExclusionGate && t.toneForced) return false;
 		const int climaxes = TimesClimaxed(a);
 		const bool newClimax = climaxes > s.lastClimax;
 		if (newClimax) s.lastClimax = climaxes;
@@ -375,7 +375,7 @@ namespace Face::Engine::detail
 			return;
 		}
 		bool animeBlocked = !S::bAnimeTongue || yieldMouth || !t.consent || StyleValue() < 1.5f;
-		if (S::bConsentGuardrails && S::bHardExclusionGate && t.toneRough) animeBlocked = true;
+		if (S::bConsentGuardrails && S::bHardExclusionGate && t.toneForced) animeBlocked = true;
 		bool eligible = !animeBlocked && s.animeActive && TongueMoment(t, a, raw);
 		if (!animeBlocked && s.tongueHoldUntil > now && raw >= 85) eligible = true;
 		if (animeBlocked || raw < static_cast<int>(S::fAnimeEnd) - 5) s.tonguePrimeUntil = s.tongueHoldUntil = 0.0f;
@@ -728,7 +728,7 @@ namespace Face::Engine::detail
 		int squint = 8;
 		int browIn = 4;
 		int browDown = 0;
-		if (!t.consent || t.toneRough) {
+		if (!t.consent || t.toneForced || t.toneRough) {
 			squint = 16;
 			browIn = 14;
 			browDown = 9;

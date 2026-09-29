@@ -56,7 +56,7 @@ namespace Pulse
 			break;
 		case Scenes::kDistress:
 			Body::ClearActor(b.actor);
-			Skin::OnDistress(b.actor);
+			Skin::OnDistress(b.actor, b.victim);
 			Emit("SLED_Distress", b.thread, b.actor, v);
 			break;
 		case Scenes::kPleasure:

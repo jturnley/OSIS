@@ -104,7 +104,7 @@ namespace Settings
 		inline bool bEnabled = true;
 		inline float fStrength = 1.0f;
 		inline bool bBlush = true;
-		inline bool bTears = true;
+		inline bool bTears = true;            // non-consensual scenes only, on the victim
 		inline bool bSaliva = true;
 		inline bool bStyleGated = true;
 		inline bool bFemaleOnly = false;

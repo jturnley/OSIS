@@ -162,7 +162,7 @@ namespace Face::Engine::detail
 				if (e[30] == 12.0f) e[30] = 10.0f;
 				Mul(e, 20, 0.7f);
 				Mul(e, 21, 0.7f);
-			} else if (t.toneRough) {
+			} else if (t.toneRough || t.toneForced) {
 				Add2(e, 20, 0.15f);
 				Add2(e, 28, 0.10f);
 				Add2(e, 18, 0.10f);

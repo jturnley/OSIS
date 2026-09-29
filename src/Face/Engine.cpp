@@ -248,7 +248,13 @@ namespace Face::Engine
 				x.actionAnySignal = x.actionOral;
 				for (auto* l : { &x.actionKiss, &x.actionVaginal, &x.actionAnal }) x.actionAnySignal.insert(x.actionAnySignal.end(), l->begin(), l->end());
 				x.tagOralAction = SplitCSV("oral,blowjob,deepthroat,cunnilingus,anilingus,rimjob,facefuck,fellatio,mouth");
-				x.tagRough = SplitCSV("rough,forced,forceful,aggressive,aggressor,nonconsensual,rape,domination");
+				// Non-consent. "aggressive"/"aggressivedefault" are OStim's own marker for aggressive
+				// (non-consensual) threads: 1158 of the 1253 installed aggressive scenes also say
+				// forced/rape. A forced tag always wins over the rough list below.
+				x.tagForced = SplitCSV("forced,forceful,rape,fbrape,nonconsensual,noncon,non-consensual,aggressive,aggressivedefault,aggressor");
+				// Consensual rough play / BDSM: intense, but still consensual. (Installed data: "dom"
+				// and "spank" never carry a forced tag; "femdom" does on 59 of 182 scenes.)
+				x.tagRough = SplitCSV("rough,dom,femdom,maledom,domination,dominant,bdsm,bondage,spank,spanking,choking,slave");
 				x.tagLoving = SplitCSV("loving,romance,romantic,tender,passionate");
 				x.tagSub = SplitCSV("victim,submissive,sub,bottom,receiving,passive");
 				x.tagDom = SplitCSV("aggressor,dominant,dom,top,giving,active");
@@ -476,7 +482,7 @@ namespace Face::Engine
 				if (OStimData::HasAnyActorTag(*t.meta, s.pos, T().tagSub)) return true;
 				if (OStimData::HasAnyActorTag(*t.meta, s.pos, T().tagDom)) return false;
 			}
-			return t.toneRough && PositionRole(t, s) < 0;
+			return (t.toneForced || t.toneRough) && PositionRole(t, s) < 0;
 		}
 
 		bool ActorIsOralMouthActor(Thread& t, const Slot& s)
@@ -592,6 +598,7 @@ namespace Face::Engine
 			b.dom = dom;
 			b.phrase = phrase;
 			b.consent = t.consent;
+			b.victim = !t.consent && IsSubmissive(t, s);
 			b.yieldMouth = MouthYielded(t, s, a);
 			b.orgasm = t.orgasm;
 			b.sceneTime = SceneTime(t);
@@ -838,9 +845,10 @@ namespace Face::Engine
 			++t.stageSeq;
 			t.sceneOral = HasOralSceneTag(t);
 		}
-		t.toneRough = t.meta && OStimData::HasAnySceneTag(*t.meta, T().tagRough);
+		t.toneForced = t.meta && OStimData::HasAnySceneTag(*t.meta, T().tagForced);
+		t.toneRough = !t.toneForced && t.meta && OStimData::HasAnySceneTag(*t.meta, T().tagRough);
 		t.toneLoving = t.meta && OStimData::HasAnySceneTag(*t.meta, T().tagLoving);
-		t.consent = !(t.toneRough && S::bAggressorGrammar);
+		t.consent = !(t.toneForced && S::bAggressorGrammar);
 		UpdateNormalStateFlag(t, sceneChanged);
 	}
 
