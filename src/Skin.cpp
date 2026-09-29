@@ -23,6 +23,7 @@ namespace Skin
 			bool female = false;
 			bool distress = false;
 			bool victim = false;     // the submissive actor of a non-consensual scene
+			bool broken = false;     // a victim who climaxed: tears keep coming, the face doesn't react
 			float nextTear = 0.0f;   // earliest time the next tear may start
 			std::array<bool, kCount> on{};
 			std::array<float, kCount> until{};
@@ -132,10 +133,12 @@ namespace Skin
 		void TearExpression(RE::Actor* a, State& st)
 		{
 			using namespace Face::Output;
-			SetModifier(a, kBrowInL, 0.16f, 0.8f);
-			SetModifier(a, kBrowInR, 0.16f, 0.8f);
-			SetModifier(a, kBrowUpL, 0.10f, 0.8f);
-			SetModifier(a, kBrowUpR, 0.10f, 0.8f);
+			if (!st.broken) {  // a broken face doesn't knit its brows
+				SetModifier(a, kBrowInL, 0.16f, 0.8f);
+				SetModifier(a, kBrowInR, 0.16f, 0.8f);
+				SetModifier(a, kBrowUpL, 0.10f, 0.8f);
+				SetModifier(a, kBrowUpR, 0.10f, 0.8f);
+			}
 			SetModifier(a, kLookDown, 0.20f, 0.8f);
 			SetModifier(a, kSquintL, 0.14f, 0.8f);
 			SetModifier(a, kSquintR, 0.14f, 0.8f);
@@ -207,7 +210,7 @@ namespace Skin
 				if (!Settings::Skin::bTears) return;
 			}
 			if (!st.victim || Scenes::Now() < st.nextTear) return;
-			if (!Face::Engine::VictimCries(a)) return;  // a defiant (dominant) victim doesn't cry
+			if (!st.broken && !Face::Engine::VictimCries(a)) return;  // a defiant (dominant) victim doesn't cry until broken
 			Tear(a, st);
 		}
 	}
@@ -234,6 +237,13 @@ namespace Skin
 		if (!Paintable(b.actor, female)) return;
 		std::scoped_lock l(g_lock);
 		auto& st = Track(b.actor, female);
+		if (b.broken) {  // the victim checked out: tears keep coming, nothing else
+			st.broken = st.distress = st.victim = true;
+			Clear(b.actor, st, kBlush);
+			Clear(b.actor, st, kSaliva);
+			VictimTear(b.actor, st);
+			return;
+		}
 		if (!b.consent) {
 			st.victim = b.victim;  // roles can change with the scene
 			return;                // non-consensual: no blush or saliva
@@ -292,7 +302,9 @@ namespace Skin
 		auto it = a ? g_states.find(a->GetFormID()) : g_states.end();
 		if (it == g_states.end()) return;
 		auto& st = it->second;
-		if (!Paintable(a, female) || st.distress) {
+		const bool paintable = Paintable(a, female);
+		if (paintable && st.broken) return;  // a broken victim keeps crying
+		if (!paintable || st.distress) {
 			ClearState(a, st);
 			return;
 		}
@@ -308,7 +320,7 @@ namespace Skin
 		std::scoped_lock l(g_lock);
 		auto& st = paintable ? Track(a, female) : g_states[a->GetFormID()];
 		st.distress = true;
-		st.victim = victim;
+		st.victim = victim || st.broken;
 		// No blush or saliva for anyone in a non-consensual scene; tears only for the victim.
 		Clear(a, st, kBlush);
 		Clear(a, st, kSaliva);

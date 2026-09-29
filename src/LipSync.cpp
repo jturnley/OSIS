@@ -504,7 +504,9 @@ namespace LipSync
 				continue;
 			}
 			const float start = now - static_cast<float>(p.positionMS) / 1000.0f;
-			Face::Output::SetMouthTrack(owner, env, start, params);
+			auto track = params;
+			if (s && s->broken) track.holdEyes = false;  // a broken victim's eyes don't squeeze
+			Face::Output::SetMouthTrack(owner, env, start, track);
 			++g_stats.matched;
 			if (g_reported.insert(owner->GetFormID()).second) {
 				logger::info("Lip-sync: first clip on {:08X} {} ({:.1f} s)", owner->GetFormID(), owner->GetDisplayFullName(), env->Duration());

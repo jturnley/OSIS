@@ -217,6 +217,46 @@ namespace Face::Engine
 			return std::max(1, n);
 		}
 
+		// Broken victims restarted into a new thread (a follower joining) stay broken.
+		// Guarded by Settings::lock, like the engine entry points that use it.
+		std::unordered_map<RE::FormID, float> g_brokenCarry;
+		constexpr float kBrokenCarry = 10.0f;
+
+		void Break(Thread& t, Slot& s, RE::Actor* a, std::string_view why)
+		{
+			s.broken = true;
+			ClearOSEDPrototypeActor(s, a);
+			ClearLook(a);
+			logger::info("thread {}: {:08X} {} {}: broken for the rest of the scene", t.id, a->GetFormID(), a->GetDisplayFullName(), why);
+		}
+
+		// The victim has checked out: a slack, vacant face that no longer reacts. Tears (Skin) and
+		// the body (arousal, climaxes, toe curl) keep going through the pulse.
+		void ApplyBroken(Thread& t, Slot& s, RE::Actor* a, int idx, bool ym, bool arc)
+		{
+			if (AhegaoYield()) {
+				if (arc) {
+					const int enjEff = EffectiveIntensity(t, a);
+					PulseActor(t, s, a, SelectDominant(t, enjEff, Raw(a)), PhrasePhase(t, idx, enjEff), enjEff);
+					SetOwners(s, "Ahegao mod yield", "Ahegao mod yield", "Ahegao mod yield", "Ahegao mod yield");
+				}
+				return;
+			}
+			ReleaseOStimFace(s, a);
+			SetOSEDTongue(s, a, false);
+			if (!arc) return;
+			std::array<float, 32> e{};
+			e[0] = 0.08f;           // Aah: the jaw hangs a little
+			e[24] = 0.14f;          // LookDown
+			e[28] = e[29] = 0.22f;  // Squint: heavy lids
+			e[30] = 7.0f;           // neutral mood
+			e[31] = 0.0f;
+			Output::ApplyPreset(a, e, ym, S::fGlobalStrength, 1.0f, 1.0f, std::max(S::fTransition, 1.5f));
+			SetOwners(s, "Broken", ym ? MouthOwnerLabel(t, s, a, true) : "Broken (slack)", "Broken (vacant)", "Broken (unfocused)");
+			const int enjEff = EffectiveIntensity(t, a);
+			PulseActor(t, s, a, SelectDominant(t, enjEff, Raw(a)), PhrasePhase(t, idx, enjEff), enjEff);
+		}
+
 		void ApplyAll(Thread& t, bool arc)
 		{
 			if (!t.active) return;
@@ -244,6 +284,11 @@ namespace Face::Engine
 				}
 				RequestVoiceName(a);
 				const bool ym = MouthYielded(t, s, a);
+				if (s.broken) {
+					Output::SetMouthOwned(a, !ym);
+					ApplyBroken(t, s, a, idx, ym, arc);
+					continue;
+				}
 				if (director) Output::SetMouthOwned(a, !ym);
 				if (arc) {
 					if (t.normalActive) ApplyNormalState(t, s, a, idx, ym);
@@ -648,6 +693,7 @@ namespace Face::Engine
 			b.phrase = phrase;
 			b.consent = t.consent;
 			b.victim = !t.consent && IsSubmissive(t, s);
+			b.broken = s.broken;
 			b.yieldMouth = MouthYielded(t, s, a);
 			b.orgasm = t.orgasm;
 			b.sceneTime = SceneTime(t);
@@ -956,6 +1002,17 @@ namespace Face::Engine
 		}
 		t.sceneOral = HasOralSceneTag(t);
 		UpdateNormalStateFlag(t, true);
+		if (!g_brokenCarry.empty()) {
+			const float now = Scenes::Now();
+			std::erase_if(g_brokenCarry, [&](const auto& kv) { return now - kv.second >= kBrokenCarry; });
+			for (auto& s : t.slots) {
+				auto it = g_brokenCarry.find(s.id);
+				if (it == g_brokenCarry.end()) continue;
+				g_brokenCarry.erase(it);
+				auto* a = s.Get();
+				if (S::bBrokenAfterClimax && a && s.painted && !t.consent && IsSubmissive(t, s)) Break(t, s, a, "is still the victim");
+			}
+		}
 		logger::debug("thread {} ready: scene={} actors={} player={}", t.id, t.sceneID, t.slots.size(), t.hasPlayer);
 		ApplyAll(t, true);
 		t.nextTick = Scenes::Now() + TickInterval(t);
@@ -973,12 +1030,14 @@ namespace Face::Engine
 	void OnOrgasm(Thread& t, RE::Actor* a)
 	{
 		std::scoped_lock l(Settings::lock);
-		if (!t.Find(a)) return;
+		auto* s = t.Find(a);
+		if (!s) return;
 		Pulse::Climax(a, t.id);
 		t.orgasm = true;
 		t.orgTicks = 0;
 		const int c = TimesClimaxed(a);
 		t.orgCount = c > t.orgCount ? c : t.orgCount + 1;
+		if (S::bBrokenAfterClimax && !s->broken && s->painted && !t.consent && IsSubmissive(t, *s)) Break(t, *s, a, "climaxed as the victim");
 		ApplyAll(t, true);
 	}
 
@@ -1013,6 +1072,7 @@ namespace Face::Engine
 			}
 		}
 		for (auto& s : t.slots) {
+			if (s.broken) g_brokenCarry[s.id] = Scenes::Now();
 			auto* a = s.Get();
 			if (!a) continue;
 			Pulse::ClearActor(a, t.id);

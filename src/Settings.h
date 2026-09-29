@@ -62,6 +62,7 @@ namespace Settings
 		inline bool bConsentGuardrails = true;
 		inline bool bHardExclusionGate = true;
 		inline bool bNoDistressOverwhelm = true;
+		inline bool bBrokenAfterClimax = true;        // a victim who climaxes goes vacant for the rest of the scene
 		inline bool bConsentExcitement = true;        // non-consent: scale OStim excitement rates by role
 		inline float fVictimExcitementMult = 0.5f;    // relative to OStim's own (MCM) rate
 		inline float fAggressorExcitementMult = 1.5f;

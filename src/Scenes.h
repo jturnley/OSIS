@@ -33,6 +33,7 @@ namespace Scenes
 		std::string voiceName;
 		bool voiceRequested = false;
 		float excitementFactor = 1.0f;  // consent: our scale on OStim's excitement rate (1 = untouched)
+		bool broken = false;            // a victim who climaxed: vacant face for the rest of the thread
 
 		// v2 faceflow
 		int lastPulseDom = -1;

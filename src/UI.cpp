@@ -321,6 +321,11 @@ namespace
 				Check("Consent guardrails", bConsentGuardrails);
 				Check("Hard exclusion gate (distress owns the face)", bHardExclusionGate);
 				Check("No overwhelm/ahegao in distress", bNoDistressOverwhelm);
+				Check("Victim breaks after climaxing", bBrokenAfterClimax,
+					"When a victim climaxes, their mind checks out for the rest of the scene: the face goes empty (slack mouth, "
+					"lowered lids, a vacant downward stare) and stops reacting. Tears keep coming, the body keeps responding "
+					"(arousal, climaxes, toe curl), and moans still move the mouth, but the eyes no longer squeeze. A victim "
+					"who was defiant cries too once broken.");
 				Check("Consent sets OStim excitement rates", bConsentExcitement,
 					"In a non-consensual scene with an identified victim, each actor's OStim excitement rate is scaled "
 					"relative to OStim's own (MCM) rate. OStim resets it when the scene ends; it is also restored if the "

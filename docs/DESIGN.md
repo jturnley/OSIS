@@ -161,6 +161,15 @@ body flush together.
 - **Tears are reserved for non-consent.** The victim wells up when distress starts and at a
   forced climax, at most once every 20 s. Consensual scenes never get tears. When a thread
   moves on to a consensual scene, the victim marking is cleared.
+- **Broken after climax** (`bBrokenAfterClimax`): when the identified victim climaxes, their
+  mind checks out for the rest of the thread, even if it later moves on to a consensual scene.
+  The face goes empty: a slightly slack jaw, heavy lids, a low unfocused stare, no mood, no
+  gaze, head movement, breathing layer or tongue. Tears keep coming every 20 s (a defiant victim
+  cries too once broken), and the welling-eye fallback no longer knits the brows. The body keeps
+  responding: arousal, excitement rates, further climaxes and toe curl are unchanged. Lip-sync
+  still moves the mouth with moans but no longer squeezes the eyes. A thread restarted within
+  10 s (a follower joining) keeps the victim broken. With the Ahegao-mod yield on, the face is
+  left to that mod.
 - **Excitement rates** (`bConsentExcitement`): in a non-consensual scene with an identified
   victim, OStim's per-actor excitement multiplier (`OActor.SetExcitementMultiplier`) is scaled
   relative to OStim's own rate. Defaults: victim ×0.5 (climax takes about twice as long), every other
