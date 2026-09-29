@@ -101,6 +101,13 @@ namespace Scenes
 			auto it = g_threads.find(tid);
 			if (it == g_threads.end()) return;
 			auto& t = it->second;
+			if (t.spellForced) {
+				std::vector<RE::FormID> npcs;
+				for (const auto& s : t.slots) {
+					if (!s.player && s.id) npcs.push_back(s.id);
+				}
+				SpellCast::ThreadEnded(npcs);
+			}
 			if (t.active) Face::Engine::EndScene(t);
 			else {
 				for (auto& s : t.slots) ClearSlot(t, s);

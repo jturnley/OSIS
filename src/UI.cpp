@@ -312,9 +312,11 @@ namespace
 				Check("Scenes started by the player's spell are non-consensual", bSpellNonConsent);
 				Tip("A scene that starts right after one of the player's spells ran a script effect on an NPC in it "
 				    "(OStim NPCs' Matchmaker, for example) is non-consensual, whatever its tags say. Every actor but the "
-				    "player is a victim: in an NPC-only scene the player cast on, all of them. Asking is not forcing: if the "
-				    "player talked with one of the scene's NPCs after the spell (ODragonSeed's NPCs come to ask, for "
-				    "example), the scene came out of that conversation and only its tags decide consent.");
+				    "player is a victim: in an NPC-only scene the player cast on, all of them. A Matchmaker target tagged "
+				    "minutes before the final cast still counts, and the scene stays non-consensual when a follower joins "
+				    "and it restarts. Attacks don't count: hostile spells and spells on an enemy mid-fight are ignored. "
+				    "Asking is not forcing: if the player talked with one of the scene's NPCs after the spell (ODragonSeed's "
+				    "NPCs come to ask, for example), the scene came out of that conversation and only its tags decide consent.");
 				Check("Consent guardrails", bConsentGuardrails);
 				Check("Hard exclusion gate (distress owns the face)", bHardExclusionGate);
 				Check("No overwhelm/ahegao in distress", bNoDistressOverwhelm);

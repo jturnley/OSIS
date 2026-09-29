@@ -114,12 +114,22 @@ body flush together.
     a new thread's actors are first known, the thread is spell-started if one of its NPCs took such
     an effect within the last 30 s of unpaused play (the clock Papyrus updates run on; menus don't
     count). The flag is latched for the life of the thread and logged with the spell and target.
+    - **Completed casts:** Matchmaker tags its targets one cast at a time and only starts the scene
+      once the player has cast on everyone in it, the player included (a separate Self spell). A hit
+      up to 10 minutes old still counts when the player cast another spell from the same plugin
+      after it, within the last 30 s. That later cast is the scene's trigger time. Hits are used up
+      by the scene they start, so a later scene with the same NPCs needs a new spell.
+    - **Restarts:** when a spell-started thread ends, its NPCs are remembered for 10 s. A new thread
+      with one of them, and no conversation with its NPCs since the end, continues the same scene.
+      Followers Ask To Join stops the thread and starts a bigger one after the follower asks.
+    - **Attacks don't count:** hostile effects, and effects on an enemy who is fighting the player,
+      are not recorded. A defeat scene after a fight (Yamete) keeps the roles its mod gave it.
   - **Asking is not forcing:** a scene that came out of a conversation is not spell-started, even
     right after a spell. The DLL notes who the player is in dialogue with (the Dialogue Menu's
     speaker, every heartbeat while it is open). If the player's latest conversation with one of
-    the scene's NPCs is at or after the latest spell hit on them, the NPC asked (ODragonSeed's
-    NPCs walk up and ask) or was asked, and only the tags decide consent. A spell cast after the
-    conversation still counts.
+    the scene's NPCs is at or after the trigger time (the hit, or the cast that completed it), the NPC
+    asked (ODragonSeed's NPCs walk up and ask; OFriends' "somewhere private") or was asked, and only
+    the tags decide consent. A spell cast after the conversation still counts.
 - `consent = !(toneForced && bAggressorGrammar) && !(spellForced && bSpellNonConsent)`. The victim
   is an actor tagged `victim`/`submissive`/…, or, failing that, the receiving partner by position.
   In a spell-started scene the tags don't matter: every actor but the player is a victim, so in
