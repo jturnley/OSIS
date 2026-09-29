@@ -57,6 +57,7 @@ namespace Settings
 		inline bool bRoleMetadata = true;
 		inline bool bEventBeats = true;
 		inline bool bAggressorGrammar = true;
+		inline bool bSpellNonConsent = true;          // scenes started by the player's spell (Matchmaker...) are non-consensual
 		inline bool bPhraseGrammar = true;
 		inline bool bConsentGuardrails = true;
 		inline bool bHardExclusionGate = true;

@@ -11,6 +11,7 @@
 #include "Serialization.h"
 #include "Settings.h"
 #include "Skin.h"
+#include "SpellCast.h"
 #include "UI.h"
 
 namespace Scheduler
@@ -24,6 +25,7 @@ namespace Scheduler
 		void MainTick()
 		{
 			g_pending = false;
+			SpellCast::Tick();
 			Scenes::Tick();
 			LipSync::Poll();
 			Skin::Tick();
@@ -102,6 +104,7 @@ namespace
 			Guarded("Arousal", Arousal::Init);
 			Guarded("Lip-sync", LipSync::OnDataLoaded);
 			Guarded("Scene tracking", Scenes::Init);
+			Guarded("Spell-started scenes", SpellCast::Init);
 			Scheduler::Start();
 			break;
 		case SKSE::MessagingInterface::kPreLoadGame:
@@ -110,6 +113,7 @@ namespace
 		case SKSE::MessagingInterface::kPostLoadGame:
 		case SKSE::MessagingInterface::kNewGame:
 			Scenes::OnGameLoad();
+			SpellCast::Clear();
 			Arousal::OnGameLoad();
 			Body::ClearAll();
 			Skin::ClearAll();

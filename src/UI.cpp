@@ -153,7 +153,7 @@ namespace
 		if (threads.empty()) ig::TextDisabled("No OStim scene running.");
 		for (const auto& t : threads) {
 			ig::Text("Thread %d%s  scene %s  speed %d/%d  %.0fs%s%s%s", t.id, t.player ? " (player)" : "", t.scene.empty() ? "<starting>" : t.scene.c_str(),
-				t.speed, t.maxSpeed, t.time, t.consent ? (t.rough ? "  [rough, consensual]" : "") : "  [non-consent]", t.orgasm ? "  [climax]" : "", t.normal ? "  [pre-animation]" : "");
+				t.speed, t.maxSpeed, t.time, t.consent ? (t.rough ? "  [rough, consensual]" : "") : (t.spell ? "  [non-consent: spell]" : "  [non-consent]"), t.orgasm ? "  [climax]" : "", t.normal ? "  [pre-animation]" : "");
 			if (ig::BeginTable(std::format("actors{}", t.id).c_str(), 7, ig::ImGuiTableFlags_Borders | ig::ImGuiTableFlags_RowBg)) {
 				for (const char* h : { "Actor", "Excite", "State", "Personality", "Face", "Mouth", "Head" }) ig::TableSetupColumn(h);
 				ig::TableHeadersRow();
@@ -309,6 +309,10 @@ namespace
 				    "by personality (dominant: defiant anger, shy: fear, vocal: panic, stoic: numb endurance, balanced: sadness "
 				    "turning to fear); the other actor gets an aggressive face. Rough play and BDSM tags (rough, dom, femdom, "
 				    "bdsm, spank...) without a forced tag stay consensual. Off: every scene is consensual.");
+				Check("Scenes started by the player's spell are non-consensual", bSpellNonConsent);
+				Tip("A scene that starts right after one of the player's spells ran a script effect on an NPC in it "
+				    "(OStim NPCs' Matchmaker, for example) is non-consensual, whatever its tags say. Every actor but the "
+				    "player is a victim: in an NPC-only scene the player cast on, all of them.");
 				Check("Consent guardrails", bConsentGuardrails);
 				Check("Hard exclusion gate (distress owns the face)", bHardExclusionGate);
 				Check("No overwhelm/ahegao in distress", bNoDistressOverwhelm);

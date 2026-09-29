@@ -104,6 +104,8 @@ namespace Scenes
 		bool toneForced = false;  // forced/rape/aggressive tags: non-consent when Aggressor grammar is on
 		bool toneRough = false;   // consensual rough play / BDSM (never set together with toneForced)
 		bool victimKnown = false; // non-consent and at least one actor identified as the victim
+		bool spellForced = false;     // started by the player's spell (SpellCast), latched when the actors are first known
+		bool spellNonConsent = false; // spellForced and bSpellNonConsent: every actor but the player is a victim
 		bool toneLoving = false;
 		bool sceneOral = false;
 		bool gasp = false;
@@ -147,7 +149,7 @@ namespace Scenes
 	{
 		int id;
 		std::string scene;
-		bool player, consent, rough, normal, orgasm, oral;
+		bool player, consent, rough, normal, orgasm, oral, spell;
 		int speed, maxSpeed, afterglow, plateau;
 		float time;
 		std::string probe;

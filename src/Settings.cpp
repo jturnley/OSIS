@@ -59,6 +59,7 @@ namespace Settings
 				{ "Face", "bRoleMetadata", &Face::bRoleMetadata },
 				{ "Face", "bEventBeats", &Face::bEventBeats },
 				{ "Face", "bAggressorGrammar", &Face::bAggressorGrammar },
+				{ "Face", "bSpellNonConsent", &Face::bSpellNonConsent },
 				{ "Face", "bPhraseGrammar", &Face::bPhraseGrammar },
 				{ "Face", "bConsentGuardrails", &Face::bConsentGuardrails },
 				{ "Face", "bHardExclusionGate", &Face::bHardExclusionGate },
@@ -392,6 +393,7 @@ namespace Settings
 		bRoleMetadata = true;
 		bEventBeats = true;
 		bAggressorGrammar = true;
+		bSpellNonConsent = true;
 		bPhraseGrammar = full;
 		bConsentGuardrails = true;
 		bHardExclusionGate = true;

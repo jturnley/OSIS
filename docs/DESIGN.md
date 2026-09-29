@@ -106,8 +106,19 @@ body flush together.
     `domination`, `dominant`, `bdsm`, `bondage`, `spank`, `spanking`, `choking`, `slave`, and
     only when no non-consent tag is present. These scenes stay consensual and only add rough
     intensity (brow tension, squint) to faces and bystanders.
-- `consent = !(toneForced && bAggressorGrammar)`. The victim is an actor tagged
-  `victim`/`submissive`/…, or, failing that, the receiving partner by position.
+  - **Started by the player's spell** (`spellForced`, `SpellCast`): OStim NPCs' Matchmaker and
+    similar spells run a script effect on their targets, and the script starts the scene a few
+    seconds later. The DLL records the player's real casts (`TESSpellCastEvent`: spells, powers,
+    shouts, scrolls, staffs; not abilities, cloaks or potions) that carry a Script-archetype
+    effect, and where those effects land on NPCs (`TESMagicEffectApplyEvent`, caster = player). When
+    a new thread's actors are first known, the thread is spell-started if one of its NPCs took such
+    an effect within the last 30 s of unpaused play (the clock Papyrus updates run on; menus don't
+    count). The flag is latched for the life of the thread and logged with the spell and target.
+- `consent = !(toneForced && bAggressorGrammar) && !(spellForced && bSpellNonConsent)`. The victim
+  is an actor tagged `victim`/`submissive`/…, or, failing that, the receiving partner by position.
+  In a spell-started scene the tags don't matter: every actor but the player is a victim, so in
+  an NPC-only scene the player cast on, all of them are. The player is the aggressor. Scene
+  changes can't make a spell-started thread consensual.
 - A non-consensual scene gets distress faces (hard gate: even at climax), guardrails, no
   anime/tongue. Nobody in the scene gets blush or saliva. Faces are role-aware:
   - **Victim**: reacts by personality (`VictimReaction`):
