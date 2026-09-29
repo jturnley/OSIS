@@ -1,0 +1,133 @@
+# OSED Reborn: analysis and fixes
+
+This is a working rebuild of **OStim Expression Director (OSED) 2.0** and its three add-ons (Body, Living Skin, Lip-Sync), from the copies in `D:\SkyrimSE-MO2\mods`. Each add-on shipped with a defect that alone kept it from working. Most of the Core's eye and brow animation was a silent no-op.
+
+| Path | What it is |
+|---|---|
+| `original/` | The shipped files, unmodified (plugins and sources) |
+| `mods/OSED Core`, `mods/OSED Body`, `mods/OSED Living Skin`, `mods/OSED Lip-Sync` | Fixed mods, laid out for MO2 (plugins are generated, `.pex` still has to be compiled) |
+| `tools/build_plugins.py` | Generates all four `.esp` files |
+| `tools/esp_dump.py`, `tools/vmad.py` | Dump and verify plugin records |
+| `tools/papyrus_lint.py` | Structural checks for the Papyrus sources (not a compiler) |
+
+`git log` has one commit per mod with the detail. `git diff 31d6439 -- mods` shows every change against the originals.
+
+---
+
+## What was broken, and what changed
+
+### Core (OStimExpressionDirector.esp)
+
+| # | Flaw | Effect in game | Fix |
+|---|---|---|---|
+| C1 | All 54 direct `MfgConsoleFuncExt.SetModifier` calls used **preset indices** (18–29) instead of modifier IDs (0–13). | Every direct eye, brow, squint and gaze write did nothing, which is the main reason faces looked weak. | IDs remapped (18→2 … 29→13). |
+| C2 | The "take over face" toggle was only checked in dormant mode 2. | In Assist/Enhanced, OStim's own face writer kept running over OSED. | `ReleaseOStimFace` is called in the layer arc too. Oral mouth overrides still work (`AllowOverride` stays on). |
+| C3 | SPID lines ended in `\|\|\|\|\|18!`, which puts `18!` in the **Chance** field. | Personality keywords were distributed unpredictably or not at all. | Valid chances 25/33/50/100 in the exclusive group, children excluded. |
+| C4 | The MCM quest had no player alias. | SkyUI's `OnGameReload` never ran; the MCM's own reload code (`EnsureLocalDefaults`, `PullFromDirector`) was dead. | `SKI_PlayerLoadGameAlias` player alias. |
+| C5 | The MCM quest VMAD had no fragment section. | xEdit/CK flag it as malformed. | Full VMAD written by the builder. |
+
+New Core API used by the add-ons: `IsFaceTakenOver(a)`, `HoldEyes(a, untilRealTime)`, and `SetMod()`. All 66 modifier writes now go through `SetMod()`, which respects an eye hold.
+
+### Body (OSED_Body.esp)
+
+| # | Flaw | Effect | Fix |
+|---|---|---|---|
+| B1 | Load maintenance was in `OnPlayerLoadGame` on a **quest** script. That event only fires on the player's ReferenceAlias. | Emergency cleanup and re-registration never ran after a load. | New `OSED_AddonLoadAlias` (ships with Core) forwards the load as a mod event; the engine checks `sender == Self`. |
+| B2 | Toes −3°, fingers 12°, then × strength 0.35 × Realistic 0.35. | Under 1.5° at peak: invisible. | 35° toes, 45° fingers; strength 0.75; style 0.60/0.80/1.0. |
+| B3 | Only joint 0 of fingers 1–3. | No pinky, no second joint. | Fingers 1–4, joints 0 and 1. |
+| B4 | The plugin forced `bEnabled = True`, while toe/hand defaulted **off**. | "Default OFF" wasn't true, and turning it on did nothing visible. | No VMAD override; toe and hand default on. |
+| B5 | NiOverride probe cached forever. | A failed first probe stuck until a new save. | Re-probed on each load. |
+| B6 | Crosshair test existed but wasn't in the MCM. | No way to test outside a scene. | "Test on crosshair actor" and a "Curl axis" cycle (X/Y/Z), in case a skeleton curls sideways. |
+
+### Living Skin (OSED_LivingSkin.esp)
+
+| # | Flaw | Effect | Fix |
+|---|---|---|---|
+| L1 | Same `OnPlayerLoadGame` problem as B1. | No load maintenance. | Load alias. |
+| L2 | `DEFAULT_BLUSH = ""` although the README promises `Koralina\Blushes\blush_01.dds`. | Blush never showed without an xEdit edit. | Default path, used when the file exists. |
+| L3 | `ApplyTearExpression` was never called; tears returned early with no texture. | README says tears "need no texture", but they never fired without one. | Falls back to the wet-eyed expression. |
+| L4 | Alpha caps 0.12–0.28, scaled by 0.35 × 0.35. | Overlays effectively transparent. | Caps 0.70–0.85, strength 0.60. |
+| L5 | Texture paths only settable by editing the plugin in xEdit. | Hard to use. | `SKSE\Plugins\StorageUtilData\OSED_LivingSkin.json` (keys `blush`, `sweat`, `tear`, `saliva`; forward slashes OK). |
+| L6 | Plugin forced `bEnabled = True`. | Not "default OFF". | Removed. |
+| L7 | NiOverride/OBlush/DWA probes cached forever. | Same as B5. | Re-probed on load. |
+
+### Lip-Sync (OSED_LipSync.esp)
+
+| # | Flaw | Effect | Fix |
+|---|---|---|---|
+| S1 | The bake wrote `OSED_LipSyncQuest_OSED_LipSync_Moan_<Beat>_<id>_1`. The engine truncates long quest/topic EDIDs to 10/15 characters and looks for `OSED_LipSy_OSED_LipSync_Mo_<id>_1`. | **Baked audio was never found**, so lip-sync never played. | Quest `OSED_LSQ`, topics `OSED_LS_<Beat>` (short enough to avoid truncation); the bake writes the matching names. |
+| S2 | Topics were subtype **OutOfBreath** (`OUTB`, Misc) with unconditioned INFOs. | The engine could pick these lines on its own for any out-of-breath NPC. | Custom (`CUST`) topics with no branch: only reachable through `Say()`. |
+| S3 | `SLED_Beat`'s number is a rotating 0–4 phrase counter, but the script read it as 0–1 intensity. | Phrases 1–4 always picked Peak; Sustain never played. | Phase from the actor's `SLED_Paint` enjoyment: under 50 Build, 50–84 Sustain, 85+ Peak. |
+| S4 | "Baked" check only looked at the plugin's FormLists, which are always filled. | `NotBaked` could never show; unbaked setups played silent lines. | The bake writes `OSED_LipSync_Baked.json` (voice types with all four clips); unbaked voices are skipped. |
+| S5 | OStim's moan played on top of the clip. | Double audio. | Actor is muted for the clip (MCM toggle); only actors this add-on muted get unmuted. |
+| S6 | After each clip it re-enabled OStim expressions on every tracked actor. | Silently undid the Core's face takeover. | Restores only what it suspended, never a taken-over actor. |
+| S7 | Same load-hook and forced-enable problems as B1/B4 (`bEnabled`, `bOwnVoice`). | | Fixed the same way. |
+
+**Anyone who baked with the original release has to bake again.** The old file names never matched.
+
+### Problems the fixes themselves created (handled)
+
+- With C1 fixed, the Core's eye writes land every tick and would wipe Living Skin's tear look immediately. Living Skin now calls `Core.HoldEyes(a, now + 4)`, and the Core skips eye/brow writes and its preset repaint for that actor during the hold.
+- S6 above only mattered once C2 made the takeover real.
+
+### Not fixed (known limitations)
+
+- **Single thread, player required.** The Core follows one OStim thread and requires the player to be in it. NPC-only scenes (you run OStimNPCs) get no OSED faces. This design is baked into the whole Core; the SKSE port is the place to lift it.
+- **OStim's updater in Assist mode (unverified).** With face takeover *off*, OStim may still overwrite direct writes. The MCM help now says to turn takeover on if faces look weak.
+- **Animation vs. Body transforms (unverified).** NiOverride node transforms may be overwritten by animations that key the toes or fingers. The crosshair test (no animation) and an in-scene test will show whether they survive.
+
+---
+
+## Building
+
+### Plugins
+
+```
+python tools/build_plugins.py
+```
+
+This writes the four ESL-flagged plugins into `mods/*/`. FormIDs match the originals (`GetFormFromFile(0x800, …)` still works). Check them with `python tools/esp_dump.py <esp>`.
+
+### Scripts (not compiled yet)
+
+There is no Skyrim Papyrus compiler on this machine, and three import sets are missing:
+
+| Needed | Where it comes from |
+|---|---|
+| Compiler | Creation Kit (Steam, free: `Papyrus Compiler\PapyrusCompiler.exe`) or Caprica (open source) |
+| Vanilla sources + `TESV_Papyrus_Flags.flg` | CK's `Data\Scripts.zip` → `Data\Source\Scripts` |
+| `SKI_ConfigBase` / `SKI_QuestBase` | SkyUI SDK |
+| `NiOverride.psc` | RaceMenu source |
+
+Already installed: SKSE (`Data\Scripts\Source`), PapyrusUtil, OStim Standalone, Mfg Fix NG.
+
+Import order matters: our sources, then SKSE before vanilla, so the SKSE natives win. Example with the CK compiler, run per mod:
+
+```
+PapyrusCompiler.exe "mods\OSED Core\Scripts\Source" -all -f="TESV_Papyrus_Flags.flg" -o="mods\OSED Core\Scripts" -i="mods\OSED Core\Scripts\Source;<SKSE>;<vanilla>;<SkyUI SDK>;<RaceMenu>;<PapyrusUtil>;<OStim>;<MfgFix>"
+```
+
+The add-ons also need `mods\OSED Core\Scripts\Source` on the import path. Until then, `python tools/papyrus_lint.py` checks:
+- block balance
+- duplicate definitions
+- undeclared assignment targets
+- `Core.` / `Engine.` / `OActor.` / `MfgConsoleFuncExt.` / PapyrusUtil members against the real sources
+
+All sources pass. It does not check types or argument counts.
+
+## Installing and testing
+
+1. Compile the scripts, then copy each `mods/<mod>` folder into MO2 (`D:\SkyrimSE-MO2\mods`) in place of the originals. `original/` keeps the old files.
+2. **New save** (every plugin is scripted and the quest aliases changed).
+3. Lip-Sync: run `BakeToolkit\Bake-OSED-LipSync.ps1` and install `OSED_LipSync_Voices` (both `Sound` and `SKSE`).
+4. Checks in game:
+   - **Core:** eyes squint, brows move during a scene (C1). Toggle takeover and compare.
+   - **Body:** enable → aim at an NPC → MCM "Test on crosshair actor": toes and fingers curl visibly. If sideways, cycle the axis. Then check at a climax in a scene.
+   - **Living Skin:** enable → "Test tears" in a scene with no tear texture: wet-eyed look for about 4 s that the Core doesn't wipe.
+   - **Lip-Sync:** Doctor shows `ON`, not `NotBaked`; the Test button moves the mouth with audio and no double moan.
+   - Save, reload: add-on Doctor lines report "Emergency reset" (the load hook fired).
+
+## Not checked
+
+- The Nexus page (mod 183920) returns 403 to automated fetches, so this compares against the shipped READMEs only.
+- Nothing has run in game or through a compiler yet. Voice-file naming was confirmed against real files on disk; the ESL FormID form in the file name (`0000080F`) follows the original toolkit.
