@@ -198,7 +198,7 @@ namespace Body
 
 		const float k = st.magnitude * env;
 		if (toe) {
-			const auto r = AxisRotation(axis, -toeDeg * k);  // toes curl down
+			const auto r = AxisRotation(axis, toeDeg * k);  // toes curl down (the negative angle bent them up)
 			for (auto* n : st.toes) n->local.rotate = n->local.rotate * r;
 		}
 		if (hand) {
