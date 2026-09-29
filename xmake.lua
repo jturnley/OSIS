@@ -1,11 +1,18 @@
 includes("extern/CommonLibSSE-NG")
 
--- Share the CommonLibSSE-NG build with sibling projects (same commit as Softbody_Arousal / Dismember-Sanguine).
-local sharedRoot = path.join(os.projectdir(), "..", "_XMakeShared")
+-- Share the CommonLibSSE-NG build with sibling projects (Softbody_Arousal / Dismember-Sanguine) on the
+-- same CommonLib release. The release is part of the path, so a project on another release never links
+-- a library built from different headers. after_load, because CommonLib has its own on_load, and the
+-- description scope can't read the changelog.
 target("commonlibsse-ng")
-    set_targetdir(path.join(sharedRoot, "CommonLibSSE-NG", "windows", "x64"))
-    set_objectdir(path.join(sharedRoot, "CommonLibSSE-NG", ".objs"))
-    set_dependir(path.join(sharedRoot, "CommonLibSSE-NG", ".deps"))
+    after_load(function (target)
+        local log = io.readfile(path.join(os.projectdir(), "extern", "CommonLibSSE-NG", "CHANGELOG.md"))
+        local release = log and log:match("## %[?(%d+%.%d+%.%d+)") or "unknown"
+        local dir = path.join(os.projectdir(), "..", "_XMakeShared", "CommonLibSSE-NG-" .. release)
+        target:set("targetdir", path.join(dir, "windows", "x64"))
+        target:set("objectdir", path.join(dir, ".objs"))
+        target:set("dependir", path.join(dir, ".deps"))
+    end)
 target_end()
 
 add_rules("mode.debug", "mode.releasedbg")
