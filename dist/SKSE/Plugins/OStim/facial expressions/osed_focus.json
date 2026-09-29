@@ -1,0 +1,33 @@
+{
+  "events": [
+    "osed_focus"
+  ],
+  "female": {
+    "duration": 1.4,
+    "expression": {
+      "type": 13,
+      "baseValue": 18,
+      "variance": 10,
+      "excitementMultiplier": 0.15
+    },
+    "modifiers": [
+      { "type": 12, "baseValue": 8, "variance": 10, "excitementMultiplier": 0.08 },
+      { "type": 13, "baseValue": 8, "variance": 10, "excitementMultiplier": 0.08 },
+      { "type": 6, "baseValue": 4, "variance": 8 },
+      { "type": 7, "baseValue": 4, "variance": 8 }
+    ]
+  },
+  "male": {
+    "duration": 1.2,
+    "expression": {
+      "type": 13,
+      "baseValue": 12,
+      "variance": 8,
+      "excitementMultiplier": 0.10
+    },
+    "modifiers": [
+      { "type": 12, "baseValue": 6, "variance": 8, "excitementMultiplier": 0.06 },
+      { "type": 13, "baseValue": 6, "variance": 8, "excitementMultiplier": 0.06 }
+    ]
+  }
+}

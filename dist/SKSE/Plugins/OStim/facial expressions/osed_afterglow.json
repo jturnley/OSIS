@@ -1,0 +1,30 @@
+{
+  "events": [
+    "osed_afterglow"
+  ],
+  "female": {
+    "duration": 2.5,
+    "expression": {
+      "type": 10,
+      "baseValue": 22,
+      "variance": 14
+    },
+    "modifiers": [
+      { "type": 12, "baseValue": 24, "variance": 18 },
+      { "type": 13, "baseValue": 24, "variance": 18 },
+      { "type": 8, "baseValue": 8, "variance": 12 }
+    ]
+  },
+  "male": {
+    "duration": 2.0,
+    "expression": {
+      "type": 10,
+      "baseValue": 14,
+      "variance": 12
+    },
+    "modifiers": [
+      { "type": 12, "baseValue": 18, "variance": 12 },
+      { "type": 13, "baseValue": 18, "variance": 12 }
+    ]
+  }
+}

@@ -1,0 +1,43 @@
+{
+  "events": [
+    "osed_anime_peak_tongue"
+  ],
+  "female": {
+    "duration": 1.6,
+    "expression": {
+      "type": 12,
+      "baseValue": 65,
+      "variance": 20,
+      "excitementMultiplier": 0.18
+    },
+    "phonemes": [
+      { "type": 1, "baseValue": 90, "variance": 6 },
+      { "type": 0, "baseValue": 14, "variance": 6 },
+      { "type": 11, "baseValue": 0 }
+    ],
+    "modifiers": [
+      { "type": 11, "baseValue": 65, "variance": 25 },
+      { "type": 12, "baseValue": 42, "variance": 22 },
+      { "type": 13, "baseValue": 42, "variance": 22 },
+      { "type": 6, "baseValue": 22, "variance": 18 },
+      { "type": 7, "baseValue": 22, "variance": 18 }
+    ]
+  },
+  "male": {
+    "duration": 1.4,
+    "expression": {
+      "type": 12,
+      "baseValue": 38,
+      "variance": 18,
+      "excitementMultiplier": 0.10
+    },
+    "phonemes": [
+      { "type": 1, "baseValue": 56, "variance": 10 },
+      { "type": 11, "baseValue": 0 }
+    ],
+    "modifiers": [
+      { "type": 12, "baseValue": 26, "variance": 18 },
+      { "type": 13, "baseValue": 26, "variance": 18 }
+    ]
+  }
+}

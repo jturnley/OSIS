@@ -1,0 +1,979 @@
+#include "Face/Internal.h"
+
+#include "Compat.h"
+
+#include "Papyrus.h"
+#include "Pulse.h"
+
+namespace Face::Engine
+{
+	using namespace detail;
+
+	namespace
+	{
+		// forms resolved at data load; all optional
+		RE::TESFaction* g_excitement = nullptr;
+		RE::TESFaction* g_climaxed = nullptr;
+		RE::BGSKeyword* g_kHuman = nullptr;
+		RE::BGSKeyword* g_kStoic = nullptr;
+		RE::BGSKeyword* g_kVocal = nullptr;
+		RE::BGSKeyword* g_kShy = nullptr;
+		RE::BGSKeyword* g_kDominant = nullptr;
+		RE::BGSKeyword* g_kGag = nullptr;
+		RE::BGSKeyword* g_kGagPlate = nullptr;
+		RE::BGSKeyword* g_kGagLarge = nullptr;
+		RE::BGSKeyword* g_kGagRing = nullptr;
+		RE::BGSKeyword* g_kBlind = nullptr;
+		RE::BGSKeyword* g_kHood = nullptr;
+		RE::TESGlobal* g_oblushEnable = nullptr;
+		RE::TESGlobal* g_oblushMin = nullptr;
+		RE::TESGlobal* g_oblushMax = nullptr;
+		RE::TESGlobal* g_oblushMale = nullptr;
+		RE::TESGlobal* g_oblushFemale = nullptr;
+		bool g_ostim = false;
+		bool g_oblush = false;
+		std::string g_ahegaoFound = "none detected";
+
+		std::mutex g_dataLock;  // personality overrides, takeover list, voice cache
+		std::unordered_map<RE::FormID, int> g_npcPersonality;
+		std::unordered_set<RE::FormID> g_takenOver;
+		std::unordered_map<RE::FormID, std::string> g_voiceNames;
+		std::unordered_set<RE::FormID> g_voiceRequested;
+
+		std::mt19937 g_rng{ std::random_device{}() };
+
+		template <class T>
+		T* Lookup(RE::FormID a_local, std::string_view a_plugin)
+		{
+			auto* dh = RE::TESDataHandler::GetSingleton();
+			return dh ? dh->LookupForm<T>(a_local, a_plugin) : nullptr;
+		}
+
+		bool HasPlugin(std::string_view a_plugin)
+		{
+			auto* dh = RE::TESDataHandler::GetSingleton();
+			return dh && dh->LookupModByName(a_plugin) != nullptr;
+		}
+
+		bool WornHasKeyword(RE::Actor* a, RE::BGSKeyword* kw)
+		{
+			if (!a || !kw) return false;
+			auto inv = a->GetInventory([](RE::TESBoundObject& obj) { return obj.IsArmor(); });
+			for (auto& [obj, data] : inv) {
+				if (!data.second || !data.second->IsWorn()) continue;
+				if (auto* kwf = obj->As<RE::BGSKeywordForm>(); kwf && kwf->HasKeyword(kw)) return true;
+			}
+			return false;
+		}
+
+		bool HasKeywordEditorID(RE::Actor* a, std::string_view id)
+		{
+			bool found = false;
+			auto check = [&](RE::BGSKeyword* kw) {
+				if (kw && _stricmp(kw->GetFormEditorID(), std::string(id).c_str()) == 0) {
+					found = true;
+					return RE::BSContainer::ForEachResult::kStop;
+				}
+				return RE::BSContainer::ForEachResult::kContinue;
+			};
+			if (auto* base = a->GetActorBase()) base->ForEachKeyword(check);
+			return found;
+		}
+
+		std::string Lower(std::string s)
+		{
+			std::ranges::transform(s, s.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+			return s;
+		}
+
+		void RequestVoiceName(RE::Actor* a)
+		{
+			if (!a) return;
+			const RE::FormID key = a->GetFormID();
+			{
+				std::scoped_lock l(g_dataLock);
+				if (!g_voiceRequested.insert(key).second) return;
+			}
+			const RE::FormID base = a->IsPlayerRef() ? 0x7 : (a->GetActorBase() ? a->GetActorBase()->GetFormID() : 0);
+			if (!base) return;
+			Papyrus::GetVoiceSetName(base, [key](std::string name) {
+				std::scoped_lock l(g_dataLock);
+				g_voiceNames[key] = std::move(name);
+			});
+		}
+
+		std::string VoiceName(RE::Actor* a)
+		{
+			std::scoped_lock l(g_dataLock);
+			auto it = g_voiceNames.find(a->GetFormID());
+			return it != g_voiceNames.end() ? it->second : std::string{};
+		}
+
+		int VoiceArchetype(RE::Actor* a)
+		{
+			const std::string v = Lower(VoiceName(a));
+			if (v.empty()) return -1;
+			auto any = [&](std::initializer_list<const char*> toks) {
+				return std::ranges::any_of(toks, [&](const char* t) { return v.find(t) != std::string::npos; });
+			};
+			if (any({ "shy", "timid", "bashful" })) return 3;
+			if (any({ "soft", "gentle", "sweet" })) return 3;
+			if (any({ "excited", "vocal", "sensitive" })) return 2;
+			if (any({ "needy", "passion", "high" })) return 2;
+			if (any({ "dominant", "rough", "aggressive" })) return 4;
+			if (any({ "orc", "deep", "command" })) return 4;
+			if (any({ "calm", "quiet", "reserved" })) return 1;
+			return -1;
+		}
+
+		int SPIDArchetype(RE::Actor* a)
+		{
+			if (!S::bSPIDPersonality || !a) return -1;
+			if (HasKeywordEditorID(a, "OSED_Personality_Bashful") || HasKeywordEditorID(a, "OSED_Personality_Soft")) return 3;
+			if (HasKeywordEditorID(a, "OSED_Personality_Bold")) return 2;
+			if (HasKeywordEditorID(a, "OSED_Personality_Fierce")) return 4;
+			return -1;
+		}
+
+		int VanillaAIPersonality(RE::Actor* a)
+		{
+			auto* avo = a->AsActorValueOwner();
+			const float aggression = avo->GetActorValue(RE::ActorValue::kAggression);
+			const float confidence = avo->GetActorValue(RE::ActorValue::kConfidence);
+			const float morality = avo->GetActorValue(RE::ActorValue::kMorality);
+			if (aggression >= 2.0f && confidence >= 2.0f) return 4;
+			if (confidence <= 1.0f) return 3;
+			if (aggression <= 0.0f && confidence >= 2.0f) return 1;
+			if (morality <= 1.0f && aggression >= 1.0f) return 4;
+			return -1;
+		}
+
+		void UpdatePlateau(Thread& t)
+		{
+			if (t.orgasm || t.afterglow > 0) {
+				t.plateau = 0;
+				return;
+			}
+			// The original measured the player; NPC-only threads use their most excited actor.
+			int raw = 0;
+			for (auto& s : t.slots) {
+				auto* a = s.Get();
+				if (!a) continue;
+				if (s.player) {
+					raw = Raw(a);
+					break;
+				}
+				raw = std::max(raw, Raw(a));
+			}
+			t.plateau = raw >= 85 ? t.plateau + 1 : 0;
+		}
+
+		int ArcEvery(const Thread& t)
+		{
+			if (!S::bBreathing && !S::bTongueLife && !OSEDNeedsFastTick(t)) return 1;
+			int n = static_cast<int>(S::fBaseInterval / 0.8f + 0.5f);
+			if (t.sceneOral && S::bYieldOralMouth) n *= 2;
+			return std::max(1, n);
+		}
+
+		void ApplyAll(Thread& t, bool arc)
+		{
+			if (!t.active) return;
+			t.dialogueMenuOpen = S::bDialogueMouthYield && RE::UI::GetSingleton()->IsMenuOpen(RE::DialogueMenu::MENU_NAME);
+			if (arc) {
+				UpdatePlateau(t);
+				if (t.afterglow > 0) --t.afterglow;
+				if (t.hasPlayer) MaybeApplyWatcherTrial(t);
+			}
+			const bool director = S::iMode == S::kDirector;
+			// The old OSED core owns faces: keep tracking and pulsing so Body, Living Skin,
+			// Lip-Sync and the arousal scene factors still work, but paint nothing.
+			const bool faceOff = Compat::Disabled(Compat::kFace);
+			for (int idx = 0; idx < static_cast<int>(t.slots.size()); ++idx) {
+				auto& s = t.slots[idx];
+				auto* a = s.Get();
+				if (!a || !s.painted || !a->Is3DLoaded()) continue;
+				if (faceOff) {
+					if (arc) {
+						const int enjEff = EffectiveIntensity(t, a);
+						PulseActor(t, s, a, SelectDominant(t, enjEff, Raw(a)), PhrasePhase(t, idx, enjEff), enjEff);
+						SetOwners(s, "Old OSED core", "Old OSED core", "Old OSED core", "Old OSED core");
+					}
+					continue;
+				}
+				RequestVoiceName(a);
+				const bool ym = MouthYielded(t, s, a);
+				if (director) Output::SetMouthOwned(a, !ym);
+				if (arc) {
+					if (t.normalActive) ApplyNormalState(t, s, a, idx, ym);
+					else if (director) ApplyArc(t, s, a, idx, ym);
+					else ApplyOSEDLayerArc(t, s, a, idx, ym);
+				}
+				if (S::bBreathing) {
+					if (ym) s.mouthOwner = MouthOwnerLabel(t, s, a, true);
+					else if (director) Breathe(t, s, a, idx);
+					else ApplyOSEDLayerBreath(t, s, a, idx);
+				}
+				UpdateOSEDTongue(t, s, a, ym);
+			}
+		}
+	}
+
+	// ------------------------------------------------------------------ detail helpers
+	namespace detail
+	{
+		int RandInt(int lo, int hi)
+		{
+			if (hi < lo) std::swap(lo, hi);
+			return std::uniform_int_distribution<int>(lo, hi)(g_rng);
+		}
+
+		float RandFloat(float lo, float hi)
+		{
+			if (hi < lo) std::swap(lo, hi);
+			return std::uniform_real_distribution<float>(lo, hi)(g_rng);
+		}
+
+		const Tags& T()
+		{
+			using OStimData::SplitCSV;
+			static const Tags tags = [] {
+				Tags x;
+				x.actionOral = SplitCSV("blowjob,deepthroat,cunnilingus,anilingus,rimjob,oralfingering,lickingpenis,lickingvagina,lickingtesticles,lickingnipple,suckingnipple,rubbingpenisagainstface,3pp_cunnilingus,3pp_kissfellatio1,3pp_kissfellatio2,3pp_lickingpenis");
+				x.actionKiss = SplitCSV("kissing,frenchkissing,kissingcheek,kissinghand,kissingfoot,kissingneck,3pp_kissing");
+				x.actionVaginal = SplitCSV("vaginalsex,vaginalfingering,vaginalfisting,vaginaltoying,tribbing,rubbingclitoris,grindingpenis,grindingthigh,3pp_vaginalfingering");
+				x.actionAnal = SplitCSV("analsex,analfingering,analfisting,analtoying,buttjob");
+				x.actionPenetration = x.actionVaginal;
+				x.actionPenetration.insert(x.actionPenetration.end(), x.actionAnal.begin(), x.actionAnal.end());
+				x.actionAnySignal = x.actionOral;
+				for (auto* l : { &x.actionKiss, &x.actionVaginal, &x.actionAnal }) x.actionAnySignal.insert(x.actionAnySignal.end(), l->begin(), l->end());
+				x.tagOralAction = SplitCSV("oral,blowjob,deepthroat,cunnilingus,anilingus,rimjob,facefuck,fellatio,mouth");
+				x.tagRough = SplitCSV("rough,forced,forceful,aggressive,aggressor,nonconsensual,rape,domination");
+				x.tagLoving = SplitCSV("loving,romance,romantic,tender,passionate");
+				x.tagSub = SplitCSV("victim,submissive,sub,bottom,receiving,passive");
+				x.tagDom = SplitCSV("aggressor,dominant,dom,top,giving,active");
+				x.deepthroat = SplitCSV("deepthroat");
+				return x;
+			}();
+			return tags;
+		}
+
+		float StyleValue() { return ClampF(S::fStyle, 0.0f, 2.0f); }
+		float StyleAmp() { return 1.0f + StyleValue() * 0.10f; }
+		float EyeScale() { return ClampF(S::fEyeStrength * (1.0f + StyleValue() * 0.25f), 0.10f, 1.25f); }
+		float BrowScale() { return ClampF(0.70f + EyeScale() * 0.30f, 0.55f, 1.10f); }
+		int EyeValue(int v) { return ClampI(static_cast<int>(static_cast<float>(v) * EyeScale()), 0, 95); }
+		int BrowValue(int v) { return ClampI(static_cast<int>(static_cast<float>(v) * BrowScale()), 0, 95); }
+
+		float ProfileScale()
+		{
+			if (S::iProfile == 0) return 0.7f;
+			if (S::iProfile == 2) return 1.3f;
+			return 1.0f;
+		}
+
+		float MouthGate() { return S::bBreathing ? 0.0f : 1.0f; }
+
+		void SetMod(RE::Actor* a, int presetIndex, int value, float speed)
+		{
+			// OSED 2.0 passed Mfg *preset* indices (16-29) here, which SetModifier ignores.
+			Output::SetModifier(a, presetIndex - 16, static_cast<float>(value) / 100.0f, speed);
+		}
+
+		void SetPh(RE::Actor* a, int id, int value, float speed)
+		{
+			Output::SetPhoneme(a, id, static_cast<float>(value) / 100.0f, speed);
+		}
+
+		void ResetPh(RE::Actor* a, float speed) { Output::ResetPhonemes(a, speed); }
+
+		int Raw(RE::Actor* a) { return ClampI(Excitement(a), 0, 130); }
+
+		int Seed(RE::Actor* a)
+		{
+			auto* b = a ? a->GetActorBase() : nullptr;
+			return b ? static_cast<int>(b->GetFormID() % 100) : 0;
+		}
+
+		float PersonalityMod(int seed) { return 0.8f + static_cast<float>(seed % 5) * 0.1f; }
+
+		int ActorSex(RE::Actor* a)
+		{
+			auto* b = a ? a->GetActorBase() : nullptr;
+			return b && b->GetSex() == RE::SEX::kFemale ? 1 : 0;
+		}
+
+		bool IsNude(RE::Actor* a)
+		{
+			using Slot_ = RE::BGSBipedObjectForm::BipedObjectSlot;
+			return !a->GetWornArmor(Slot_::kBody) && !a->GetWornArmor(Slot_::kFeet);
+		}
+
+		bool IsGagClosed(RE::Actor* a)
+		{
+			if (!g_kGag) return false;
+			return WornHasKeyword(a, g_kGag) || WornHasKeyword(a, g_kGagPlate) || WornHasKeyword(a, g_kGagLarge);
+		}
+
+		bool IsGagRing(RE::Actor* a) { return g_kGagRing && WornHasKeyword(a, g_kGagRing); }
+
+		bool IsBlind(RE::Actor* a)
+		{
+			if (!g_kBlind) return false;
+			return WornHasKeyword(a, g_kBlind) || WornHasKeyword(a, g_kHood);
+		}
+
+		int RelationshipRank(RE::Actor* a, RE::Actor* b)
+		{
+			auto* na = a ? a->GetActorBase() : nullptr;
+			auto* nb = b ? b->GetActorBase() : nullptr;
+			if (!na || !nb) return 0;
+			auto* rel = RE::BGSRelationship::GetRelationship(na, nb);
+			if (!rel) return 0;
+			// kLover(0) .. kArchnemesis(8) map to Papyrus ranks 4 .. -4.
+			return 4 - static_cast<int>(rel->level.get());
+		}
+
+		bool NaturalGazeAngle(RE::Actor* a, RE::Actor* target)
+		{
+			if (!a || !target) return false;
+			return std::abs(a->GetHeadingAngle(target->GetPosition(), false)) <= 75.0f;
+		}
+
+		bool OBlushLikely(RE::Actor* a, int raw)
+		{
+			if (!S::bOBlushSync || !a || !g_oblush) return false;
+			if (g_oblushEnable && g_oblushEnable->value <= 0.0f) return false;
+			const int sex = ActorSex(a);
+			if (sex == 1 && g_oblushFemale && g_oblushFemale->value <= 0.0f) return false;
+			if (sex == 0 && g_oblushMale && g_oblushMale->value <= 0.0f) return false;
+			const float minv = g_oblushMin ? g_oblushMin->value : 45.0f;
+			const float maxv = g_oblushMax ? g_oblushMax->value : 100.0f;
+			return raw >= static_cast<int>(minv) && raw <= static_cast<int>(maxv);
+		}
+
+		float SceneTime(const Thread& t)
+		{
+			if (t.start <= 0.0f) return 0.0f;
+			return std::max(0.0f, Scenes::Now() - t.start);
+		}
+
+		int EffectiveIntensity(Thread& t, RE::Actor* a)
+		{
+			int enj = Raw(a);
+			if (t.leadin) enj = (enj * 4) / 10;
+			if (S::bPaceBoost) {
+				const int boost = std::min(t.stageSeq * 4, 25);
+				int velocity = 0;
+				if (S::bSpeedSync && t.maxSpeed > 0) velocity = ClampI((t.speed * 18) / t.maxSpeed, 0, 18);
+				enj += boost + velocity;
+			}
+			return ClampI(enj, 0, 130);
+		}
+
+		int PickSeed(Thread& t, int seed, int n)
+		{
+			int v = (seed + RandInt(0, n - 1)) % n;
+			if (v == t.lastVariant && n > 1) v = (v + 1) % n;
+			t.lastVariant = v;
+			return v;
+		}
+
+		bool ActorHasAnyAction(Thread& t, const Slot& s, const TagList& types)
+		{
+			if (!t.meta || s.pos < 0) return false;
+			const auto& m = *t.meta;
+			return OStimData::FindAnyActionForActor(m, s.pos, types) >= 0 || OStimData::FindAnyActionForTarget(m, s.pos, types) >= 0 ||
+			       OStimData::FindAnyActionForPerformer(m, s.pos, types) >= 0;
+		}
+
+		bool SceneHasAnyAction(Thread& t, const TagList& types)
+		{
+			return t.meta && OStimData::FindAnyAction(*t.meta, types) >= 0;
+		}
+
+		bool ActorHasActionTagAsActor(Thread& t, const Slot& s, const TagList& tags)
+		{
+			return t.meta && s.pos >= 0 && OStimData::FindActionTaggedForActor(*t.meta, s.pos, tags) >= 0;
+		}
+
+		bool ActorHasActionTagAsTarget(Thread& t, const Slot& s, const TagList& tags)
+		{
+			return t.meta && s.pos >= 0 && OStimData::FindActionTaggedForTarget(*t.meta, s.pos, tags) >= 0;
+		}
+
+		bool HasOralSceneTag(Thread& t)
+		{
+			if (!t.meta) return false;
+			const auto& m = *t.meta;
+			return OStimData::HasAnySceneTag(m, T().tagOralAction) || OStimData::HasAnyActionTagOnAny(m, T().tagOralAction) ||
+			       OStimData::FindAnyAction(m, T().actionOral) >= 0;
+		}
+
+		RE::Actor* PartnerFromAction(Thread& t, const Slot& s, const TagList& types)
+		{
+			if (!t.meta || s.pos < 0) return nullptr;
+			const auto& m = *t.meta;
+			auto byPos = [&](int pos) -> RE::Actor* {
+				auto* p = t.FindPos(pos);
+				return p ? p->Get() : nullptr;
+			};
+			if (int i = OStimData::FindAnyActionForActor(m, s.pos, types); i >= 0) return byPos(m.actions[i].target);
+			if (int i = OStimData::FindAnyActionForTarget(m, s.pos, types); i >= 0) return byPos(m.actions[i].actor);
+			if (int i = OStimData::FindAnyActionForPerformer(m, s.pos, types); i >= 0) {
+				auto* p = byPos(m.actions[i].actor);
+				if (p && p != s.Get()) return p;
+				return byPos(m.actions[i].target);
+			}
+			return nullptr;
+		}
+
+		RE::Actor* PrimaryPartner(Thread& t, const Slot& s)
+		{
+			RE::Actor* self = s.Get();
+			for (const auto* list : { &T().actionKiss, &T().actionVaginal, &T().actionAnal, &T().actionOral }) {
+				if (auto* p = PartnerFromAction(t, s, *list); p && p != self) return p;
+			}
+			for (auto& o : t.slots) {
+				auto* p = o.Get();
+				if (p && p != self) return p;
+			}
+			return nullptr;
+		}
+
+		int ActRole(Thread& t, Slot& s, RE::Actor* a)
+		{
+			if (!S::bActTypeAware || !S::bRoleMetadata) return 0;
+			if (MouthYielded(t, s, a)) return 1;
+			if (ActorHasAnyAction(t, s, T().actionKiss)) return 2;
+			if (ActorHasAnyAction(t, s, T().actionVaginal) || ActorHasAnyAction(t, s, T().actionAnal)) return 3;
+			return 0;
+		}
+
+		int PositionRole(Thread& t, const Slot& s)
+		{
+			if (!S::bRoleMetadata || s.pos < 0 || !t.meta) return 0;
+			const auto& m = *t.meta;
+			if (OStimData::HasAnyActorTag(m, s.pos, T().tagDom)) return 1;
+			if (OStimData::HasAnyActorTag(m, s.pos, T().tagSub)) return -1;
+			int dom = 0;
+			int sub = 0;
+			if (OStimData::FindAnyActionForActor(m, s.pos, T().actionPenetration) >= 0) ++dom;
+			if (OStimData::FindAnyActionForTarget(m, s.pos, T().actionPenetration) >= 0) ++sub;
+			if (OStimData::FindAnyActionForActor(m, s.pos, T().actionOral) >= 0) ++sub;
+			if (ActorHasActionTagAsActor(t, s, T().tagOralAction)) ++sub;
+			if (OStimData::FindAnyActionForTarget(m, s.pos, T().actionOral) >= 0) ++dom;
+			if (ActorHasActionTagAsTarget(t, s, T().tagOralAction)) ++dom;
+			if (dom > sub) return 1;
+			if (sub > dom) return -1;
+			return 0;
+		}
+
+		bool IsSubmissive(Thread& t, const Slot& s)
+		{
+			if (!S::bAggressorGrammar) return false;
+			if (t.meta && s.pos >= 0) {
+				if (OStimData::HasAnyActorTag(*t.meta, s.pos, T().tagSub)) return true;
+				if (OStimData::HasAnyActorTag(*t.meta, s.pos, T().tagDom)) return false;
+			}
+			return t.toneRough && PositionRole(t, s) < 0;
+		}
+
+		bool ActorIsOralMouthActor(Thread& t, const Slot& s)
+		{
+			if (!t.meta || s.pos < 0) return false;
+			const auto& m = *t.meta;
+			return OStimData::FindAnyActionForActor(m, s.pos, T().actionOral) >= 0 || ActorHasActionTagAsActor(t, s, T().tagOralAction) ||
+			       (t.sceneOral && OStimData::HasAnyActorTag(m, s.pos, T().tagOralAction)) ||
+			       (t.sceneOral && t.PaintedCount() <= 2 && HasOralSceneTag(t));
+		}
+
+		bool DialogueMouthYielded(Thread& t, RE::Actor* a)
+		{
+			if (!S::bDialogueMouthYield || !a) return false;
+			// Mfg's IsInDialogue: the face is currently playing dialogue lip data.
+			if (auto* fg = a->GetFaceGenAnimationData(); fg && fg->dialogueData) return true;
+			if (auto* mtm = RE::MenuTopicManager::GetSingleton()) {
+				auto speaker = mtm->speaker.get();
+				if (speaker && speaker.get() == a) return true;
+			}
+			return t.dialogueMenuOpen;
+		}
+
+		bool HeadCommittedToAnimation(Thread& t, Slot& s, RE::Actor* a)
+		{
+			if (!a || !t.active) return false;
+			if (DialogueMouthYielded(t, a)) return true;
+			if (s.exprOverride) return true;
+			return ActorIsOralMouthActor(t, s);
+		}
+
+		bool LipSyncMouthActive(Slot& s, RE::Actor* a)
+		{
+			if (s.externalMouthUntil > Scenes::Now()) return true;
+			return Output::HasMouthOverride(a);
+		}
+
+		std::string MouthOwnerLabel(Thread& t, Slot& s, RE::Actor* a, bool yielded)
+		{
+			if (!yielded) return "OStim mouth";
+			if (LipSyncMouthActive(s, a)) return "Lip-Sync";
+			if (AhegaoYield()) return "Ahegao mod";
+			if (DialogueMouthYielded(t, a)) return "Dialogue/lip-sync";
+			if (s.exprOverride) return "OStim override";
+			return "Oral action";
+		}
+
+		int SelectDominant(Thread& t, int enj, int raw)
+		{
+			using namespace Scenes;
+			if (S::bHardExclusionGate && !t.consent) return kDistress;
+			if (t.orgasm && raw >= 90) return kClimax;
+			if (t.afterglow > 0) return kAfterglow;
+			if (!t.consent) return kDistress;
+			if (t.leadin || enj < 25) return kAnticipation;
+			if (S::bNaturalDetail && t.plateau >= 3) return kPlateau;
+			return kPleasure;
+		}
+
+		int PhrasePhase(Thread& t, int idx, int enjEff)
+		{
+			if (!S::bPhraseGrammar) return 1;
+			int offset = idx;
+			if (S::bGroupConductor && t.PaintedCount() >= 3) offset += (idx * 2) + ((idx + t.lastVariant + 5) % 3);
+			return std::max(0, (t.tick + offset + (enjEff / 35)) % 5);
+		}
+
+		int ScenarioCode(Thread& t, int dom, int enjEff, int /*role*/, int tone, int posRole)
+		{
+			using namespace Scenes;
+			if (!S::bScenarioCycler) return 0;
+			if (dom == kAfterglow) return 8;
+			if (dom == kClimax) return 4;
+			if (dom == kDistress) return 7;
+			if (t.leadin || dom == kAnticipation) return 0;
+			if (tone == 5) return 9;
+			if (enjEff >= 88) return 3;
+			if (enjEff >= 72) return 2;
+			if (posRole == -1 && enjEff >= 60) return 6;
+			if (enjEff >= 45) return 1;
+			return 5;
+		}
+
+		const char* ScenarioName(int scenario)
+		{
+			static constexpr std::array names{ "Entry", "Active", "Intense", "Near peak", "Peak", "Breathing", "Wanting", "Brace", "Ending", "Detached" };
+			return scenario >= 0 && scenario < static_cast<int>(names.size()) ? names[scenario] : "Entry";
+		}
+
+		const char* DomName(int dom)
+		{
+			static constexpr std::array names{ "Anticipation", "Pleasure", "Plateau", "Distress", "Climax", "Afterglow" };
+			return dom >= 0 && dom < static_cast<int>(names.size()) ? names[dom] : "Pleasure";
+		}
+
+		bool AhegaoYield() { return S::bAhegaoModYield; }
+
+		void SetOwners(Slot& s, std::string face, std::string mouth, std::string eye, std::string head)
+		{
+			s.faceOwner = std::move(face);
+			s.mouthOwner = std::move(mouth);
+			s.eyeOwner = std::move(eye);
+			s.headOwner = std::move(head);
+		}
+
+		void PulseActor(Thread& t, Slot& s, RE::Actor* a, int dom, int phrase, int enj)
+		{
+			Pulse::Beat b;
+			b.actor = a;
+			b.thread = t.id;
+			b.enj = enj;
+			b.raw = Raw(a);
+			b.dom = dom;
+			b.phrase = phrase;
+			b.consent = t.consent;
+			b.yieldMouth = MouthYielded(t, s, a);
+			b.orgasm = t.orgasm;
+			b.sceneTime = SceneTime(t);
+			s.enj = enj;
+			s.raw = b.raw;
+			s.phrase = phrase;
+			Pulse::Paint(b);
+			if (s.lastPhrase != phrase) {
+				Pulse::PhraseChanged(b);
+				s.lastPhrase = phrase;
+			}
+			if (s.lastPulseDom != dom) {
+				Pulse::DomChanged(b, s.lastPulseDom);
+				s.lastPulseDom = dom;
+			}
+			s.dom = dom;
+		}
+	}
+
+	// ------------------------------------------------------------------ public
+	void OnDataLoaded()
+	{
+		g_ostim = HasPlugin("OStim.esp");
+		g_excitement = Lookup<RE::TESFaction>(0xD93, "OStim.esp");
+		g_climaxed = Lookup<RE::TESFaction>(0xE49, "OStim.esp");
+		g_kHuman = Lookup<RE::BGSKeyword>(0x13794, "Skyrim.esm");
+		if (HasPlugin("OStimExpressionDirector_Keywords.esp")) {
+			g_kStoic = Lookup<RE::BGSKeyword>(0x800, "OStimExpressionDirector_Keywords.esp");
+			g_kVocal = Lookup<RE::BGSKeyword>(0x801, "OStimExpressionDirector_Keywords.esp");
+			g_kShy = Lookup<RE::BGSKeyword>(0x802, "OStimExpressionDirector_Keywords.esp");
+			g_kDominant = Lookup<RE::BGSKeyword>(0x803, "OStimExpressionDirector_Keywords.esp");
+		}
+		if (HasPlugin("Devious Devices - Assets.esm")) {
+			g_kGag = Lookup<RE::BGSKeyword>(0x007EB8, "Devious Devices - Assets.esm");
+			g_kGagPlate = Lookup<RE::BGSKeyword>(0x01F306, "Devious Devices - Assets.esm");
+			g_kBlind = Lookup<RE::BGSKeyword>(0x011B1A, "Devious Devices - Assets.esm");
+			g_kHood = Lookup<RE::BGSKeyword>(0x02AFA2, "Devious Devices - Assets.esm");
+		}
+		if (HasPlugin("Devious Devices - Integration.esm")) {
+			g_kGagLarge = Lookup<RE::BGSKeyword>(0x0840F7, "Devious Devices - Integration.esm");
+			g_kGagRing = Lookup<RE::BGSKeyword>(0x08C854, "Devious Devices - Integration.esm");
+		}
+		g_oblush = HasPlugin("OBlush.esp");
+		if (g_oblush) {
+			g_oblushEnable = Lookup<RE::TESGlobal>(0x800, "OBlush.esp");
+			g_oblushMin = Lookup<RE::TESGlobal>(0x802, "OBlush.esp");
+			g_oblushMax = Lookup<RE::TESGlobal>(0x803, "OBlush.esp");
+			g_oblushMale = Lookup<RE::TESGlobal>(0x804, "OBlush.esp");
+			g_oblushFemale = Lookup<RE::TESGlobal>(0x807, "OBlush.esp");
+		}
+		std::string found;
+		if (HasPlugin("AhegaoExpressions.esp")) found = "Ahegao Expressions";
+		if (HasPlugin("OAhegao.esp") || HasPlugin("OAhegaoNG.esp")) found += found.empty() ? "OAhegao" : ", OAhegao";
+		g_ahegaoFound = found.empty() ? "none detected" : found;
+		logger::info("Face engine: OStim {}, excitement faction {}, OBlush {}, Devious Devices {}, ahegao mods: {}",
+			g_ostim, g_excitement != nullptr, g_oblush, g_kGag != nullptr, g_ahegaoFound);
+	}
+
+	bool OStimPresent() { return g_ostim; }
+	bool OBlushPresent() { return g_oblush; }
+	bool DevicesPresent() { return g_kGag != nullptr; }
+
+	std::string AhegaoStatus()
+	{
+		return std::string(S::bAhegaoModYield ? "Yield ON: " : "Yield OFF: ") + g_ahegaoFound;
+	}
+
+	float StyleValue() { return detail::StyleValue(); }
+
+	bool IsHuman(RE::Actor* a)
+	{
+		if (!a) return false;
+		if (!g_kHuman) return true;  // never wrongly exclude
+		return a->HasKeyword(g_kHuman);
+	}
+
+	int Excitement(RE::Actor* a)
+	{
+		if (!a || !g_excitement) return 0;
+		return std::max(0, static_cast<int>(a->GetFactionRank(g_excitement, a->IsPlayerRef())));
+	}
+
+	int TimesClimaxed(RE::Actor* a)
+	{
+		if (!a || !g_climaxed) return 0;
+		return std::max(0, static_cast<int>(a->GetFactionRank(g_climaxed, a->IsPlayerRef())));
+	}
+
+	bool MouthYielded(Thread& t, Slot& s, RE::Actor* a)
+	{
+		if (!t.active || !a) return false;
+		if (LipSyncMouthActive(s, a)) return true;
+		if (S::bDialogueMouthYield && DialogueMouthYielded(t, a)) return true;
+		if (!S::bYieldOralMouth) return false;
+		if (s.exprOverride) return true;
+		if (!t.meta || !S::bRoleMetadata || s.pos < 0) return false;
+		const auto& m = *t.meta;
+		if (OStimData::FindAnyActionForActor(m, s.pos, T().actionOral) >= 0) return true;
+		if (ActorHasActionTagAsActor(t, s, T().tagOralAction)) return true;
+		if (t.sceneOral && OStimData::HasAnyActorTag(m, s.pos, T().tagOralAction)) return true;
+		if (t.sceneOral && t.PaintedCount() <= 2 && HasOralSceneTag(t)) return true;
+		return false;
+	}
+
+	// ---- personality
+	int Archetype(RE::Actor* a, std::string* source)
+	{
+		auto src = [&](const char* s) {
+			if (source) *source = s;
+		};
+		if (!a) {
+			src("Unavailable");
+			return 0;
+		}
+		std::scoped_lock l(Settings::lock);
+		if (a->IsPlayerRef() && S::iPlayerPersonality >= 0 && S::iPlayerPersonality <= 4) {
+			src("Player set");
+			return S::iPlayerPersonality;
+		}
+		if (int o = GetNpcPersonality(a); o >= 0 && o <= 4) {
+			src("Player set (NPC)");
+			return o;
+		}
+		if (int sp = SPIDArchetype(a); sp >= 0) {
+			src("SPID");
+			return sp;
+		}
+		if (g_kStoic && a->HasKeyword(g_kStoic)) return src("Keyword"), 1;
+		if (g_kVocal && a->HasKeyword(g_kVocal)) return src("Keyword"), 2;
+		if (g_kShy && a->HasKeyword(g_kShy)) return src("Keyword"), 3;
+		if (g_kDominant && a->HasKeyword(g_kDominant)) return src("Keyword"), 4;
+		if (S::bVoiceArchetype) {
+			if (int va = VoiceArchetype(a); va >= 0) {
+				src("Voice");
+				return va;
+			}
+		}
+		if (int v = VanillaAIPersonality(a); v >= 0) {
+			src("Vanilla AI");
+			return v;
+		}
+		src("Seed");
+		return Seed(a) % 5;
+	}
+
+	const char* PersonalityName(int arch)
+	{
+		switch (arch) {
+		case 1: return "Stoic";
+		case 2: return "Vocal";
+		case 3: return "Shy";
+		case 4: return "Dominant";
+		default: return "Balanced";
+		}
+	}
+
+	int GetNpcPersonality(RE::Actor* a)
+	{
+		if (!a) return -1;
+		std::scoped_lock l(g_dataLock);
+		auto it = g_npcPersonality.find(a->GetFormID());
+		return it != g_npcPersonality.end() ? it->second : -1;
+	}
+
+	void SetNpcPersonality(RE::Actor* a, int arch)
+	{
+		if (!a || a->IsPlayerRef() || !IsHuman(a) || a->IsChild()) return;
+		std::scoped_lock l(g_dataLock);
+		if (arch < 0) g_npcPersonality.erase(a->GetFormID());
+		else g_npcPersonality[a->GetFormID()] = ClampI(arch, 0, 4);
+	}
+
+	std::unordered_map<RE::FormID, int> NpcPersonalities()
+	{
+		std::scoped_lock l(g_dataLock);
+		return g_npcPersonality;
+	}
+
+	void SetNpcPersonalities(std::unordered_map<RE::FormID, int> m)
+	{
+		std::scoped_lock l(g_dataLock);
+		g_npcPersonality = std::move(m);
+	}
+
+	// ---- OStim face writer ownership
+	void ReleaseOStimFace(Slot& s, RE::Actor* a)
+	{
+		if (AhegaoYield() || !g_ostim || !a || s.takenOver) return;
+		Papyrus::SetExpressionsEnabled(a, false, true);
+		s.takenOver = true;
+		std::scoped_lock l(g_dataLock);
+		g_takenOver.insert(a->GetFormID());
+	}
+
+	void RestoreOStimFace(Slot& s, RE::Actor* a)
+	{
+		if (!s.takenOver || !a) return;
+		if (g_ostim) Papyrus::SetExpressionsEnabled(a, true, true);
+		s.takenOver = false;
+		std::scoped_lock l(g_dataLock);
+		g_takenOver.erase(a->GetFormID());
+	}
+
+	void RestorePersistedTakeovers()
+	{
+		std::vector<RE::FormID> ids;
+		{
+			std::scoped_lock l(g_dataLock);
+			ids.assign(g_takenOver.begin(), g_takenOver.end());
+			g_takenOver.clear();
+		}
+		if (!g_ostim) return;
+		for (auto id : ids) {
+			if (auto* a = RE::TESForm::LookupByID<RE::Actor>(id)) Papyrus::SetExpressionsEnabled(a, true, true);
+		}
+		if (!ids.empty()) logger::info("Restored OStim's face writer for {} actor(s)", ids.size());
+	}
+
+	std::vector<RE::FormID> TakenOverIDs()
+	{
+		std::scoped_lock l(g_dataLock);
+		return { g_takenOver.begin(), g_takenOver.end() };
+	}
+
+	void SetTakenOverIDs(std::vector<RE::FormID> ids)
+	{
+		std::scoped_lock l(g_dataLock);
+		g_takenOver = { ids.begin(), ids.end() };
+	}
+
+	// ---- lifecycle
+	void RefreshDerived(Thread& t, bool sceneChanged)
+	{
+		std::scoped_lock l(Settings::lock);
+		if (t.meta) {
+			t.maxSpeed = t.meta->maxSpeed > 0 ? t.meta->maxSpeed : (t.meta->defaultSpeed > 0 ? t.meta->defaultSpeed : 4);
+		}
+		if (t.normalPreWindow && t.meta && SceneHasAnimationSignal(*t.meta)) {
+			t.normalAnimStarted = true;
+			t.normalPreWindow = false;
+			t.normalProbe = "animation-start";
+		}
+		if (sceneChanged) {
+			++t.stageSeq;
+			t.sceneOral = HasOralSceneTag(t);
+		}
+		t.toneRough = t.meta && OStimData::HasAnySceneTag(*t.meta, T().tagRough);
+		t.toneLoving = t.meta && OStimData::HasAnySceneTag(*t.meta, T().tagLoving);
+		t.consent = !(t.toneRough && S::bAggressorGrammar);
+		UpdateNormalStateFlag(t, sceneChanged);
+	}
+
+	float TickInterval(const Thread& t)
+	{
+		std::scoped_lock l(Settings::lock);
+		if (S::bBreathing || S::bTongueLife || OSEDNeedsFastTick(t)) return 0.8f;
+		float base = S::fBaseInterval;
+		if (t.sceneOral && S::bYieldOralMouth) base *= 1.75f;
+		return ClampF(base + RandFloat(-S::fIntervalJitter, S::fIntervalJitter), 1.0f, 12.0f);
+	}
+
+	void OnThreadReady(Thread& t)
+	{
+		std::scoped_lock l(Settings::lock);
+		for (auto& s : t.slots) {
+			if (auto* a = s.Get()) RequestVoiceName(a);
+		}
+		t.sceneOral = HasOralSceneTag(t);
+		UpdateNormalStateFlag(t, true);
+		logger::debug("thread {} ready: scene={} actors={} player={}", t.id, t.sceneID, t.slots.size(), t.hasPlayer);
+		ApplyAll(t, true);
+		t.nextTick = Scenes::Now() + TickInterval(t);
+	}
+
+	void OnSceneChanged(Thread& t)
+	{
+		std::scoped_lock l(Settings::lock);
+		RefreshDerived(t, true);
+		t.gasp = true;
+		ApplyAll(t, true);
+		t.gasp = false;
+	}
+
+	void OnOrgasm(Thread& t, RE::Actor* a)
+	{
+		std::scoped_lock l(Settings::lock);
+		if (!t.Find(a)) return;
+		Pulse::Climax(a, t.id);
+		t.orgasm = true;
+		t.orgTicks = 0;
+		const int c = TimesClimaxed(a);
+		t.orgCount = c > t.orgCount ? c : t.orgCount + 1;
+		ApplyAll(t, true);
+	}
+
+	void OnTick(Thread& t)
+	{
+		std::scoped_lock l(Settings::lock);
+		if (!t.active) return;
+		RefreshDerived(t, false);
+		++t.tick;
+		if (t.leadin && SceneTime(t) > 3.0f) t.leadin = false;
+		if (t.orgasm) {
+			if (++t.orgTicks > 4) {
+				t.orgasm = false;
+				if (S::bCinematic) t.afterglow = 5;
+				ClearGazeAll(t);
+			}
+		}
+		ApplyAll(t, (t.tick % ArcEvery(t)) == 0);
+		t.nextTick = Scenes::Now() + TickInterval(t);
+	}
+
+	void EndScene(Thread& t)
+	{
+		std::scoped_lock l(Settings::lock);
+		for (auto& s : t.slots) {
+			auto* a = s.Get();
+			if (!a) continue;
+			Pulse::ClearActor(a, t.id);
+			ClearOSEDPrototypeActor(s, a);
+			ClearLook(a);
+			Output::Release(a, 0.6f);
+			RestoreOStimFace(s, a);
+			if (auto m = s.marker.get()) {
+				m->Disable();
+				m->SetDelete(true);
+			}
+			s.marker.reset();
+		}
+		if (t.hasPlayer) ClearWatcherTrialActor();
+		t.active = false;
+		Pulse::SceneEnd(t.id);
+		logger::debug("thread {} ended", t.id);
+	}
+
+	void StoreHint(RE::Actor* a, std::string_view kind, int strength)
+	{
+		auto* t = Scenes::ThreadOf(a);
+		auto* s = t ? t->Find(a) : nullptr;
+		if (!s) return;
+		s->hintKind = std::string(kind);
+		s->hintStrength = ClampF(static_cast<float>(strength) / 100.0f, 0.0f, 1.0f);
+		s->hintUntil = Scenes::Now() + 20.0f;
+	}
+
+	void SetExternalMouth(RE::Actor* a, float until)
+	{
+		auto* t = Scenes::ThreadOf(a);
+		auto* s = t ? t->Find(a) : nullptr;
+		if (s) s->externalMouthUntil = until;
+	}
+
+	void TestOnActor(RE::Actor* a)
+	{
+		if (!a) return;
+		std::scoped_lock l(Settings::lock);
+		// A throwaway thread so the grammar has somewhere to keep its state.
+		Thread t;
+		t.id = -100;
+		t.active = true;
+		t.start = Scenes::Now() - 30.0f;
+		t.normalAnimStarted = true;
+		Slot s;
+		s.handle = a->GetHandle();
+		s.id = a->GetFormID();
+		s.painted = true;
+		t.slots.push_back(s);
+		auto& slot = t.slots.front();
+		if (detail::StyleValue() >= 1.5f) {
+			ApplyOSEDAnimeAccent(t, slot, a, 95, false);
+		} else if (S::iMode != S::kDirector) {
+			ApplyOSEDLayerArc(t, slot, a, 0, false);
+		} else {
+			std::array<float, 32> e{};
+			e[0] = 0.0f;
+			e[11] = 0.4f;
+			e[22] = e[23] = 0.4f;
+			e[28] = e[29] = 0.5f;
+			e[30] = 12.0f;
+			e[31] = 0.6f;
+			Output::ApplyPreset(a, e, false, S::fGlobalStrength * ProfileScale(), S::fGlobalStrength, S::fGlobalStrength, S::fTransition);
+		}
+	}
+}

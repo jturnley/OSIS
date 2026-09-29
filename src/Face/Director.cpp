@@ -1,0 +1,816 @@
+// The Director: OSExpressionFaces.ApplyArc and its helpers. In OSED 2.0 this was the
+// dormant "mode 2" face writer (it fought OStim's face updater on a 3 s Papyrus tick and
+// every eye/brow write went to a wrong Mfg id). With per-frame output it is the default.
+
+#include "Face/Internal.h"
+
+#include "Papyrus.h"
+#include "Pulse.h"
+
+namespace Face::Engine::detail
+{
+	using namespace Scenes;
+	using Preset = std::array<float, 32>;
+
+	namespace
+	{
+		void Add(Preset& e, int i, float d, float hi = 1.0f) { e[i] = ClampF(e[i] + d, 0.0f, hi); }
+		void Add2(Preset& e, int i, float d) { Add(e, i, d), Add(e, i + 1, d); }
+		void Mul(Preset& e, int i, float k) { e[i] = e[i] * k; }
+
+		Preset Build(int mood, float moodStr, float aah, float oh, float squint, float browUp, float browIn, float browDown)
+		{
+			Preset e{};
+			e[0] = aah;
+			e[11] = oh;
+			e[18] = e[19] = browDown;
+			e[20] = e[21] = browIn;
+			e[22] = e[23] = browUp;
+			e[28] = e[29] = squint;
+			e[30] = static_cast<float>(mood);
+			e[31] = moodStr;
+			return e;
+		}
+
+		float RoleSq(int enj) { return ClampF(static_cast<float>(enj) / 400.0f, 0.0f, 0.25f); }
+
+		int ArchTempo(int arch)
+		{
+			if (arch == 2) return 12;
+			if (arch == 1) return -12;
+			return 0;
+		}
+
+		float ArchStrength(int arch)
+		{
+			if (arch == 1) return 0.7f;
+			if (arch == 2) return 1.25f;
+			if (arch == 4) return 1.1f;
+			return 1.0f;
+		}
+
+		// The only mood-setter + base shape for the chosen dominant state.
+		Preset BasePreset(Thread& t, int dom, int enj, bool sub, int seed, int role, int tone)
+		{
+			const float m = MouthGate();
+			if (dom == kClimax) {
+				auto e = Build(12, 1.0f, 0.6f * m, 0.4f * m, 0.75f, 0.65f, 0.0f, 0.0f);
+				if (S::bClimaxChoreo) {
+					if (t.orgTicks <= 0) {
+						e[28] = e[29] = 0.85f;  // tension: hard squint
+					} else if (t.orgTicks == 1) {
+						e[27] = 0.6f;  // eyes roll up at the peak
+						e[22] = e[23] = 0.8f;
+					}
+					if (t.orgCount >= 2) {  // oversensitive: each climax hits harder
+						const float over = ClampF(static_cast<float>(t.orgCount - 1) * 0.12f, 0.0f, 0.35f);
+						Add2(e, 28, over);
+						Add2(e, 20, over);
+					}
+				}
+				if (!t.consent) {  // forced climax: fear-tinged
+					e[30] = 9.0f;
+					Add2(e, 20, 0.20f);
+				}
+				return e;
+			}
+			if (dom == kAfterglow) return Build(10, 0.35f, 0.10f * m, 0.0f, 0.45f, 0.20f, 0.0f, 0.0f);
+			if (dom == kDistress) {
+				if (sub) {
+					if (enj >= 90) return Build(9, 0.85f, 0.55f * m, 0.0f, 0.65f, 0.30f, 0.55f, 0.45f);
+					if (enj < 45) return Build(11, 0.45f, 0.10f * m, 0.0f, 0.35f, 0.10f, 0.55f, 0.40f);
+					return Build(9, 0.60f, 0.30f * m, 0.0f, 0.55f, 0.20f, 0.55f, 0.45f);
+				}
+				if (enj >= 90) return Build(8, 0.70f, 0.0f, 0.50f * m, 0.55f, 0.0f, 0.45f, 0.50f);
+				return Build(8, 0.45f, 0.0f, 0.25f * m, 0.45f, 0.0f, 0.35f, 0.40f);
+			}
+			if (dom == kPlateau) return Build(8, 0.40f, 0.20f * m, 0.0f, 0.55f, 0.45f, 0.30f, 0.20f);
+			if (dom == kAnticipation) return Build(7, 0.30f, 0.10f * m, 0.0f, 0.15f, 0.10f, 0.0f, 0.0f);
+
+			// kPleasure: consensual arc by interaction role + enjoyment phase
+			if (role == 1) return Build(7, 0.45f, 0.0f, 0.0f, 0.45f + RoleSq(enj), 0.30f, 0.20f, 0.0f);
+			if (role == 2) return Build(10, 0.45f, 0.0f, 0.0f, 0.30f, 0.30f, 0.0f, 0.0f);
+			switch (tone) {
+			case 1: return Build(10, 0.50f, 0.20f * m, 0.0f, 0.30f, 0.30f, 0.0f, 0.0f);   // tender
+			case 2: return Build(12, 0.65f, 0.50f * m, 0.0f, 0.50f, 0.45f, 0.0f, 0.0f);   // lust
+			case 3: return Build(10, 0.45f, 0.10f * m, 0.0f, 0.45f, 0.30f, 0.0f, 0.0f);   // playful / pride
+			case 4: return Build(10, 0.55f, 0.25f * m, 0.0f, 0.60f, 0.35f, 0.0f, 0.0f);   // surrender
+			case 5: return Build(7, 0.20f, 0.05f * m, 0.0f, 0.15f, 0.05f, 0.0f, 0.0f);    // detached
+			default: break;
+			}
+			if (enj < 50) {
+				if (PickSeed(t, seed, 2) == 0) return Build(10, 0.40f, 0.25f * m, 0.0f, 0.30f, 0.25f, 0.0f, 0.0f);
+				return Build(12, 0.35f, 0.0f, 0.20f * m, 0.25f, 0.30f, 0.0f, 0.0f);
+			}
+			if (enj < 80) {
+				const float extra = role == 3 ? 0.10f : 0.0f;
+				if (PickSeed(t, seed, 2) == 0) return Build(10, 0.60f, 0.45f * m, 0.0f, 0.55f + extra, 0.40f, 0.20f, 0.0f);
+				return Build(12, 0.55f, 0.0f, 0.40f * m, 0.50f + extra, 0.40f, 0.30f, 0.0f);
+			}
+			return Build(12, 0.80f, 0.0f, 0.55f * m, 0.65f, 0.50f, 0.0f, 0.0f);  // near peak
+		}
+
+		void CapFlavors(Preset& e)
+		{
+			for (int i = 18; i <= 29; ++i) e[i] = std::min(e[i], 0.9f);
+		}
+
+		int PleasureTone(Thread& t, RE::Actor* a, RE::Actor* partner, int enj, int arch, int role, int posRole)
+		{
+			if (role == 1 || role == 2) return 0;
+			if (partner && RelationshipRank(a, partner) >= 3) return 1;
+			if (enj >= 70 && posRole == -1) return 4;
+			if (posRole == 1 && (arch == 4 || arch == 2)) return 3;
+			if (partner && RelationshipRank(a, partner) <= 0 && enj >= 60) return 2;
+			if (enj < 30 && SceneTime(t) > 30.0f) return 5;
+			return 0;
+		}
+
+		void ClimaxType(Preset& e, int arch)
+		{
+			if (arch == 1 || arch == 3) {
+				Mul(e, 0, 0.3f);
+				Mul(e, 11, 0.3f);
+				Add2(e, 20, 0.20f);
+				Add2(e, 28, 0.10f);
+			} else if (arch == 2) {
+				Add(e, 0, 0.25f);
+				Add(e, 11, 0.20f);
+			} else if (arch == 4) {
+				Mul(e, 0, 0.6f);
+				Mul(e, 11, 0.6f);
+			}
+		}
+
+		void ColorByRelationship(Preset& e, RE::Actor* a, RE::Actor* partner)
+		{
+			if (!S::bNaturalDetail || !partner) return;
+			const int rank = RelationshipRank(a, partner);
+			if (rank >= 3) {
+				Mul(e, 18, 0.5f);
+				Mul(e, 19, 0.5f);
+				if (e[30] == 12.0f) e[30] = 10.0f;
+			} else if (rank <= -3) {
+				Add(e, 20, 0.15f);
+				Add(e, 18, 0.10f);
+			}
+		}
+
+		void ToneColor(Thread& t, Preset& e)
+		{
+			if (t.toneLoving) {
+				if (e[30] == 12.0f) e[30] = 10.0f;
+				Mul(e, 20, 0.7f);
+				Mul(e, 21, 0.7f);
+			} else if (t.toneRough) {
+				Add2(e, 20, 0.15f);
+				Add2(e, 28, 0.10f);
+				Add2(e, 18, 0.10f);
+			}
+		}
+
+		void ActFlavor(Thread& t, Slot& s, Preset& e)
+		{
+			if (ActorHasAnyAction(t, s, T().deepthroat)) {
+				Add2(e, 18, 0.20f);
+				Add2(e, 28, 0.20f);
+			} else if (SceneHasAnyAction(t, T().actionAnal)) {
+				Add2(e, 22, 0.10f);
+			}
+		}
+
+		void PositionalFlavor(Preset& e, int posRole)
+		{
+			if (posRole == 1) {
+				Mul(e, 0, 0.7f);
+				Mul(e, 11, 0.7f);
+			} else if (posRole == -1) {
+				Add(e, 22, 0.10f);
+				Add2(e, 28, 0.10f);
+			}
+		}
+
+		void PartnerReact(Preset& e)
+		{
+			Add2(e, 22, 0.15f);
+			Add(e, 0, 0.10f);
+		}
+
+		float ExposureStrength(Thread& t, int enjEff, int arch)
+		{
+			if (enjEff >= 65) return 0.0f;
+			float s = static_cast<float>(65 - enjEff) / 65.0f;
+			const float time = SceneTime(t);
+			if (time > 0.0f) s *= ClampF(1.0f - time / 40.0f, 0.0f, 1.0f);
+			if (arch == 3) s *= 1.5f;
+			else if (arch == 2 || arch == 4) s *= 0.4f;
+			else if (arch == 1) s *= 0.7f;
+			return ClampF(s, 0.0f, 1.0f);
+		}
+
+		void ExposureFlavor(Preset& e, float s)
+		{
+			if (s <= 0.0f) return;
+			Add2(e, 20, 0.18f * s);
+			Add2(e, 28, 0.12f * s);
+		}
+
+		void WellingEyes(Preset& e)
+		{
+			Add2(e, 20, 0.20f);
+			Add(e, 18, 0.10f);
+			Add2(e, 28, 0.15f);
+		}
+
+		void Asymmetry(Preset& e, int seed)
+		{
+			const float d = 0.06f + static_cast<float>(seed % 4) * 0.02f;
+			Add(e, 22, d);
+			Add(e, 23, -d * 0.5f);
+			Add(e, 28, -d * 0.5f);
+			Add(e, 29, d * 0.5f);
+		}
+
+		void MicroTic(Thread& t, Preset& e, bool pleasant)
+		{
+			if (RandInt(0, 5) == 0) {
+				const int which = RandInt(0, 2);
+				if (which == 0) Add(e, 22, 0.15f);
+				else if (which == 1) Add(e, 20, 0.15f);
+				else Add(e, 0, 0.10f);
+			} else if (pleasant && t.consent && RandInt(0, 7) == 0) {
+				e[30] = 10.0f;
+				e[31] = std::max(e[31], 0.40f);
+				Add2(e, 22, 0.10f);
+			}
+		}
+
+		void GenderColor(Preset& e, int sex)
+		{
+			if (sex == 1) {
+				Add2(e, 22, 0.05f);
+			} else {
+				Add(e, 22, -0.05f);
+				Add(e, 20, 0.05f);
+			}
+		}
+
+		void ExhaustionLids(Thread& t, Preset& e)
+		{
+			const float ex = ClampF(SceneTime(t) / 600.0f, 0.0f, 0.30f);
+			Add2(e, 28, ex * 0.5f);
+		}
+
+		void GaspBeat(Preset& e)
+		{
+			Add2(e, 22, 0.25f);
+			Add(e, 0, 0.15f);
+		}
+
+		void ExcitementGradientFlavor(Thread& t, Preset& e, int raw)
+		{
+			if (raw >= 75) {
+				Add2(e, 28, 0.08f);
+				Add2(e, 22, 0.06f);
+			} else if (raw < 25 && SceneTime(t) > 20.0f) {
+				Add2(e, 20, 0.06f);
+			}
+		}
+
+		void SpeedFlavor(Thread& t, Preset& e)
+		{
+			if (t.maxSpeed <= 0) return;
+			const float s = static_cast<float>(t.speed) / static_cast<float>(t.maxSpeed);
+			if (s >= 0.75f) Add2(e, 28, 0.06f);
+			else if (s <= 0.25f && SceneTime(t) > 8.0f) Add2(e, 22, 0.04f);
+		}
+
+		void ApplyArchetype(Preset& e, int arch)
+		{
+			if (arch == 3) {
+				Add2(e, 20, 0.15f);
+			} else if (arch == 4) {
+				Mul(e, 0, 0.6f);
+				Mul(e, 11, 0.6f);
+			}
+		}
+
+		void Gag(Preset& e)
+		{
+			e[0] = e[11] = 0.0f;
+			Add2(e, 20, 0.30f);
+			Add2(e, 28, 0.20f);
+		}
+
+		void GagRing(Preset& e)
+		{
+			Add(e, 0, 0.60f);
+			Add(e, 11, 0.25f);
+			Add2(e, 18, 0.20f);
+			Add2(e, 28, 0.20f);
+		}
+
+		void Blindfold(Preset& e) { Add2(e, 28, 0.45f); }
+
+		void ApplyScenarioCycler(Preset& e, int scenario, int phase, int seed)
+		{
+			if (!S::bScenarioCycler) return;
+			const float amp = 0.04f + StyleValue() * 0.025f;
+			const float tiny = static_cast<float>((seed + phase + scenario) % 3);
+			const float variance = (tiny - 1.0f) * 0.015f;
+			switch (scenario) {
+			case 0:
+				e[0] *= 0.72f + amp;
+				Add2(e, 22, amp * 0.45f);
+				break;
+			case 1:
+			case 5:
+				if (phase == 1 || phase == 2) {
+					Add(e, 0, amp + variance);
+					Add2(e, 28, amp * 0.7f);
+				} else if (phase == 4) {
+					e[0] *= 0.65f;
+				}
+				break;
+			case 2:
+			case 3:
+				Add2(e, 20, amp * 0.75f);
+				if (phase == 2) {
+					Add(e, 0, amp * 1.2f);
+					Add2(e, 28, amp);
+				}
+				break;
+			case 4:
+				Add2(e, 28, amp * 1.2f);
+				break;
+			case 6:
+				Add2(e, 22, amp);
+				Add(e, 0, amp * 0.55f);
+				break;
+			case 7:
+				Add2(e, 18, amp);
+				Add2(e, 20, amp);
+				e[0] *= 0.45f;
+				break;
+			case 8:
+				e[0] *= 0.55f;
+				e[11] *= 0.55f;
+				Add2(e, 28, amp * 0.45f);
+				break;
+			case 9:
+				e[0] *= 0.35f;
+				e[11] *= 0.35f;
+				e[31] = ClampF(e[31] * 0.75f, 0.0f, 1.0f);
+				break;
+			default: break;
+			}
+		}
+
+		float UpdateOverwhelmMeter(Thread& t, Slot& s, RE::Actor* a, int dom, int rawEnj, int arch, int posRole, bool yieldMouth)
+		{
+			float cur = s.overwhelm;
+			const bool blocked = !S::bOverwhelmFace || !t.consent || (S::bNoDistressOverwhelm && dom == kDistress) || yieldMouth ||
+			                     HeadCommittedToAnimation(t, s, a) || SceneTime(t) < 18.0f;
+			if (blocked) {
+				s.overwhelm = ClampF(cur - 0.20f, 0.0f, 1.0f);
+				return s.overwhelm;
+			}
+			int threshold = 90;
+			if (arch == 2 || arch == 3) threshold -= 5;
+			else if (arch == 1 || arch == 4) threshold += 5;
+			if (posRole == -1) threshold -= 3;
+			else if (posRole == 1) threshold += 3;
+			if (dom == kClimax && rawEnj >= 82) cur += 0.30f + StyleValue() * 0.04f;
+			else if (rawEnj >= threshold || dom == kPlateau) cur += 0.13f + StyleValue() * 0.03f;
+			else if (dom == kAfterglow) cur -= 0.18f;
+			else cur -= 0.10f;
+			s.overwhelm = ClampF(cur, 0.0f, 1.0f);
+			return s.overwhelm;
+		}
+
+		void ApplyOverwhelmFace(Thread& t, Preset& e, float meter, int phase, bool yieldMouth)
+		{
+			if (!S::bOverwhelmFace || meter < 0.55f || !t.consent) return;
+			const float s = ClampF((meter - 0.45f) * (0.80f + StyleValue() * 0.25f), 0.0f, 0.75f);
+			Add2(e, 20, 0.08f * s);
+			Add2(e, 22, 0.10f * s);
+			Add2(e, 28, 0.16f * s);
+			if (!yieldMouth) {
+				Add(e, 0, 0.14f * s, 0.72f + StyleValue() * 0.10f);
+				Add(e, 11, 0.08f * s, 0.55f + StyleValue() * 0.10f);
+			}
+			if (StyleValue() >= 1.0f && phase == 2) Add(e, 27, (StyleValue() - 0.75f) * 0.10f * s, 0.42f);
+		}
+
+		void ApplyGroupConductor(Thread& t, Preset& e, int idx, int role, int posRole, bool sub)
+		{
+			if (!S::bGroupConductor || t.PaintedCount() < 3) return;
+			const bool focal = sub || posRole == -1 || role == 3 || idx == 0;
+			const float scale = focal ? 1.0f + 0.08f + StyleValue() * 0.025f : 0.92f;
+			for (int i : { 0, 11, 22, 23, 28, 29 }) e[i] = ClampF(e[i] * scale, 0.0f, 1.0f);
+		}
+
+		void ApplyPhraseEnvelope(Preset& e, int phase, int dom, bool yieldMouth)
+		{
+			float mouth = 1.0f;
+			float eyes = 1.0f;
+			if (phase == 0) mouth = 0.72f, eyes = 0.82f;
+			else if (phase == 2) mouth = StyleAmp(), eyes = StyleAmp();
+			else if (phase == 3) mouth = 0.86f, eyes = 0.90f;
+			else if (phase == 4) mouth = 0.48f, eyes = 0.74f;
+			if (yieldMouth) mouth = 0.0f;
+			if (dom == kDistress) {
+				mouth = ClampF(mouth, 0.0f, 0.62f);
+				eyes = std::max(eyes, 0.95f);
+			}
+			for (int i = 0; i <= 15; ++i) e[i] = ClampF(e[i] * mouth, 0.0f, 1.0f);
+			for (int i = 22; i <= 29; ++i) e[i] = ClampF(e[i] * eyes, 0.0f, 1.0f);
+		}
+
+		void ApplyConsentGuardrails(Thread& t, Preset& e, int phase, int dom)
+		{
+			if (t.consent) return;
+			for (int i = 0; i <= 15; ++i) e[i] = ClampF(e[i] * 0.35f, 0.0f, 0.22f);
+			Add(e, 18, 0.18f, 0.85f);
+			Add(e, 19, 0.18f, 0.85f);
+			Add(e, 20, 0.25f, 0.90f);
+			Add(e, 21, 0.25f, 0.90f);
+			e[22] = ClampF(e[22], 0.0f, 0.25f);
+			e[23] = ClampF(e[23], 0.0f, 0.25f);
+			Add(e, 24, 0.18f, 0.55f);
+			if ((phase % 2) == 0) Add(e, 25, 0.12f, 0.45f);
+			else Add(e, 26, 0.12f, 0.45f);
+			Add(e, 28, 0.16f, 0.80f);
+			Add(e, 29, 0.16f, 0.80f);
+			if (S::bNoDistressOverwhelm) {
+				e[1] = 0.0f;
+				e[27] = 0.0f;
+				e[31] = ClampF(e[31], 0.20f, 0.85f);
+			}
+			if (dom != kAfterglow) e[30] = 9.0f;
+		}
+
+		void ApplyEyeScalar(Preset& e)
+		{
+			const float eye = EyeScale();
+			const float brow = BrowScale();
+			e[22] = ClampF(e[22] * brow, 0.0f, 1.0f);
+			e[23] = ClampF(e[23] * brow, 0.0f, 1.0f);
+			for (int i = 24; i <= 29; ++i) e[i] = ClampF(e[i] * eye, 0.0f, 1.0f);
+			if (StyleValue() < 0.5f) {
+				e[27] = ClampF(e[27], 0.0f, 0.22f);
+				e[28] = ClampF(e[28], 0.0f, 0.72f);
+				e[29] = ClampF(e[29], 0.0f, 0.72f);
+			} else if (StyleValue() < 1.5f) {
+				e[27] = ClampF(e[27], 0.0f, 0.42f);
+			}
+		}
+
+		void ApplyV2Controls(Thread& t, Preset& e, int phase, int dom, bool yieldMouth)
+		{
+			if (S::bPhraseGrammar) ApplyPhraseEnvelope(e, phase, dom, yieldMouth);
+			if (S::bConsentGuardrails) ApplyConsentGuardrails(t, e, phase, dom);
+			ApplyEyeScalar(e);
+		}
+
+		void ApplyEyeSquint(RE::Actor* a, int eye, int seed)
+		{
+			const int off = (seed % 3) + 1;
+			SetMod(a, 28, EyeValue(ClampI(eye + off, 0, 95)), 0.55f);
+			SetMod(a, 29, EyeValue(ClampI(eye - off, 0, 95)), 0.55f);
+		}
+
+		void ClimaxMouth(Thread& t, Slot& s, RE::Actor* a, int arch)
+		{
+			SetOwners(s, s.faceOwner, "Climax mouth", "Climax eyes", s.headOwner);
+			const int tremor = (t.tick % 2) * 6;
+			if (arch == 1 || arch == 3) {  // stoic / shy: clenched, bitten
+				ResetPh(a, 0.5f);
+				SetPh(a, 2, 18 + tremor, 0.5f);
+				SetMod(a, 28, EyeValue(ClampI(82 + tremor, 0, 95)), 0.4f);
+				SetMod(a, 29, EyeValue(ClampI(82 - tremor, 0, 95)), 0.4f);
+				return;
+			}
+			int wide = arch == 4 ? 60 : (arch == 2 ? 88 : 80);
+			wide = ClampI(wide + tremor, 0, 92);
+			ResetPh(a, 0.4f);
+			SetPh(a, 1, wide, 0.4f);
+			SetMod(a, 28, EyeValue(ClampI(78 + tremor, 0, 95)), 0.4f);
+			SetMod(a, 29, EyeValue(ClampI(78 - tremor, 0, 95)), 0.4f);
+		}
+
+		RE::TESObjectREFR* Marker(Slot& s)
+		{
+			if (auto m = s.marker.get()) return m.get();
+			auto* player = RE::PlayerCharacter::GetSingleton();
+			auto* dh = RE::TESDataHandler::GetSingleton();
+			auto* xm = dh ? dh->LookupForm<RE::TESBoundObject>(0x3B, "Skyrim.esm") : nullptr;  // XMarker
+			if (!xm) xm = dh ? dh->LookupForm<RE::TESBoundObject>(0x34, "Skyrim.esm") : nullptr;
+			if (!player || !xm) return nullptr;
+			auto ref = player->PlaceObjectAtMe(xm, false);
+			if (!ref) return nullptr;
+			s.marker = ref->GetHandle();
+			return ref.get();
+		}
+	}
+
+	// ------------------------------------------------------------------ gaze / head
+	void ClearLook(RE::Actor* a)
+	{
+		if (a) Papyrus::ClearLookAt(a);
+	}
+
+	void LookAt(RE::Actor* a, RE::Actor* target)
+	{
+		if (a && target) Papyrus::SetLookAt(a, target);
+	}
+
+	void LookAtOffset(Slot& s, RE::Actor* a, float x, float y, float z)
+	{
+		auto* m = Marker(s);
+		if (!m || !a) return;
+		m->SetPosition(a->GetPosition() + RE::NiPoint3{ x, y, z });
+		Papyrus::SetLookAt(a, m);
+	}
+
+	void SetGaze(Thread& t, Slot& s, RE::Actor* a, RE::Actor* partner)
+	{
+		if (t.orgasm) return ClearLook(a);  // break gaze, lose focus at climax
+		if (!t.consent) {
+			if (IsSubmissive(t, s)) return ClearLook(a);  // forced victim: never gaze at assailant
+			if (S::bGazeConsentOnly) return ClearLook(a);
+		}
+		if (Archetype(a) == 3) return ClearLook(a);  // shy: avert
+		if (partner && NaturalGazeAngle(a, partner)) {
+			if (RandInt(0, 4) == 0) ClearLook(a);  // ~20%: a natural glance away
+			else LookAt(a, partner);
+		} else {
+			ClearLook(a);  // behind/awkward: don't owl-neck
+		}
+	}
+
+	void ClearGazeAll(Thread& t)
+	{
+		for (auto& s : t.slots) ClearLook(s.Get());
+	}
+
+	void ApplyHeadflow(Thread& t, Slot& s, RE::Actor* a, int idx, int dom, int phrase, RE::Actor*, int arch, int, int scenario, float overwhelm, bool yieldMouth)
+	{
+		if (!S::bHeadflow || !a) return;
+		if (HeadCommittedToAnimation(t, s, a)) {
+			ClearLook(a);
+			s.headOwner = "Animation head";
+			Pulse::Emit("SLED_Headflow", t.id, a, 0.0f);
+			return;
+		}
+		const float side = ((idx + Seed(a)) % 2) == 0 ? -55.0f : 55.0f;
+		const float style = StyleValue();
+		if (dom == kDistress) {
+			LookAtOffset(s, a, side, 0.0f, 72.0f + style * 4.0f);
+			s.headOwner = "Brace aversion";
+			Pulse::Emit("SLED_Headflow", t.id, a, 1.0f);
+		} else if (dom == kAfterglow) {
+			LookAtOffset(s, a, side * 0.25f, 0.0f, 68.0f + style * 6.0f);
+			s.headOwner = "Afterglow drop";
+			Pulse::Emit("SLED_Headflow", t.id, a, 2.0f);
+		} else if (dom == kClimax && t.consent && !yieldMouth) {
+			const float z = phrase >= 3 ? 96.0f + style * 8.0f : 122.0f + style * 18.0f;
+			LookAtOffset(s, a, 0.0f, 0.0f, z);
+			s.headOwner = "Throat arch";
+			Pulse::Emit("SLED_Headflow", t.id, a, 3.0f);
+		} else if (S::bOverwhelmFace && overwhelm >= 0.72f && t.consent && !yieldMouth) {
+			LookAtOffset(s, a, side * 0.20f, 0.0f, 108.0f + style * 12.0f);
+			s.headOwner = "Overwhelm unfocus";
+			Pulse::Emit("SLED_Headflow", t.id, a, 5.0f);
+		} else if (t.consent && arch == 3 && (phrase == 0 || phrase == 4 || scenario == 6)) {
+			LookAtOffset(s, a, side, 0.0f, 84.0f + style * 6.0f);
+			s.headOwner = "Shy turn-away";
+			Pulse::Emit("SLED_Headflow", t.id, a, 4.0f);
+		}
+	}
+
+	void BodyDemo(Thread& t, Slot& s, RE::Actor* a, int dom)
+	{
+		if (dom == kClimax && t.consent && !HeadCommittedToAnimation(t, s, a)) {
+			LookAtOffset(s, a, 0.0f, 0.0f, 170.0f);  // just above the head: throat arch
+			s.headOwner = "BodyDemo";
+		}
+	}
+
+	// ------------------------------------------------------------------ ApplyArc
+	// Composes one coherent face via 5-stage arbitration: one dominant state owns the mood,
+	// flavors layer on top (capped), mouth arbiter, v2 controls, then emit + gaze.
+	void ApplyArc(Thread& t, Slot& s, RE::Actor* a, int idx, bool yieldMouth)
+	{
+		ReleaseOStimFace(s, a);
+		const int enjEff = EffectiveIntensity(t, a);
+		const int seed = Seed(a);
+		std::string archSource;
+		const int arch = Archetype(a, &archSource);
+		s.arch = arch;
+		s.archSource = archSource;
+		RE::Actor* partner = PrimaryPartner(t, s);
+		const bool sub = IsSubmissive(t, s);
+		const int role = ActRole(t, s, a);
+
+		// 1) DOMINANT
+		const int rawEnj = Raw(a);
+		const int dom = SelectDominant(t, enjEff, rawEnj);
+		const int enjPhase = ClampI(enjEff + ArchTempo(arch), 0, 130);
+		const int posRole = S::bPositionalDomSub ? PositionRole(t, s) : 0;
+		const int tone = S::bRichEmotions && dom == kPleasure ? PleasureTone(t, a, partner, enjPhase, arch, role, posRole) : 0;
+		const int phrase = PhrasePhase(t, idx, enjEff);
+		const int scenario = ScenarioCode(t, dom, enjEff, role, tone, posRole);
+		const float overwhelm = UpdateOverwhelmMeter(t, s, a, dom, rawEnj, arch, posRole, yieldMouth);
+		Preset e = BasePreset(t, dom, enjPhase, sub, seed, role, tone);
+		if (dom == kClimax) ClimaxType(e, arch);
+
+		// 2) FLAVORS
+		const bool pleasant = dom == kPleasure || dom == kAnticipation;
+		if (pleasant) {
+			ColorByRelationship(e, a, partner);
+			if (S::bRoleAware) ToneColor(t, e);
+			if (S::bActTypeAware) ActFlavor(t, s, e);
+			if (S::bPositionalDomSub) PositionalFlavor(e, posRole);
+			if (S::bRichEmotions && t.orgasm) PartnerReact(e);
+			if (S::bExposureAware && t.consent && IsNude(a)) ExposureFlavor(e, ExposureStrength(t, enjEff, arch));
+		}
+		if (S::bNaturalDetail) {
+			if (dom != kClimax && dom != kAfterglow && (enjEff >= 88 || dom == kDistress)) WellingEyes(e);
+			Asymmetry(e, seed);
+			if (!yieldMouth) MicroTic(t, e, pleasant);
+			GenderColor(e, ActorSex(a));
+			ExhaustionLids(t, e);
+			if (t.gasp && dom != kClimax && dom != kAfterglow) GaspBeat(e);
+		}
+		if (S::bExcitementGradient) ExcitementGradientFlavor(t, e, rawEnj);
+		if (S::bSpeedSync) SpeedFlavor(t, e);
+		ApplyArchetype(e, arch);
+
+		// 3) ANTI-SATURATION (climax exempt)
+		if (dom != kClimax) CapFlavors(e);
+
+		// 4) MOUTH ARBITER: gags override; blindfold closes the eyes
+		const bool gagC = S::bDeviceAware && IsGagClosed(a);
+		const bool gagR = S::bDeviceAware && IsGagRing(a);
+		const bool blind = S::bDeviceAware && IsBlind(a);
+		if (gagC) Gag(e);
+		else if (gagR) GagRing(e);
+		if (blind) Blindfold(e);
+		ApplyScenarioCycler(e, scenario, phrase, seed);
+		ApplyOverwhelmFace(t, e, overwhelm, phrase, yieldMouth);
+		ApplyGroupConductor(t, e, idx, role, posRole, sub);
+		ApplyV2Controls(t, e, phrase, dom, yieldMouth);
+
+		// 5) EMIT + gaze
+		const float prof = ProfileScale() * ArchStrength(arch);
+		const float jit = RandFloat(0.92f, 1.08f);
+		const float eStr = ClampF(S::fGlobalStrength * prof * jit, 0.0f, 2.0f);
+		const float mStr = ClampF(S::fGlobalStrength * prof * PersonalityMod(seed), 0.0f, 2.0f);
+		const bool clenched = dom == kClimax && (arch == 1 || arch == 3);
+		const bool openMouth = !yieldMouth && !S::bBreathing && ((dom == kClimax && !gagC && !clenched) || gagR);
+		Output::ApplyPreset(a, e, openMouth || yieldMouth, eStr, mStr, S::fGlobalStrength, S::fTransition);
+		SetOwners(s, std::string(DomName(dom)) + "/" + ScenarioName(scenario), yieldMouth ? MouthOwnerLabel(t, s, a, true) : "OSED arc",
+			"Phrase " + std::to_string(phrase), "Pending gaze");
+		PulseActor(t, s, a, dom, phrase, enjEff);
+		Pulse::Emit("SLED_Overwhelm", t.id, a, overwhelm);
+
+		// Anime style: the OSED 1.0 climax accent rides on top of the Director face.
+		if (OSEDShouldAnime(t, s, a, rawEnj, yieldMouth)) ApplyOSEDAnimeAccent(t, s, a, rawEnj, yieldMouth);
+		else ClearOSEDAnimeAccent(s, a);
+
+		if (blind) {
+			ClearLook(a);
+			s.headOwner = "Blindfold";
+		} else if (yieldMouth) {
+			ClearLook(a);
+			s.headOwner = MouthOwnerLabel(t, s, a, true);
+		} else if (S::bGaze) {
+			SetGaze(t, s, a, partner);
+			s.headOwner = "Gaze";
+		} else {
+			s.headOwner = "Idle";
+		}
+		if (S::bHeadflow) ApplyHeadflow(t, s, a, idx, dom, phrase, partner, arch, posRole, scenario, overwhelm, yieldMouth);
+		else if (S::bBodyDemo) BodyDemo(t, s, a, dom);
+	}
+
+	// ------------------------------------------------------------------ Breathe (Director breath clock)
+	void Breathe(Thread& t, Slot& s, RE::Actor* a, int idx)
+	{
+		SetOwners(s, s.faceOwner, "Breath clock", "Breath clock", s.headOwner);
+		if (S::bDeviceAware) {
+			if (IsGagClosed(a)) {
+				SetPh(a, 0, 3, 0.5f);
+				SetMod(a, 28, EyeValue(35), 0.5f);
+				SetMod(a, 29, EyeValue(35), 0.5f);
+				SetOwners(s, s.faceOwner, "Closed gag", "Gag strain", s.headOwner);
+				return;
+			}
+			if (IsGagRing(a)) {
+				SetPh(a, 0, 60, 0.5f);
+				SetOwners(s, s.faceOwner, "Ring gag", s.eyeOwner, s.headOwner);
+				return;
+			}
+		}
+		const int enjEff = EffectiveIntensity(t, a);
+		const int seed = Seed(a);
+		const int arch = Archetype(a);
+
+		if (t.orgasm && Raw(a) >= 90) return ClimaxMouth(t, s, a, arch);
+
+		if (t.gasp && !t.orgasm) {  // sharp inhale on a stage change; eyes widen
+			ResetPh(a, 0.3f);
+			SetPh(a, 0, 38, 0.3f);
+			SetMod(a, 28, 0, 0.3f);
+			SetMod(a, 29, 0, 0.3f);
+			SetOwners(s, s.faceOwner, "Gasp", "Gasp", s.headOwner);
+			return;
+		}
+		if (S::bCinematic && !t.orgasm && t.afterglow == 0 && enjEff >= 85 && enjEff < 95) {  // breath-hold tell
+			SetPh(a, 0, 12 + RandInt(0, 4), 0.7f);
+			SetMod(a, 28, EyeValue(45), 0.6f);
+			SetMod(a, 29, EyeValue(45), 0.6f);
+			SetOwners(s, s.faceOwner, "Breath hold", "Breath hold", s.headOwner);
+			return;
+		}
+
+		int cyc = 4;
+		if (enjEff >= 92) cyc = 2;
+		else if (enjEff >= 72) cyc = 3;
+		else if (enjEff < 40) cyc = 5;
+		const int base = t.tick + idx * 2 + seed;
+		const int p = base % cyc;
+		const int cycleIdx = base / cyc;
+
+		const int vchance = std::max(0, enjEff + 8);
+		bool vocal = ((seed * 7 + cycleIdx * 13) % 100) < vchance;
+		if (arch == 2 || arch == 4) vocal = vocal || ((seed * 5 + cycleIdx * 11) % 100) < 35;
+		else if ((arch == 1 || arch == 3) && vocal && ((seed * 3 + cycleIdx * 7) % 100) < 35) vocal = false;
+
+		float af = 0.45f;
+		if (p == 0) af = 0.06f;
+		else if (p == 1) af = 0.80f;
+		else if (p == 2) af = 1.00f;
+
+		int val = 0;
+		if (vocal) {
+			const int basePeak = 16 + (enjEff * 5) / 10;
+			const int varr = ((seed + cycleIdx) % 5) * 7;
+			const int peak = ClampI(basePeak - 12 + varr, 14, 72);
+			val = ClampI(static_cast<int>(static_cast<float>(peak) * af), 0, 72);
+			if (enjEff >= 85) val = ClampI(val + (t.tick % 2) * 5, 0, 76);  // quiver near climax
+		} else {
+			val = ClampI(static_cast<int>(6.0f * af), 0, 8);
+		}
+
+		const int lidFloor = t.consent && enjEff >= 50 ? ClampI(12 + (enjEff - 50) / 3, 0, 38) : 0;
+
+		if (!S::bMouthVariety || !t.consent) {
+			const int dv = !t.consent ? ClampI(val + (t.tick % 2) * 3, 0, 70) : val;
+			SetPh(a, 0, dv, 0.6f);
+			return;
+		}
+
+		if (vocal) {
+			// "ahh" on the rise, rounded "oww" on the peak/fall; only the size scales.
+			int ph = (p == 2 || p == 3) ? 11 : 0;
+			if (enjEff >= 85 && (p == 1 || p == 2)) ph = 1;
+			if (S::bActTypeAware && ActorHasAnyAction(t, s, T().actionOral)) ph = 11;
+			if (p == 0) ResetPh(a, 0.6f);
+			if (ph == 1) {
+				SetPh(a, 1, val, 0.6f);
+				SetPh(a, 11, val / 3, 0.6f);
+				SetPh(a, 0, 0, 0.6f);
+			} else if (ph == 11) {
+				SetPh(a, 11, val, 0.6f);
+				SetPh(a, 0, val / 4, 0.6f);
+				SetPh(a, 1, 0, 0.6f);
+			} else {
+				SetPh(a, 0, val, 0.6f);
+				SetPh(a, 11, val / 4, 0.6f);
+				SetPh(a, 1, 0, 0.6f);
+			}
+			int eye = ph == 1 ? ClampI((val * 12) / 10, 0, 92) : ClampI((val * 9) / 10, 0, 85);
+			if (val < 8) eye = 0;
+			eye = std::max(eye, lidFloor);
+			ApplyEyeSquint(a, eye, seed);
+			if (p == 2 && val >= 45) {
+				const int bp = ClampI((val - 45) / 2, 0, 16);
+				SetMod(a, 22, BrowValue(bp), 0.55f);
+				SetMod(a, 23, BrowValue(bp), 0.55f);
+			}
+		} else {
+			const int br = (seed + cycleIdx) % 4;
+			if ((arch == 1 || arch == 3 || enjEff < 45) && br == 0) {
+				SetPh(a, 2, 14, 0.6f);  // lip-press / bite
+			} else if (br == 1) {
+				ResetPh(a, 0.55f);
+				SetPh(a, 0, ClampI(6 + enjEff / 12, 0, 16), 0.55f);  // tiny breath between moans
+			} else {
+				ResetPh(a, 0.6f);
+			}
+			ApplyEyeSquint(a, ClampI(std::max(lidFloor, 10), 0, 40), seed);
+		}
+	}
+}
