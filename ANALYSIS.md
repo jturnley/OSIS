@@ -5,10 +5,11 @@ This is a working rebuild of **OStim Expression Director (OSED) 2.0** and its th
 | Path | What it is |
 |---|---|
 | `original/` | The shipped files, unmodified (plugins and sources) |
-| `mods/OSED Core`, `mods/OSED Body`, `mods/OSED Living Skin`, `mods/OSED Lip-Sync` | Fixed mods, laid out for MO2 (plugins are generated, `.pex` still has to be compiled) |
+| `mods/OSED Core`, `mods/OSED Body`, `mods/OSED Living Skin`, `mods/OSED Lip-Sync` | Fixed mods, laid out for MO2, with generated plugins and compiled `.pex` |
 | `tools/build_plugins.py` | Generates all four `.esp` files |
 | `tools/esp_dump.py`, `tools/vmad.py` | Dump and verify plugin records |
-| `tools/papyrus_lint.py` | Structural checks for the Papyrus sources (not a compiler) |
+| `tools/compile_papyrus.py` | Compiles all scripts with the CK compiler (uses `bsa_extract.py`, `pex_stub.py`) |
+| `tools/papyrus_lint.py` | Quick structural checks for the Papyrus sources, no CK needed |
 
 `git log` has one commit per mod with the detail. `git diff 31d6439 -- mods` shows every change against the originals.
 
@@ -88,36 +89,34 @@ python tools/build_plugins.py
 
 This writes the four ESL-flagged plugins into `mods/*/`. FormIDs match the originals (`GetFormFromFile(0x800, …)` still works). Check them with `python tools/esp_dump.py <esp>`.
 
-### Scripts (not compiled yet)
-
-There is no Skyrim Papyrus compiler on this machine, and three import sets are missing:
-
-| Needed | Where it comes from |
-|---|---|
-| Compiler | Creation Kit (Steam, free: `Papyrus Compiler\PapyrusCompiler.exe`) or Caprica (open source) |
-| Vanilla sources + `TESV_Papyrus_Flags.flg` | CK's `Data\Scripts.zip` → `Data\Source\Scripts` |
-| `SKI_ConfigBase` / `SKI_QuestBase` | SkyUI SDK |
-| `NiOverride.psc` | RaceMenu source |
-
-Already installed: SKSE (`Data\Scripts\Source`), PapyrusUtil, OStim Standalone, Mfg Fix NG.
-
-Import order matters: our sources, then SKSE before vanilla, so the SKSE natives win. Example with the CK compiler, run per mod:
+### Scripts
 
 ```
-PapyrusCompiler.exe "mods\OSED Core\Scripts\Source" -all -f="TESV_Papyrus_Flags.flg" -o="mods\OSED Core\Scripts" -i="mods\OSED Core\Scripts\Source;<SKSE>;<vanilla>;<SkyUI SDK>;<RaceMenu>;<PapyrusUtil>;<OStim>;<MfgFix>"
+python tools/compile_papyrus.py            # all four mods
+python tools/compile_papyrus.py "OSED Body" # one mod
 ```
 
-The add-ons also need `mods\OSED Core\Scripts\Source` on the import path. Until then, `python tools/papyrus_lint.py` checks:
-- block balance
-- duplicate definitions
-- undeclared assignment targets
-- `Core.` / `Engine.` / `OActor.` / `MfgConsoleFuncExt.` / PapyrusUtil members against the real sources
+This runs the Creation Kit's `PapyrusCompiler.exe` and writes the `.pex` into `mods/<mod>/Scripts`. All 10 scripts compile with 0 errors and 0 warnings.
 
-All sources pass. It does not check types or argument counts.
+Import path, in order:
+1. The mod's own sources; for add-ons, also the Core's.
+2. `build/papyrus-deps`.
+3. SKSE, before vanilla so the SKSE natives win.
+4. PapyrusUtil, OStim, Mfg Fix NG, JContainers, ConsoleUtil. The last two are only there because the compiler type-checks OStim's own sources.
+5. Vanilla (`Data\Source\Scripts`).
+
+Nothing is downloaded. Two dependencies exist only inside BSAs:
+- `NiOverride.psc` is extracted as-is from `RaceMenu.bsa`.
+- SkyUI ships `SKI_ConfigBase` / `SKI_QuestBase` / `SKI_WidgetBase` only as compiled `.pex` in `SkyUI_SE.bsa`. `tools/pex_stub.py` rebuilds compile-only headers from them. Signatures come from the real `.pex`; parameter defaults, which `.pex` doesn't store, are restored from the SkyUI SDK's naming convention.
+- Tools: `tools/bsa_extract.py` (BSA v105 + LZ4) and `tools/pex_stub.py`.
+
+**Toolchain check.** Recompiling the *unmodified* original sources this way gives `.pex` with the same function signatures and properties as the shipped files, within about 100 bytes (header strings such as the source path and machine name differ).
+
+`python tools/papyrus_lint.py` is still useful as a quick pre-check (block balance, cross-script member names) without the CK.
 
 ## Installing and testing
 
-1. Compile the scripts, then copy each `mods/<mod>` folder into MO2 (`D:\SkyrimSE-MO2\mods`) in place of the originals. `original/` keeps the old files.
+1. Copy each `mods/<mod>` folder into MO2 (`D:\SkyrimSE-MO2\mods`) in place of the originals. `original/` keeps the old files.
 2. **New save** (every plugin is scripted and the quest aliases changed).
 3. Lip-Sync: run `BakeToolkit\Bake-OSED-LipSync.ps1` and install `OSED_LipSync_Voices` (both `Sound` and `SKSE`).
 4. Checks in game:
@@ -130,4 +129,4 @@ All sources pass. It does not check types or argument counts.
 ## Not checked
 
 - The Nexus page (mod 183920) returns 403 to automated fetches, so this compares against the shipped READMEs only.
-- Nothing has run in game or through a compiler yet. Voice-file naming was confirmed against real files on disk; the ESL FormID form in the file name (`0000080F`) follows the original toolkit.
+- Nothing has run in game yet. The scripts compile, but runtime behavior is untested. Voice-file naming was confirmed against real files on disk; the ESL FormID form in the file name (`0000080F`) follows the original toolkit.
