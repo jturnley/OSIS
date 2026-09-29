@@ -35,7 +35,7 @@ SKYUI_BSA = os.path.join(MODS, 'SkyUI', 'SkyUI_SE.bsa')
 RACEMENU_BSA = os.path.join(MODS, 'RaceMenu', 'RaceMenu.bsa')
 DEPS = os.path.join(ROOT, 'build', 'papyrus-deps')
 
-ALL_MODS = ['OSED Core', 'OSED Body', 'OSED Living Skin', 'OSED Lip-Sync']
+ALL_MODS = ['OSED Reborn Core', 'OSED Reborn Body', 'OSED Reborn Living Skin', 'OSED Reborn Lip-Sync']
 
 
 def bsa_member(bsa, wanted):
@@ -61,8 +61,8 @@ def compile_mod(mod):
     src = os.path.join(ROOT, 'mods', mod, 'Scripts', 'Source')
     out = os.path.join(ROOT, 'mods', mod, 'Scripts')
     imports = [src]
-    if mod != 'OSED Core':
-        imports.append(os.path.join(ROOT, 'mods', 'OSED Core', 'Scripts', 'Source'))
+    if mod != 'OSED Reborn Core':
+        imports.append(os.path.join(ROOT, 'mods', 'OSED Reborn Core', 'Scripts', 'Source'))
     imports += [DEPS, SKSE] + DEP_SOURCES + [VANILLA]  # SKSE before vanilla: its natives win
     cmd = [COMPILER, src, '-all', '-f=TESV_Papyrus_Flags.flg', '-o=' + out, '-i=' + ';'.join(imports)]
     print('== %s' % mod, flush=True)

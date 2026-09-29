@@ -195,7 +195,7 @@ def plugin(masters, groups, author='OSED Reborn', description=''):
 
 # ---------------------------------------------------------------- the four plugins
 
-CORE_ESP = 'OStimExpressionDirector.esp'
+CORE_ESP = 'OSED Reborn Core.esp'  # was OStimExpressionDirector.esp; renamed so the old mod is never overwritten
 
 
 def build_core():
@@ -273,13 +273,13 @@ def build_lipsync():
 
 
 TARGETS = [
-    ('OSED Core', CORE_ESP, build_core),
-    ('OSED Body', 'OSED_Body.esp',
+    ('OSED Reborn Core', CORE_ESP, build_core),
+    ('OSED Reborn Body', 'OSED Reborn Body.esp',
      lambda: build_addon('OSED_Body', 'OSED_Body', 'OSED_BodyMCM', 'OSED - Body (OSED Reborn build)')),
-    ('OSED Living Skin', 'OSED_LivingSkin.esp',
+    ('OSED Reborn Living Skin', 'OSED Reborn Living Skin.esp',
      lambda: build_addon('OSED_LivingSkin', 'OSED_LivingSkin', 'OSED_LivingSkinMCM',
                          'OSED - Living Skin (OSED Reborn build)')),
-    ('OSED Lip-Sync', 'OSED_LipSync.esp', build_lipsync),
+    ('OSED Reborn Lip-Sync', 'OSED Reborn Lip-Sync.esp', build_lipsync),
 ]
 
 
