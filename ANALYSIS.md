@@ -49,7 +49,8 @@ New Core API used by the add-ons: `IsFaceTakenOver(a)`, `HoldEyes(a, untilRealTi
 | L2 | `DEFAULT_BLUSH = ""` although the README promises `Koralina\Blushes\blush_01.dds`. | Blush never showed without an xEdit edit. | Default path, used when the file exists. |
 | L3 | `ApplyTearExpression` was never called; tears returned early with no texture. | README says tears "need no texture", but they never fired without one. | Falls back to the wet-eyed expression. |
 | L4 | Alpha caps 0.12–0.28, scaled by 0.35 × 0.35. | Overlays effectively transparent. | Caps 0.70–0.85, strength 0.60. |
-| L5 | Texture paths only settable by editing the plugin in xEdit. | Hard to use. | `SKSE\Plugins\StorageUtilData\OSED_LivingSkin.json` (keys `blush`, `sweat`, `tear`, `saliva`; forward slashes OK). |
+| L5 | Texture paths only settable by editing the plugin in xEdit. | Hard to use. | `SKSE\Plugins\StorageUtilData\OSED_LivingSkin.json` (keys `blush`, `tear`, `saliva`; forward slashes OK). |
+| L8 | Peak sweat was a *face* overlay. | A face-only sheen that never matched the body. | Removed (engine, MCM, JSON, README), matching the DLL route. |
 | L6 | Plugin forced `bEnabled = True`. | Not "default OFF". | Removed. |
 | L7 | NiOverride/OBlush/DWA probes cached forever. | Same as B5. | Re-probed on load. |
 
