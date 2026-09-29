@@ -61,6 +61,9 @@ namespace Settings
 		inline bool bConsentGuardrails = true;
 		inline bool bHardExclusionGate = true;
 		inline bool bNoDistressOverwhelm = true;
+		inline bool bConsentExcitement = true;        // non-consent: scale OStim excitement rates by role
+		inline float fVictimExcitementMult = 0.5f;    // relative to OStim's own (MCM) rate
+		inline float fAggressorExcitementMult = 1.5f;
 		inline bool bHeadflow = true;
 		inline bool bGroupConductor = true;
 		inline bool bScenarioCycler = true;

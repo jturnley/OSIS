@@ -113,3 +113,9 @@ body flush together.
 - **Tears are reserved for non-consent.** The victim wells up when distress starts and at a
   forced climax, at most once every 20 s. Consensual scenes never get tears. When a thread
   moves on to a consensual scene, the victim marking is cleared.
+- **Excitement rates** (`bConsentExcitement`): in a non-consensual scene with an identified
+  victim, OStim's per-actor excitement multiplier (`OActor.SetExcitementMultiplier`) is scaled
+  relative to OStim's own rate. Defaults: victim ×0.5 (climax takes about twice as long), every other
+  actor ×1.5. OStim keeps the multiplier on its per-scene actor record, so it resets when the scene
+  ends; the DLL restores it earlier if the thread turns consensual. With no identified victim,
+  nobody's rate changes. The body-response rates (morphs, body blush) do not depend on consent.

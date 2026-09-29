@@ -32,6 +32,7 @@ namespace Scenes
 		bool takenOver = false;      // we switched OStim's face writer off for this actor
 		std::string voiceName;
 		bool voiceRequested = false;
+		float excitementFactor = 1.0f;  // consent: our scale on OStim's excitement rate (1 = untouched)
 
 		// v2 faceflow
 		int lastPulseDom = -1;

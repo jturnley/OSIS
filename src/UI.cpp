@@ -311,6 +311,12 @@ namespace
 				Check("Consent guardrails", bConsentGuardrails);
 				Check("Hard exclusion gate (distress owns the face)", bHardExclusionGate);
 				Check("No overwhelm/ahegao in distress", bNoDistressOverwhelm);
+				Check("Consent sets OStim excitement rates", bConsentExcitement,
+					"In a non-consensual scene with an identified victim, each actor's OStim excitement rate is scaled "
+					"relative to OStim's own (MCM) rate. OStim resets it when the scene ends; it is also restored if the "
+					"scene turns consensual.");
+				SliderF("Victim excitement rate", fVictimExcitementMult, 0.05f, 2.0f, "%.2fx", "0.5x: the victim takes about twice as long to climax.");
+				SliderF("Aggressor excitement rate", fAggressorExcitementMult, 0.05f, 3.0f, "%.2fx", "1.5x: the other actor climaxes sooner.");
 			}
 			if (ig::CollapsingHeader("Head and gaze")) {
 				Check("Gaze at partner", bGaze);

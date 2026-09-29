@@ -102,6 +102,55 @@ namespace Face::Engine
 			});
 		}
 
+		// ---- consent: OStim excitement rate
+		// OStim's own rate per actor, read before we first change it. Filled from the VM thread.
+		std::mutex g_rateLock;
+		std::unordered_map<RE::FormID, float> g_rateBase;
+		std::unordered_set<RE::FormID> g_rateRequested;
+
+		// OActor.SetExcitementMultiplier lives on OStim's per-scene actor record (set from its MCM
+		// when the actor joins, discarded when the scene ends), so nothing here outlives a scene.
+		// In a non-consensual scene with an identified victim, the victim builds at
+		// fVictimExcitementMult and everyone else at fAggressorExcitementMult, relative to OStim's
+		// own rate. The original rate comes back if the thread turns consensual.
+		void UpdateExcitementRates(Thread& t)
+		{
+			bool anyVictim = false;
+			if (!t.consent) {
+				for (auto& s : t.slots) {
+					if (s.Get() && IsSubmissive(t, s)) {
+						anyVictim = true;
+						break;
+					}
+				}
+			}
+			for (auto& s : t.slots) {
+				auto* a = s.Get();
+				if (!a) continue;
+				float want = 1.0f;
+				if (S::bConsentExcitement && !t.consent && anyVictim) want = IsSubmissive(t, s) ? S::fVictimExcitementMult : S::fAggressorExcitementMult;
+				want = ClampF(want, 0.05f, 4.0f);  // OStim divides by the rate to time the climax: never zero
+				if (std::abs(want - s.excitementFactor) < 0.001f) continue;
+				const RE::FormID id = a->GetFormID();
+				std::optional<float> base;
+				{
+					std::scoped_lock l(g_rateLock);
+					if (auto it = g_rateBase.find(id); it != g_rateBase.end()) {
+						base = it->second;
+					} else if (g_rateRequested.insert(id).second) {
+						Papyrus::CallFloat("OActor", "GetExcitementMultiplier", a, [id](float v) {
+							std::scoped_lock l(g_rateLock);
+							g_rateBase[id] = v;
+						});
+					}
+				}
+				if (!base) continue;  // applied on a later tick, once OStim's own rate is known
+				Papyrus::SetExcitementMultiplier(a, *base * want);
+				logger::info("Consent: {:08X} {} excitement rate x{:.2f} of OStim's {:.2f}", id, a->GetDisplayFullName(), want, *base);
+				s.excitementFactor = want;
+			}
+		}
+
 		std::string VoiceName(RE::Actor* a)
 		{
 			std::scoped_lock l(g_dataLock);
@@ -900,6 +949,7 @@ namespace Face::Engine
 		std::scoped_lock l(Settings::lock);
 		if (!t.active) return;
 		RefreshDerived(t, false);
+		UpdateExcitementRates(t);
 		++t.tick;
 		if (t.leadin && SceneTime(t) > 3.0f) t.leadin = false;
 		if (t.orgasm) {
@@ -916,6 +966,14 @@ namespace Face::Engine
 	void EndScene(Thread& t)
 	{
 		std::scoped_lock l(Settings::lock);
+		{
+			// OStim drops its per-scene rates with the scene; re-read them next time.
+			std::scoped_lock rl(g_rateLock);
+			for (auto& s : t.slots) {
+				g_rateBase.erase(s.id);
+				g_rateRequested.erase(s.id);
+			}
+		}
 		for (auto& s : t.slots) {
 			auto* a = s.Get();
 			if (!a) continue;

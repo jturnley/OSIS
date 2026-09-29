@@ -245,6 +245,11 @@ namespace Papyrus
 			[done = std::move(a_done)](const RE::BSScript::Variable& v) { done(AsString(v)); });
 	}
 
+	void SetExcitementMultiplier(RE::Actor* a_actor, float a_multiplier)
+	{
+		CallStatic("OActor", "SetExcitementMultiplier", RE::MakeFunctionArguments(std::move(a_actor), std::move(a_multiplier)));
+	}
+
 	// ------------------------------------------------------------ head look
 	void SetLookAt(RE::Actor* a_actor, RE::TESObjectREFR* a_target)
 	{

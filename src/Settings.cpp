@@ -63,6 +63,9 @@ namespace Settings
 				{ "Face", "bConsentGuardrails", &Face::bConsentGuardrails },
 				{ "Face", "bHardExclusionGate", &Face::bHardExclusionGate },
 				{ "Face", "bNoDistressOverwhelm", &Face::bNoDistressOverwhelm },
+				{ "Face", "bConsentExcitement", &Face::bConsentExcitement },
+				{ "Face", "fVictimExcitementMult", &Face::fVictimExcitementMult },
+				{ "Face", "fAggressorExcitementMult", &Face::fAggressorExcitementMult },
 				{ "Face", "bHeadflow", &Face::bHeadflow },
 				{ "Face", "bGroupConductor", &Face::bGroupConductor },
 				{ "Face", "bScenarioCycler", &Face::bScenarioCycler },
@@ -393,6 +396,7 @@ namespace Settings
 		bConsentGuardrails = true;
 		bHardExclusionGate = true;
 		bNoDistressOverwhelm = true;
+		bConsentExcitement = true;
 		bHeadflow = full;
 		bGroupConductor = full;
 		bScenarioCycler = full;

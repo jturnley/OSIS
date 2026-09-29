@@ -39,6 +39,7 @@ namespace Papyrus
 	void EquipObject(RE::Actor* a_actor, const char* a_type, std::function<void(bool)> a_done = {});
 	void UnequipObject(RE::Actor* a_actor, const char* a_type);
 	void GetVoiceSetName(RE::FormID a_baseID, std::function<void(std::string)> a_done);
+	void SetExcitementMultiplier(RE::Actor* a_actor, float a_multiplier);
 
 	// ---- vanilla actor head look
 	void SetLookAt(RE::Actor* a_actor, RE::TESObjectREFR* a_target);
