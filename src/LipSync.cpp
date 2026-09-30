@@ -6,7 +6,9 @@
 #include "FsUtil.h"
 #include "Scenes.h"
 #include "Settings.h"
-#include "Voice.h"
+#if !OSED_NEXUS
+#	include "Voice.h"
+#endif
 
 namespace LipSync
 {
@@ -435,6 +437,7 @@ namespace LipSync
 		std::vector<std::pair<std::string, RE::FormID>> muffled;
 		ParseVoiceSets(refs, muffled);
 		auto* dh = RE::TESDataHandler::GetSingleton();
+#if !OSED_NEXUS
 		// Everything a victim must not be heard making: the lip-synced sounds and the muffled ones.
 		for (const auto* list : { &refs, &muffled }) {
 			for (const auto& [mod, local] : *list) {
@@ -446,6 +449,7 @@ namespace LipSync
 		}
 		g_silenceFrozen = true;
 		logger::info("Victim voice: {} OStim voice-set sound files can be muted on a victim", g_silence.size());
+#endif
 		std::unordered_set<RE::FormID> seen;
 		std::vector<Descriptor> descs;
 		for (const auto& [mod, local] : refs) {
@@ -516,8 +520,10 @@ namespace LipSync
 				++g_stats.notInScene;
 				continue;
 			}
+#if !OSED_NEXUS
 			// A victim's moans are muted: no mouth to move.
 			if (Voice::IsSilenced(owner)) continue;
+#endif
 			// Oral / dialogue: the mouth belongs to the animation or the voice line.
 			auto* t = Scenes::ThreadOf(owner);
 			auto* s = t ? t->Find(owner) : nullptr;

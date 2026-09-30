@@ -248,8 +248,10 @@ namespace Skin
 		}
 		std::error_code ec;
 		g_autoBlush = std::filesystem::exists(std::string("Data/textures/") + kAutoBlush, ec);
+#if !OSED_NEXUS
 		if (auto* dh = RE::TESDataHandler::GetSingleton()) g_emoTears = dh->LookupForm<RE::SpellItem>(0xD65, "EmoTearsSpells.esp");
 		logger::info("Living Skin: Emotional Tears Effect {}", g_emoTears ? "found" : "not installed");
+#endif
 		logger::info("Living Skin: {} face overlay slots; Female Makeup Suite cheek blush {}", g_faceSlots, g_autoBlush ? "found" : "not found");
 	}
 
@@ -405,6 +407,20 @@ namespace Skin
 
 	void Tick()
 	{
+		bool on;
+		{
+			std::scoped_lock sl(Settings::lock);
+			on = Settings::Skin::bEnabled && Settings::General::bEnabled && !Compat::Disabled(Compat::kSkin);
+		}
+		if (!on) {  // switched off: take the overlays down now, not at the end of the scene
+			bool any;
+			{
+				std::scoped_lock l(g_lock);
+				any = !g_states.empty();
+			}
+			if (any) ClearAll();
+			return;
+		}
 		std::scoped_lock l(g_lock);
 		const float now = Scenes::Now();
 		for (auto& [id, st] : g_states) {

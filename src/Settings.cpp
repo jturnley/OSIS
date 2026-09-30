@@ -25,8 +25,10 @@ namespace Settings
 				{ "General", "bNPCOnlyScenes", &General::bNPCOnlyScenes },
 				{ "General", "fNPCSceneRadius", &General::fNPCSceneRadius },
 				{ "General", "bPulseBus", &General::bPulseBus },
+				{ "General", "bAnimationHooks", &General::bAnimationHooks },
 				{ "General", "bDebug", &General::bDebug },
 
+				{ "Face", "bEnabled", &Face::bEnabled },
 				{ "Face", "iMode", &Face::iMode },
 				{ "Face", "fGlobalStrength", &Face::fGlobalStrength },
 				{ "Face", "fBaseInterval", &Face::fBaseInterval },
@@ -43,7 +45,9 @@ namespace Settings
 				{ "Face", "bBreathing", &Face::bBreathing },
 				{ "Face", "bNaturalDetail", &Face::bNaturalDetail },
 				{ "Face", "bGaze", &Face::bGaze },
+#if !OSED_NEXUS
 				{ "Face", "bGazeConsentOnly", &Face::bGazeConsentOnly },
+#endif
 				{ "Face", "bClimaxChoreo", &Face::bClimaxChoreo },
 				{ "Face", "bVoiceArchetype", &Face::bVoiceArchetype },
 				{ "Face", "bPositionalDomSub", &Face::bPositionalDomSub },
@@ -58,11 +62,14 @@ namespace Settings
 				{ "Face", "bSpeedSync", &Face::bSpeedSync },
 				{ "Face", "bRoleMetadata", &Face::bRoleMetadata },
 				{ "Face", "bEventBeats", &Face::bEventBeats },
+#if !OSED_NEXUS
 				{ "Face", "bAggressorGrammar", &Face::bAggressorGrammar },
 				{ "Face", "bSpellNonConsent", &Face::bSpellNonConsent },
 				{ "Face", "bNCSceneLock", &Face::bNCSceneLock },
 				{ "Face", "fNCAutoInterval", &Face::fNCAutoInterval },
+#endif
 				{ "Face", "bPhraseGrammar", &Face::bPhraseGrammar },
+#if !OSED_NEXUS
 				{ "Face", "bConsentGuardrails", &Face::bConsentGuardrails },
 				{ "Face", "bHardExclusionGate", &Face::bHardExclusionGate },
 				{ "Face", "bNoDistressOverwhelm", &Face::bNoDistressOverwhelm },
@@ -70,6 +77,7 @@ namespace Settings
 				{ "Face", "bConsentExcitement", &Face::bConsentExcitement },
 				{ "Face", "fVictimExcitementMult", &Face::fVictimExcitementMult },
 				{ "Face", "fAggressorExcitementMult", &Face::fAggressorExcitementMult },
+#endif
 				{ "Face", "bHeadflow", &Face::bHeadflow },
 				{ "Face", "bGroupConductor", &Face::bGroupConductor },
 				{ "Face", "bScenarioCycler", &Face::bScenarioCycler },
@@ -102,14 +110,18 @@ namespace Settings
 				{ "Skin", "bEnabled", &Skin::bEnabled },
 				{ "Skin", "fStrength", &Skin::fStrength },
 				{ "Skin", "bBlush", &Skin::bBlush },
+#if !OSED_NEXUS
 				{ "Skin", "bTears", &Skin::bTears },
 				{ "Skin", "bEmoTears", &Skin::bEmoTears },
+#endif
 				{ "Skin", "bSaliva", &Skin::bSaliva },
 				{ "Skin", "bStyleGated", &Skin::bStyleGated },
 				{ "Skin", "bFemaleOnly", &Skin::bFemaleOnly },
 				{ "Skin", "iFaceFirstSlot", &Skin::iFaceFirstSlot },
 				{ "Skin", "sBlushPath", &Skin::sBlushPath },
+#if !OSED_NEXUS
 				{ "Skin", "sTearPath", &Skin::sTearPath },
+#endif
 				{ "Skin", "sSalivaPath", &Skin::sSalivaPath },
 
 				{ "LipSync", "bEnabled", &LipSync::bEnabled },
@@ -118,7 +130,9 @@ namespace Settings
 				{ "LipSync", "fRelease", &LipSync::fRelease },
 				{ "LipSync", "fMaxOpen", &LipSync::fMaxOpen },
 				{ "LipSync", "bHoldEyes", &LipSync::bHoldEyes },
+				{ "LipSync", "bYieldToDDF", &LipSync::bYieldToDDF },
 
+#if !OSED_NEXUS
 				{ "Voice", "bEnabled", &Voice::bEnabled },
 				{ "Voice", "bVictimNoMoans", &Voice::bVictimNoMoans },
 				{ "Voice", "iVictimVoice", &Voice::iVictimVoice },
@@ -129,6 +143,7 @@ namespace Settings
 				{ "Voice", "fResponderRange", &Voice::fResponderRange },
 				{ "Voice", "bBreakScream", &Voice::bBreakScream },
 				{ "Voice", "fShockSeconds", &Voice::fShockSeconds },
+#endif
 
 				{ "Arousal", "bEnabled", &Arousal::bEnabled },
 				{ "Arousal", "bAffectPlayer", &Arousal::bAffectPlayer },

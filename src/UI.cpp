@@ -7,13 +7,16 @@
 #include "Face/Output.h"
 #include "LipSync.h"
 #include "OStimData.h"
+#include "Hooks.h"
 #include "Papyrus.h"
-#include "SceneLock.h"
 #include "Scenes.h"
 #include "Scheduler.h"
 #include "Settings.h"
 #include "Skin.h"
-#include "Voice.h"
+#if !OSED_NEXUS
+#	include "SceneLock.h"
+#	include "Voice.h"
+#endif
 
 namespace
 {
@@ -126,6 +129,19 @@ namespace
 	constexpr const char* kPresets[] = { "Recommended", "Subtle", "Cinematic", "Performance", "Minimal" };
 	constexpr const char* kSources[] = { "Auto (OSL first)", "OSL Aroused", "SLO Aroused NG", "OStim excitement only" };
 	constexpr const char* kAxes[] = { "X", "Y", "Z" };
+	// A module's switch and whether it is running (or stood down for another mod). Settings::lock held.
+	void ModuleRow(const char* name, bool& on, int compat, const char* tip)
+	{
+		ig::TableNextRow();
+		ig::TableNextColumn();
+		Check(name, on, tip);
+		ig::TableNextColumn();
+		const auto reason = compat >= 0 ? Compat::Reason(static_cast<Compat::Module>(compat)) : std::string{};
+		if (!on) ig::TextDisabled("off");
+		else if (!reason.empty()) ig::TextColored(kWarn, "%s", reason.c_str());
+		else ig::TextColored(kGood, "on");
+	}
+
 	constexpr const char* kVoiceModes[] = { "Silent", "Breathing only", "Full (help, lines, scream)" };
 	constexpr const char* kResponderModes[] = { "Nobody", "Guards", "Guards and allies" };
 	constexpr const char* kDoms[] = { "Anticipation", "Pleasure", "Plateau", "Distress", "Climax", "Afterglow" };
@@ -156,8 +172,13 @@ namespace
 		const auto threads = Scenes::Snapshot();
 		if (threads.empty()) ig::TextDisabled("No OStim scene running.");
 		for (const auto& t : threads) {
+#if OSED_NEXUS
+			const char* tone = t.rough ? "  [rough]" : "";
+#else
+			const char* tone = t.consent ? (t.rough ? "  [rough, consensual]" : "") : (t.spell ? "  [non-consent: spell]" : "  [non-consent]");
+#endif
 			ig::Text("Thread %d%s  scene %s  speed %d/%d  %.0fs%s%s%s", t.id, t.player ? " (player)" : "", t.scene.empty() ? "<starting>" : t.scene.c_str(),
-				t.speed, t.maxSpeed, t.time, t.consent ? (t.rough ? "  [rough, consensual]" : "") : (t.spell ? "  [non-consent: spell]" : "  [non-consent]"), t.orgasm ? "  [climax]" : "", t.normal ? "  [pre-animation]" : "");
+				t.speed, t.maxSpeed, t.time, tone, t.orgasm ? "  [climax]" : "", t.normal ? "  [pre-animation]" : "");
 			if (ig::BeginTable(std::format("actors{}", t.id).c_str(), 7, ig::ImGuiTableFlags_Borders | ig::ImGuiTableFlags_RowBg)) {
 				for (const char* h : { "Actor", "Excite", "State", "Personality", "Face", "Mouth", "Head" }) ig::TableSetupColumn(h);
 				ig::TableHeadersRow();
@@ -186,7 +207,9 @@ namespace
 		ig::Text("Body: %s", Body::Status().c_str());
 		ig::Text("Living Skin: %s", Skin::Status().c_str());
 		ig::TextWrapped("Lip-Sync: %s", LipSync::Status().c_str());
+#if !OSED_NEXUS
 		ig::TextWrapped("Scene lock: %s", SceneLock::Status().c_str());
+#endif
 		ig::Text("Watcher: %s", Face::Engine::WatcherStatus().c_str());
 		ig::Text("Faces being written: %zu", Face::Output::PaintedCount());
 
@@ -217,10 +240,47 @@ namespace
 			Check("Paint NPCs in the player's scene", bIncludeNPCs);
 			Check("Direct NPC-only scenes too", bNPCOnlyScenes, "OStim NPCs and similar mods start scenes without the player. OSED 2.0 ignored them.");
 			SliderF("NPC-only scene radius", fNPCSceneRadius, 500.0f, 10000.0f, "%.0f");
-			Check("Pulse bus (SLED_* mod events)", bPulseBus, "Keeps third-party mods that listened to OSED's SLED_* events working.");
 			if (ig::Checkbox("Debug logging", &bDebug)) {
 				spdlog::set_level(bDebug ? spdlog::level::debug : spdlog::level::info);
 				g_dirty = true;
+			}
+
+			ig::SeparatorText("Modules");
+			ig::TextWrapped("Every part can be switched off on its own, for when another mod already does that job. A module that is off "
+			                "stops writing and hands back what it held; the others keep running.");
+			if (ig::BeginTable("modules", 2, ig::ImGuiTableFlags_SizingFixedFit)) {
+				ModuleRow("Faces", Settings::Face::bEnabled, Compat::kFace,
+					"Expressions during scenes. Off: OStim, or another expression mod, keeps the face.");
+				ModuleRow("Body (toe curl, hand grip)", Settings::Body::bEnabled, Compat::kBody,
+					"Off for a mod that also poses toes or fingers at climax.");
+				ModuleRow("Living Skin (face blush, saliva)", Settings::Skin::bEnabled, Compat::kSkin,
+					"RaceMenu face overlays. Off for a mod that uses the same overlay slots or blushes the face.");
+				ModuleRow("Lip-Sync", Settings::LipSync::bEnabled, Compat::kLipSync,
+					"Moves the mouth with OStim's moans. Off for a mod that also drives the mouth. Dynamic Dialogue Framework does, "
+					"so Lip-Sync stands down while DDF is installed (see the Lip-Sync page).");
+				ModuleRow("Softbody Arousal", Settings::Arousal::bEnabled, Compat::kArousal,
+					"Arousal body morphs and body blush. Off for another arousal-morph mod.");
+#if !OSED_NEXUS
+				ModuleRow("Victim Voice", Settings::Voice::bEnabled, -1,
+					"Mutes OStim's moans on a victim and speaks their lines. Off for another mod that voices the scene.");
+				ModuleRow("Scene lock (non-consensual scenes only)", Settings::Face::bNCSceneLock, -1,
+					"Takes over OStim's auto mode and trims the scene menu on non-consensual threads. Off for a mod that picks those scenes itself.");
+				ModuleRow("Non-consent from scene tags", Settings::Face::bAggressorGrammar, -1,
+					"Forced/rape/aggressive tags make a scene non-consensual. Off: every scene is consensual.");
+				ModuleRow("Non-consent from the player's spells", Settings::Face::bSpellNonConsent, -1,
+					"Scenes started by the player's spell (Matchmaker...) are non-consensual.");
+#endif
+				ModuleRow("Mod events (SLED_*, OSED_*)", bPulseBus, -1, "For third-party mods that listened to OSED's events.");
+				ig::TableNextRow();
+				ig::TableNextColumn();
+				Check("Animation hooks (restart)", bAnimationHooks,
+					"Writes faces and toe curl right after each frame's animation so nothing overwrites them. Off only if another mod's "
+					"hook on the same calls crashes or fights it: faces then update 20 times a second from the main thread and toe/finger "
+					"curl stops. Takes effect the next time the game starts.");
+				ig::TableNextColumn();
+				if (Hooks::PlayerHooked()) ig::TextColored(kGood, "installed%s", Hooks::NPCHooked() ? "" : " (player only)");
+				else ig::TextDisabled("not installed");
+				ig::EndTable();
 			}
 		}
 		SaveBar();
@@ -232,6 +292,7 @@ namespace
 			std::scoped_lock l(Settings::lock);
 			using namespace Settings::Face;
 			ig::SeparatorText("Face engine");
+			Check("Enabled", bEnabled, "Off: OSED paints no faces and hands back any it holds. Body, skin, lip-sync and arousal keep running.");
 			ComboI("Mode", iMode, kModes, 3,
 				"Director computes the whole face every frame and switches OStim's face writer off for painted actors (oral mouth overrides still work). "
 				"Assist/Enhanced keep OStim's faces and layer OSED on top.");
@@ -308,6 +369,7 @@ namespace
 				Check("Overwhelm face", bOverwhelmFace);
 				Check("Group conductor (3+ actors)", bGroupConductor);
 			}
+#if !OSED_NEXUS
 			if (ig::CollapsingHeader("Consent")) {
 				Check("Aggressor grammar (forced/rape/aggressive tags mean non-consent)", bAggressorGrammar);
 				Tip("Scenes tagged forced, rape or aggressive (OStim's non-consent marker) are non-consensual. The victim reacts "
@@ -345,9 +407,12 @@ namespace
 				SliderF("Victim excitement rate", fVictimExcitementMult, 0.05f, 2.0f, "%.2fx", "0.5x: the victim takes about twice as long to climax.");
 				SliderF("Aggressor excitement rate", fAggressorExcitementMult, 0.05f, 3.0f, "%.2fx", "1.5x: the other actor climaxes sooner.");
 			}
+#endif
 			if (ig::CollapsingHeader("Head and gaze")) {
 				Check("Gaze at partner", bGaze);
+#if !OSED_NEXUS
 				Check("Only hold gaze when consensual", bGazeConsentOnly);
+#endif
 				Check("Headflow (throat arch, aversion, afterglow drop)", bHeadflow);
 				Check("Body demo (head tips back at climax)", bBodyDemo);
 				Check("Use OStim scene metadata for roles", bRoleMetadata);
@@ -430,31 +495,44 @@ namespace
 		{
 			std::scoped_lock l(Settings::lock);
 			using namespace Settings::Skin;
+#if OSED_NEXUS
+			ig::TextWrapped("Face overlays through RaceMenu's \"Face [Ovl#]\" slots. Blush follows excitement and the softbody arousal flush; "
+			                "saliva is a short climax beat.");
+#else
 			ig::TextWrapped("Face overlays through RaceMenu's \"Face [Ovl#]\" slots. Blush follows excitement and the softbody arousal flush; "
 			                "saliva is a short climax beat. Tears are reserved for non-consensual scenes: the victim wells up when distress starts "
 			                "and at a forced climax. Without a tear texture, tears fall back to a welling-eyes expression.");
+#endif
 			Check("Enabled", bEnabled);
 			SliderF("Strength", fStrength, 0.0f, 1.5f);
 			Check("Blush", bBlush);
+#if !OSED_NEXUS
 			Check("Tears", bTears);
 			Check("Emotional Tears Effect", bEmoTears, "If EmoTearsSpells.esp is installed, a crying victim also gets its streaming tears until the scene ends.");
+#endif
 			Check("Saliva", bSaliva);
 			Check("Scale with style", bStyleGated);
 			Check("Females only", bFemaleOnly);
 			SliderI("First face overlay slot", iFaceFirstSlot, 0, 15, "Slot 0 is often makeup; OSED uses one slot per effect from here.");
 			Path("Blush texture", sBlushPath, "Relative to Data\\textures, e.g. actors\\character\\Overlays\\FMS\\Blush\\Blush Cheeks 1.dds. Empty = auto.");
+#if !OSED_NEXUS
 			Path("Tear texture", sTearPath);
+#endif
 			Path("Saliva texture", sSalivaPath);
 		}
 		const int slots = Skin::FaceOverlaySlots();
 		ig::TextDisabled("RaceMenu face overlay slots: %d (skee64.ini [Overlays/Face] iNumOverlays)", slots);
 		const auto blush = Skin::ResolvedPath(0);
 		ig::TextDisabled("Blush texture in use: %s", blush.empty() ? "none" : blush.c_str());
+#if !OSED_NEXUS
 		ig::TextDisabled("Emotional Tears Effect: %s", Skin::EmoTearsFound() ? "installed" : "not installed");
+#endif
 		if (Face::Engine::OBlushPresent()) ig::TextColored(kWarn, "OBlush is installed: OSED's face blush yields to it.");
 		if (ig::Button("Test blush")) OnGame([]() { if (auto* a = CrosshairActor()) Skin::TestBlush(a); });
+#if !OSED_NEXUS
 		ig::SameLine();
 		if (ig::Button("Test tear")) OnGame([]() { if (auto* a = CrosshairActor()) Skin::TestTear(a); });
+#endif
 		ig::SameLine();
 		if (ig::Button("Test saliva")) OnGame([]() { if (auto* a = CrosshairActor()) Skin::TestSaliva(a); });
 		SaveBar();
@@ -473,11 +551,18 @@ namespace
 			SliderF("Attack (s)", fAttack, 0.005f, 0.2f, "%.3f");
 			SliderF("Release (s)", fRelease, 0.02f, 0.5f, "%.3f");
 			Check("Eyes squeeze with the moan", bHoldEyes);
+			Check("Stand down while Dynamic Dialogue Framework is installed", bYieldToDDF,
+				"DDF plays spoken lines with their own lip movement; with both driving the mouth, both break. Untick to run Lip-Sync anyway.");
+		}
+		if (Compat::DDFActive()) {
+			if (Compat::Disabled(Compat::kLipSync)) ig::TextColored(kWarn, "Dynamic Dialogue Framework is active: Lip-Sync is standing down.");
+			else ig::TextColored(kWarn, "Dynamic Dialogue Framework is active: expect the two to fight over the mouth.");
 		}
 		ig::TextWrapped("%s", LipSync::Status().c_str());
 		SaveBar();
 	}
 
+#if !OSED_NEXUS
 	void __stdcall RenderVoice()
 	{
 		{
@@ -515,6 +600,7 @@ namespace
 		ig::TextDisabled("Tests speak on the crosshair actor; they don't call anyone.");
 		SaveBar();
 	}
+#endif
 
 	void __stdcall RenderArousal()
 	{
@@ -668,7 +754,9 @@ void UI::Register()
 	SKSEMenuFramework::AddSectionItem("Body", RenderBody);
 	SKSEMenuFramework::AddSectionItem("Living Skin", RenderSkin);
 	SKSEMenuFramework::AddSectionItem("Lip-Sync", RenderLipSync);
+#if !OSED_NEXUS
 	SKSEMenuFramework::AddSectionItem("Victim Voice", RenderVoice);
+#endif
 	SKSEMenuFramework::AddSectionItem("Arousal", RenderArousal);
 	SKSEMenuFramework::AddSectionItem("Arousal/Morphs", RenderMorphs);
 	SKSEMenuFramework::AddSectionItem("Arousal/Body Blush", RenderBlush);

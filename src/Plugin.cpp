@@ -6,15 +6,17 @@
 #include "Hooks.h"
 #include "LipSync.h"
 #include "OStimData.h"
-#include "SceneLock.h"
 #include "Scenes.h"
 #include "Scheduler.h"
 #include "Serialization.h"
 #include "Settings.h"
 #include "Skin.h"
-#include "SpellCast.h"
 #include "UI.h"
-#include "Voice.h"
+#if !OSED_NEXUS
+#	include "SceneLock.h"
+#	include "SpellCast.h"
+#	include "Voice.h"
+#endif
 
 namespace Scheduler
 {
@@ -31,13 +33,20 @@ namespace Scheduler
 			const float tickNow = Scenes::Now();
 			const float tickDt = g_lastTick > 0.0f ? tickNow - g_lastTick : 0.05f;
 			g_lastTick = tickNow;
-			// Without the NPC animation hook, faces still get written, just at 20 Hz.
-			if (!Hooks::NPCHooked() && !RE::UI::GetSingleton()->GameIsPaused()) Face::Output::UpdateNPCs(tickDt);
+			// Without the animation hooks, faces still get written, just at 20 Hz.
+			if (!RE::UI::GetSingleton()->GameIsPaused()) {
+				if (!Hooks::NPCHooked()) Face::Output::UpdateNPCs(tickDt);
+				if (!Hooks::PlayerHooked()) Face::Output::Update(RE::PlayerCharacter::GetSingleton(), tickDt);
+			}
+#if !OSED_NEXUS
 			SpellCast::Tick();
+#endif
 			Scenes::Tick();
 			LipSync::Poll();
+#if !OSED_NEXUS
 			Voice::Tick();
 			SceneLock::Tick();
+#endif
 			Skin::Tick();
 			Arousal::Tick();
 
@@ -113,9 +122,13 @@ namespace
 			Guarded("Living Skin", Skin::OnDataLoaded);
 			Guarded("Arousal", Arousal::Init);
 			Guarded("Lip-sync", LipSync::OnDataLoaded);
+#if !OSED_NEXUS
 			Guarded("Victim voice", Voice::OnDataLoaded);
+#endif
 			Guarded("Scene tracking", Scenes::Init);
+#if !OSED_NEXUS
 			Guarded("Spell-started scenes", SpellCast::Init);
+#endif
 			Scheduler::Start();
 			break;
 		case SKSE::MessagingInterface::kPreLoadGame:
@@ -124,12 +137,14 @@ namespace
 		case SKSE::MessagingInterface::kPostLoadGame:
 		case SKSE::MessagingInterface::kNewGame:
 			Scenes::OnGameLoad();
-			SpellCast::Clear();
 			Arousal::OnGameLoad();
 			Body::ClearAll();
 			Skin::ClearAll();
+#if !OSED_NEXUS
+			SpellCast::Clear();
 			Voice::Clear();
 			SceneLock::Clear();
+#endif
 			Compat::NotifyOnce();
 			break;
 		default:
@@ -143,7 +158,7 @@ SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 	InitLogger();
 	SKSE::Init(a_skse, { .trampoline = true, .trampolineSize = 64 });
 	Settings::Load();
-	logger::info("OSEDReborn v{} loading", SKSE::PluginDeclaration::GetSingleton()->GetVersion().string("."));
+	logger::info("OSEDReborn v{}{} loading", SKSE::PluginDeclaration::GetSingleton()->GetVersion().string("."), OSED_NEXUS ? " (Nexus edition)" : "");
 
 	SKSE::GetMessagingInterface()->RegisterListener(OnMessage);
 	Serialization::Install();

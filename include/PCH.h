@@ -36,4 +36,9 @@
 using json = nlohmann::json;
 
 namespace logger = SKSE::log;
+
+// The Nexus edition (xmake target OSEDRebornNexus) is compiled without the non-consent features.
+#ifndef OSED_NEXUS
+#	define OSED_NEXUS 0
+#endif
 using namespace std::literals;

@@ -2,13 +2,17 @@
 
 #include "Body.h"
 #include "Face/Output.h"
-#include "Voice.h"
+#include "Settings.h"
+#if !OSED_NEXUS
+#	include "Voice.h"
+#endif
 
 namespace Hooks
 {
 	namespace
 	{
 		std::atomic_bool g_npcHook{ false };
+		std::atomic_bool g_playerHook{ false };
 		std::atomic_bool g_playerViaJob{ false };
 
 		// After the original has posed the skeleton for this frame, write the face and curl
@@ -69,13 +73,31 @@ namespace Hooks
 	}
 
 	bool NPCHooked() { return g_npcHook.load(std::memory_order_relaxed); }
+	bool PlayerHooked() { return g_playerHook.load(std::memory_order_relaxed); }
 
 	void Install()
 	{
-		REL::Relocation<std::uintptr_t> vtbl{ RE::VTABLE_PlayerCharacter[0] };
-		PlayerUpdateAnimation::func = vtbl.write_vfunc(0x7D, PlayerUpdateAnimation::thunk);
-		logger::info("Installed player animation hook");
-		InstallNPC();
-		Voice::InstallHooks();
+		bool animation;
+		{
+			std::scoped_lock l(Settings::lock);
+			animation = Settings::General::bAnimationHooks;
+		}
+		if (animation) {
+			REL::Relocation<std::uintptr_t> vtbl{ RE::VTABLE_PlayerCharacter[0] };
+			PlayerUpdateAnimation::func = vtbl.write_vfunc(0x7D, PlayerUpdateAnimation::thunk);
+			g_playerHook = true;
+			logger::info("Installed player animation hook");
+			InstallNPC();
+		} else {
+			logger::warn("Animation hooks are off (bAnimationHooks): faces are written at 20 Hz from the main thread, toe/finger curl is off");
+		}
+#if !OSED_NEXUS
+		bool voice;
+		{
+			std::scoped_lock l(Settings::lock);
+			voice = Settings::Voice::bEnabled;
+		}
+		if (voice) Voice::InstallHooks();  // otherwise the per-tick sweep alone mutes a victim's moans
+#endif
 	}
 }

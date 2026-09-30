@@ -16,6 +16,7 @@ namespace Settings
 		inline bool bNPCOnlyScenes = true;    // also direct scenes without the player (OStim NPCs etc.)
 		inline float fNPCSceneRadius = 4000.0f;  // NPC-only scenes farther than this are ignored
 		inline bool bPulseBus = true;         // emit SLED_* / OSED_* mod events for other mods
+		inline bool bAnimationHooks = true;   // per-frame face/toe writes after animation (read at startup)
 		inline bool bDebug = false;
 	}
 
@@ -24,6 +25,7 @@ namespace Settings
 	{
 		enum Mode : int { kAssist = 0, kEnhanced = 1, kDirector = 2 };
 
+		inline bool bEnabled = true;          // off: OSED paints no faces; the other modules keep running
 		inline int iMode = kDirector;         // Assist/Enhanced layer over OStim, or Director owns the face
 		inline float fGlobalStrength = 0.85f;
 		inline float fBaseInterval = 3.0f;
@@ -131,6 +133,7 @@ namespace Settings
 		inline float fRelease = 0.12f;        // envelope release (s)
 		inline float fMaxOpen = 0.85f;
 		inline bool bHoldEyes = true;         // squint with the moan while it plays
+		inline bool bYieldToDDF = true;       // stand down while Dynamic Dialogue Framework is installed (both drive the mouth)
 	}
 
 	// ---------------------------------------------------------------- victim voice

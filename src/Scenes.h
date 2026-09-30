@@ -34,6 +34,7 @@ namespace Scenes
 		bool voiceRequested = false;
 		float excitementFactor = 1.0f;  // consent: our scale on OStim's excitement rate (1 = untouched)
 		bool broken = false;            // a victim who climaxed: vacant face for the rest of the thread
+		bool faced = false;             // OSED painted this face (handed back if faces are switched off)
 		bool victim = false;            // identified victim of a non-consensual scene (set by RefreshDerived)
 		float shockUntil = 0.0f;        // shocked face after the breaking climax, until then
 
