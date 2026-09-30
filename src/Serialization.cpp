@@ -7,7 +7,7 @@ namespace Serialization
 {
 	namespace
 	{
-		constexpr std::uint32_t kID = 'OSED';
+		constexpr std::uint32_t kID = 'OSIS';
 		constexpr std::uint32_t kPersonality = 'PERS';
 		constexpr std::uint32_t kTakenOver = 'TKOV';
 		constexpr std::uint32_t kEmoTears = 'EMOT';
