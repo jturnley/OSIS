@@ -104,6 +104,7 @@ namespace Settings
 				{ "Body", "bHand", &Body::bHand },
 				{ "Body", "bStyleGated", &Body::bStyleGated },
 				{ "Body", "fToeDegrees", &Body::fToeDegrees },
+				{ "Body", "fPerToe", &Body::fPerToe },
 				{ "Body", "fFingerDegrees", &Body::fFingerDegrees },
 				{ "Body", "iCurlAxis", &Body::iCurlAxis },
 
@@ -180,6 +181,7 @@ namespace Settings
 			Face::fNCAutoInterval = std::clamp(Face::fNCAutoInterval, 5.0f, 120.0f);
 			if (Face::fAnimeEnd > Face::fAnimeStart) Face::fAnimeEnd = Face::fAnimeStart;
 			Body::iCurlAxis = std::clamp(Body::iCurlAxis, 0, 2);
+			Body::fPerToe = std::clamp(Body::fPerToe, 0.0f, 2.0f);
 			Skin::iFaceFirstSlot = std::clamp(Skin::iFaceFirstSlot, 0, 15);
 			Arousal::iSource = std::clamp(Arousal::iSource, 0, 3);
 			Arousal::fInterval = std::clamp(Arousal::fInterval, 0.25f, 30.0f);

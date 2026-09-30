@@ -478,6 +478,9 @@ namespace
 			SliderF("Strength", fStrength, 0.0f, 1.0f);
 			Check("Toe curl", bToe);
 			SliderF("Toe degrees", fToeDegrees, 0.0f, 60.0f, "%.0f");
+			SliderF("Per-toe curl", fPerToe, 0.0f, 2.0f, "%.2f",
+				"Extra bend at each toe's own two joints, on top of the whole-foot toe bone. Only shows on feet weighted to "
+				"XPMSSE's per-toe bones (Aerosmith TJ Feet, for example); other feet look as before. 0 = off.");
 			Check("Hand grip", bHand);
 			SliderF("Finger degrees", fFingerDegrees, 0.0f, 90.0f, "%.0f");
 			ComboI("Curl axis", iCurlAxis, kAxes, 3, "Bone-local axis. If toes/fingers bend sideways, try another axis with the test button.");

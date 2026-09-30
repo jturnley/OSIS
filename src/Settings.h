@@ -103,6 +103,7 @@ namespace Settings
 		inline bool bHand = true;
 		inline bool bStyleGated = true;
 		inline float fToeDegrees = 35.0f;
+		inline float fPerToe = 1.0f;          // extra curl at each toe's own joints (feet weighted to XPMSSE's per-toe bones); 0 off
 		inline float fFingerDegrees = 45.0f;
 		inline int iCurlAxis = 0;             // 0 X, 1 Y, 2 Z (bone-local)
 	}
