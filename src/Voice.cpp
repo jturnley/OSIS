@@ -120,13 +120,13 @@ namespace Voice
 			return base && base->GetSex() == RE::SEX::kFemale;
 		}
 
+		// The NPC record's voice, else the race default, read as fields the way OStim does. (Not
+		// TESBoundObject::GetObjectVoiceType: that vtable slot returned garbage on 1.6.1170 and
+		// crashed the game.)
 		std::string OwnVoiceType(RE::Actor* a, bool female)
 		{
 			RE::BGSVoiceType* vt = nullptr;
-			if (auto* base = a->GetActorBase()) {
-				vt = base->GetObjectVoiceType();
-				if (!vt) vt = base->voiceType;
-			}
+			if (auto* base = a->GetActorBase()) vt = base->voiceType;
 			if (!vt) {
 				if (auto* race = a->GetRace()) vt = race->defaultVoiceTypes[female ? RE::SEX::kFemale : RE::SEX::kMale];
 			}
