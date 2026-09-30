@@ -4,6 +4,7 @@
 
 #include "Papyrus.h"
 #include "Pulse.h"
+#include "SceneLock.h"
 #include "Voice.h"
 
 namespace Face::Engine
@@ -1043,6 +1044,7 @@ namespace Face::Engine
 		}
 		logger::debug("thread {} ready: scene={} actors={} player={}", t.id, t.sceneID, t.slots.size(), t.hasPlayer);
 		Voice::Sync(t);
+		SceneLock::OnThreadReady(t);
 		ApplyAll(t, true);
 		t.nextTick = Scenes::Now() + TickInterval(t);
 	}
@@ -1052,6 +1054,7 @@ namespace Face::Engine
 		std::scoped_lock l(Settings::lock);
 		RefreshDerived(t, true);
 		Voice::Sync(t);
+		SceneLock::OnSceneChanged(t);
 		t.gasp = true;
 		ApplyAll(t, true);
 		t.gasp = false;
@@ -1123,6 +1126,7 @@ namespace Face::Engine
 		}
 		if (t.hasPlayer) ClearWatcherTrialActor();
 		Voice::OnSceneEnd(t);
+		SceneLock::OnSceneEnd(t);
 		t.active = false;
 		Pulse::SceneEnd(t.id);
 		logger::debug("thread {} ended", t.id);

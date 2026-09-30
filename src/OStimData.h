@@ -28,6 +28,7 @@ namespace OStimData
 		std::vector<SceneActor> actors;
 		std::vector<Action> actions;
 		int maxSpeed = 0;      // highest speed index
+		std::string destination;  // a transition: the scene it plays into (lowercase)
 		int defaultSpeed = 0;
 		bool known = false;    // false when no scene file was found
 	};

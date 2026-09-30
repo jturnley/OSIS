@@ -54,6 +54,18 @@ namespace Papyrus
 			if (!v.IsString()) return {};
 			return std::string(v.GetString());
 		}
+
+		std::vector<std::string> AsStrings(const RE::BSScript::Variable& v)
+		{
+			std::vector<std::string> out;
+			if (!v.IsArray()) return out;
+			const auto arr = v.GetArray();
+			if (!arr) return out;
+			for (std::uint32_t i = 0; i < arr->size(); ++i) {
+				if (const auto& e = (*arr)[i]; e.IsString()) out.emplace_back(e.GetString());
+			}
+			return out;
+		}
 	}
 
 	void CallStatic(const char* a_class, const char* a_fn, RE::BSScript::IFunctionArguments* a_args, Result a_done)
@@ -259,6 +271,58 @@ namespace Papyrus
 	void ClearLookAt(RE::Actor* a_actor)
 	{
 		CallMethod(a_actor, "Actor", "ClearLookAt", RE::MakeFunctionArguments());
+	}
+
+	// ------------------------------------------------------------ OStim scene choice
+	void GetScenesInRange(const std::string& a_scene, std::vector<RE::Actor*> a_actors, std::int32_t a_distance, std::function<void(std::vector<std::string>)> a_done)
+	{
+		CallStatic("OLibrary", "GetScenesInRange", RE::MakeFunctionArguments(RE::BSFixedString(a_scene), std::move(a_actors), std::move(a_distance)),
+			[done = std::move(a_done)](const RE::BSScript::Variable& v) { done(AsStrings(v)); });
+	}
+
+	void GetRandomFurnitureSceneWithAnyTag(std::vector<RE::Actor*> a_actors, const std::string& a_furniture, const std::string& a_tagsCSV, std::function<void(std::string)> a_done)
+	{
+		CallStatic("OLibrary", "GetRandomFurnitureSceneWithAnySceneTagCSV",
+			RE::MakeFunctionArguments(std::move(a_actors), RE::BSFixedString(a_furniture), RE::BSFixedString(a_tagsCSV)),
+			[done = std::move(a_done)](const RE::BSScript::Variable& v) { done(AsString(v)); });
+	}
+
+	void GetFurnitureType(std::int32_t a_thread, std::function<void(std::string)> a_done)
+	{
+		CallStatic("OThread", "GetFurnitureType", RE::MakeFunctionArguments(std::move(a_thread)),
+			[done = std::move(a_done)](const RE::BSScript::Variable& v) { done(AsString(v)); });
+	}
+
+	void GetThreadMetadata(std::int32_t a_thread, std::function<void(std::vector<std::string>)> a_done)
+	{
+		CallStatic("OThread", "GetMetadata", RE::MakeFunctionArguments(std::move(a_thread)),
+			[done = std::move(a_done)](const RE::BSScript::Variable& v) { done(AsStrings(v)); });
+	}
+
+	void NavigateTo(std::int32_t a_thread, const std::string& a_scene)
+	{
+		CallStatic("OThread", "NavigateTo", RE::MakeFunctionArguments(std::move(a_thread), RE::BSFixedString(a_scene)));
+	}
+
+	void WarpTo(std::int32_t a_thread, const std::string& a_scene, bool a_fades)
+	{
+		CallStatic("OThread", "WarpTo", RE::MakeFunctionArguments(std::move(a_thread), RE::BSFixedString(a_scene), std::move(a_fades)));
+	}
+
+	void IsInAutoMode(std::int32_t a_thread, std::function<void(bool)> a_done)
+	{
+		CallStatic("OThread", "IsInAutoMode", RE::MakeFunctionArguments(std::move(a_thread)),
+			[done = std::move(a_done)](const RE::BSScript::Variable& v) { done(AsBool(v)); });
+	}
+
+	void StartAutoMode(std::int32_t a_thread)
+	{
+		CallStatic("OThread", "StartAutoMode", RE::MakeFunctionArguments(std::move(a_thread)));
+	}
+
+	void StopAutoMode(std::int32_t a_thread)
+	{
+		CallStatic("OThread", "StopAutoMode", RE::MakeFunctionArguments(std::move(a_thread)));
 	}
 
 	// ------------------------------------------------------------ victim voice

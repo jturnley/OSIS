@@ -60,6 +60,8 @@ namespace Settings
 				{ "Face", "bEventBeats", &Face::bEventBeats },
 				{ "Face", "bAggressorGrammar", &Face::bAggressorGrammar },
 				{ "Face", "bSpellNonConsent", &Face::bSpellNonConsent },
+				{ "Face", "bNCSceneLock", &Face::bNCSceneLock },
+				{ "Face", "fNCAutoInterval", &Face::fNCAutoInterval },
 				{ "Face", "bPhraseGrammar", &Face::bPhraseGrammar },
 				{ "Face", "bConsentGuardrails", &Face::bConsentGuardrails },
 				{ "Face", "bHardExclusionGate", &Face::bHardExclusionGate },
@@ -160,6 +162,7 @@ namespace Settings
 			Face::fStyle = std::clamp(Face::fStyle, 0.0f, 2.0f);
 			Face::fEyeStrength = std::clamp(Face::fEyeStrength, 0.0f, 1.5f);
 			Face::iPlayerPersonality = std::clamp(Face::iPlayerPersonality, -1, 4);
+			Face::fNCAutoInterval = std::clamp(Face::fNCAutoInterval, 5.0f, 120.0f);
 			if (Face::fAnimeEnd > Face::fAnimeStart) Face::fAnimeEnd = Face::fAnimeStart;
 			Body::iCurlAxis = std::clamp(Body::iCurlAxis, 0, 2);
 			Skin::iFaceFirstSlot = std::clamp(Skin::iFaceFirstSlot, 0, 15);
@@ -412,6 +415,7 @@ namespace Settings
 		bEventBeats = true;
 		bAggressorGrammar = true;
 		bSpellNonConsent = true;
+		bNCSceneLock = true;
 		bPhraseGrammar = full;
 		bConsentGuardrails = true;
 		bHardExclusionGate = true;

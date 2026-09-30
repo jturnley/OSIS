@@ -120,6 +120,7 @@ namespace OStimData
 				const auto speeds = doc.value("speeds", json::array());
 				s->maxSpeed = speeds.is_array() && !speeds.empty() ? static_cast<int>(speeds.size()) - 1 : 0;
 				s->defaultSpeed = doc.value("defaultSpeed", 0);
+				if (const auto d = doc.find("destination"); d != doc.end() && d->is_string()) s->destination = Lower(d->get<std::string>());
 				s->known = true;
 			} catch (const std::exception& e) {
 				logger::warn("OStim scene {}: {}", FsUtil::Printable(file), e.what());

@@ -6,6 +6,7 @@
 #include "Hooks.h"
 #include "LipSync.h"
 #include "OStimData.h"
+#include "SceneLock.h"
 #include "Scenes.h"
 #include "Scheduler.h"
 #include "Serialization.h"
@@ -36,6 +37,7 @@ namespace Scheduler
 			Scenes::Tick();
 			LipSync::Poll();
 			Voice::Tick();
+			SceneLock::Tick();
 			Skin::Tick();
 			Arousal::Tick();
 
@@ -127,6 +129,7 @@ namespace
 			Body::ClearAll();
 			Skin::ClearAll();
 			Voice::Clear();
+			SceneLock::Clear();
 			Compat::NotifyOnce();
 			break;
 		default:

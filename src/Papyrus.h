@@ -45,6 +45,17 @@ namespace Papyrus
 	void SetLookAt(RE::Actor* a_actor, RE::TESObjectREFR* a_target);
 	void ClearLookAt(RE::Actor* a_actor);
 
+	// ---- OStim scene choice (SceneLock)
+	void GetScenesInRange(const std::string& a_scene, std::vector<RE::Actor*> a_actors, std::int32_t a_distance, std::function<void(std::vector<std::string>)> a_done);
+	void GetRandomFurnitureSceneWithAnyTag(std::vector<RE::Actor*> a_actors, const std::string& a_furniture, const std::string& a_tagsCSV, std::function<void(std::string)> a_done);
+	void GetFurnitureType(std::int32_t a_thread, std::function<void(std::string)> a_done);
+	void GetThreadMetadata(std::int32_t a_thread, std::function<void(std::vector<std::string>)> a_done);
+	void NavigateTo(std::int32_t a_thread, const std::string& a_scene);
+	void WarpTo(std::int32_t a_thread, const std::string& a_scene, bool a_fades);
+	void IsInAutoMode(std::int32_t a_thread, std::function<void(bool)> a_done);
+	void StartAutoMode(std::int32_t a_thread);
+	void StopAutoMode(std::int32_t a_thread);
+
 	// ---- victim voice
 	void SendAssaultAlarm(RE::Actor* a_victim);            // Actor.SendAssaultAlarm: the crime is reported
 	void StartCombat(RE::Actor* a_who, RE::Actor* a_target);

@@ -58,6 +58,8 @@ namespace Settings
 		inline bool bEventBeats = true;
 		inline bool bAggressorGrammar = true;
 		inline bool bSpellNonConsent = true;          // scenes started by the player's spell (Matchmaker...) are non-consensual
+		inline bool bNCSceneLock = true;              // a thread started non-consensual plays non-consensual scenes only
+		inline float fNCAutoInterval = 20.0f;         // seconds between auto-mode scene changes on such a thread (+-40%)
 		inline bool bPhraseGrammar = true;
 		inline bool bConsentGuardrails = true;
 		inline bool bHardExclusionGate = true;

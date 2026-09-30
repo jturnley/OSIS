@@ -8,6 +8,7 @@
 #include "LipSync.h"
 #include "OStimData.h"
 #include "Papyrus.h"
+#include "SceneLock.h"
 #include "Scenes.h"
 #include "Scheduler.h"
 #include "Settings.h"
@@ -185,6 +186,7 @@ namespace
 		ig::Text("Body: %s", Body::Status().c_str());
 		ig::Text("Living Skin: %s", Skin::Status().c_str());
 		ig::TextWrapped("Lip-Sync: %s", LipSync::Status().c_str());
+		ig::TextWrapped("Scene lock: %s", SceneLock::Status().c_str());
 		ig::Text("Watcher: %s", Face::Engine::WatcherStatus().c_str());
 		ig::Text("Faces being written: %zu", Face::Output::PaintedCount());
 
@@ -321,6 +323,13 @@ namespace
 				    "spells on an enemy mid-fight are ignored. Asking is not forcing: an NPC who talked with the player after "
 				    "the spell (ODragonSeed's NPCs come to ask, for example) is no victim, and if nobody else was cast on, "
 				    "only the scene's tags decide consent.");
+				Check("Non-consensual scenes stay non-consensual", bNCSceneLock,
+					"A scene that starts non-consensual (a forced/rape/aggressive starting scene, the player's spell, or the "
+					"starting mod's thread metadata) only plays non-consensual scenes. OStim's auto mode is taken over by one "
+					"that picks among them (OStim's own library, matching the actors and furniture), the scene menu only offers "
+					"options that lead to one, and anything else that lands on a consensual scene is walked back. Pressing "
+					"OStim's auto-mode key still toggles auto mode.");
+				SliderF("Auto mode: seconds per scene", fNCAutoInterval, 5.0f, 90.0f, "%.0f", "On those threads. Varies 40% either way.");
 				Check("Consent guardrails", bConsentGuardrails);
 				Check("Hard exclusion gate (distress owns the face)", bHardExclusionGate);
 				Check("No overwhelm/ahegao in distress", bNoDistressOverwhelm);
