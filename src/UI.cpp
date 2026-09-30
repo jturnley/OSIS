@@ -580,8 +580,8 @@ namespace
 			ig::SeparatorText("Call for help");
 			Check("Cry for help as it starts", bCallForHelp);
 			ComboI("Who answers", iResponders, kResponderModes, 3,
-				"Player as aggressor: an assault alarm from the victim, so the crime is reported and guards act on it. NPC aggressor: "
-				"guards and allies attack them. Combat can end the OStim scene.");
+				"Guards and allies in range attack the aggressor; the victim stays in the scene. When the aggressor is the player and a "
+				"guard answered, the assault also goes on the player's bounty in the victim's hold. Combat can end the OStim scene.");
 			SliderF("Answer range", fResponderRange, 256.0f, 8192.0f, "%.0f");
 
 			ig::SeparatorText("Breaking climax");

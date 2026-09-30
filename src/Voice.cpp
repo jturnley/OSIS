@@ -311,6 +311,8 @@ namespace Voice
 			std::string_view lastStem;
 			bool helped = false;
 			bool muted = false;
+			float calmUntil = 0.0f;  // after the cry is answered: keep the victim out of the fight
+			float nextCalm = 0.0f;
 		};
 
 		// A victim whose thread restarts (a follower joining) keeps going where they were.
@@ -421,10 +423,20 @@ namespace Voice
 			});
 		}
 
+		// Vanilla's bounty for assault (iCrimeGoldAttack, 40).
+		std::int32_t AssaultGold()
+		{
+			auto* settings = RE::GameSettingCollection::GetSingleton();
+			auto* s = settings ? settings->GetSetting("iCrimeGoldAttack") : nullptr;
+			return s ? s->GetInteger() : 40;
+		}
+
 		// Who heard the cry. Guards (and with iResponders 2, the victim's friends and allies) within
-		// range answer: an assault alarm from the victim when the player is the aggressor (the
-		// crime is reported and guards act on it, as ODragonSeed does), or combat against an NPC
-		// aggressor. A bystander who is neither shouts for the guards.
+		// range come for the aggressor. When that is the player and a guard answered, the assault
+		// also goes on their bounty in the victim's hold, so yielding to the guards ends it the
+		// vanilla way. The victim herself is left out: ODragonSeed's SendAssaultAlarm is raised by
+		// the victim and put her in combat too, which pulled her out of the scene. A bystander who
+		// is neither guard nor ally shouts for the guards.
 		void Respond(RE::ActorHandle a_victim, RE::ActorHandle a_aggressor)
 		{
 			const auto c = ReadConfig();
@@ -477,18 +489,20 @@ namespace Voice
 				g_lastResponse = std::format("{}: nobody in range", victim->GetDisplayFullName());
 				return;
 			}
-			if (playerAggressor) {
-				Papyrus::SendAssaultAlarm(victim.get());
-				for (const auto& r : allies) Papyrus::StartCombat(r.actor, aggressor.get());
-			} else {
-				for (const auto& r : guards) Papyrus::StartCombat(r.actor, aggressor.get());
-				for (const auto& r : allies) Papyrus::StartCombat(r.actor, aggressor.get());
+			for (const auto& r : guards) Papyrus::StartCombat(r.actor, aggressor.get());
+			for (const auto& r : allies) Papyrus::StartCombat(r.actor, aggressor.get());
+			bool bounty = false;
+			if (playerAggressor && !guards.empty()) {
+				if (auto* crime = victim->GetCrimeFaction()) {
+					Papyrus::AddCrimeGold(crime, AssaultGold(), true);
+					bounty = true;
+				}
 			}
 			if (!guards.empty()) SpeakLater(guards.front().actor, kGuard, true, 0.0f);
 			if (witness) SpeakLater(witness, kWitness, false, 0.4f);
 			if (!allies.empty()) SpeakLater(allies.front().actor, kAlly, false, 0.8f);
 			const auto text = std::format("{}: {} guard(s), {} all(y/ies){}{}", victim->GetDisplayFullName(), guards.size(), allies.size(),
-				witness ? ", a witness" : "", playerAggressor ? " (assault alarm)" : "");
+				witness ? ", a witness" : "", bounty ? " (assault bounty)" : "");
 			logger::info("Victim voice: cry for help answered by {}", text);
 			std::scoped_lock l(g_lock);
 			g_lastResponse = text;
@@ -603,7 +617,7 @@ namespace Voice
 		}
 
 		// ------------------------------------------------------------ tick
-		enum class Act { kSpeak, kMute, kRespond };
+		enum class Act { kSpeak, kMute, kRespond, kCalm };
 
 		struct Action
 		{
@@ -622,6 +636,7 @@ namespace Voice
 			bool alive = false;
 			bool broken = false;
 			bool mouthBusy = false;
+			bool inCombat = false;
 		};
 
 		void Forget(RE::FormID a_id, const Victim& v, float now)
@@ -653,7 +668,10 @@ namespace Voice
 					}
 					line = Pick(v.chain, kHelp);
 					v.helped = true;
-					if (line && c.responders > 0 && v.aggressor) out.push_back({ Act::kRespond, v.handle, {}, v.aggressor });
+					if (line && c.responders > 0 && v.aggressor) {
+						out.push_back({ Act::kRespond, v.handle, {}, v.aggressor });
+						v.calmUntil = now + 45.0f;
+					}
 				}
 				v.phase = Phase::kLines;
 				if (!line) gap = RandF(1.0f, 3.0f);
@@ -777,6 +795,7 @@ namespace Voice
 				if (!in.alive) continue;
 				in.broken = s->broken;
 				in.mouthBusy = Face::Engine::MouthYielded(*t, *s, in.actor);
+				in.inCombat = in.actor->IsInCombat();
 				if (c.noMoans) {
 					silenced.insert(in.id);
 					for (auto* n : { in.actor->Get3D(), in.actor->Get3D1(false), in.actor->Get3D1(true) }) {
@@ -796,6 +815,12 @@ namespace Voice
 					}
 					auto& v = it->second;
 					v.resolve = std::max(0.0f, v.resolve - dt / kResolveSeconds);
+					// The fight we started is between the responders and the aggressor. A victim who
+					// gets drawn in (helping an allied guard) is taken back out, so she stays in the scene.
+					if (in.inCombat && now < v.calmUntil && now >= v.nextCalm) {
+						actions.push_back({ Act::kCalm, v.handle, {}, {} });
+						v.nextCalm = now + 1.0f;
+					}
 					if (g_voiceFound) Step(v, in, c, now, actions);
 				}
 			}
@@ -809,6 +834,10 @@ namespace Voice
 					break;
 				case Act::kMute:
 					Papyrus::MuteOStim(who.get());
+					break;
+				case Act::kCalm:
+					Papyrus::StopCombat(who.get());
+					logger::info("Victim voice: {:08X} {} was drawn into the fight; taken back out", who->GetFormID(), who->GetDisplayFullName());
 					break;
 				case Act::kRespond:
 					Scheduler::After(1.5f, [v = a.who, g = a.other]() { Respond(v, g); });

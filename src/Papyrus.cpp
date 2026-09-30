@@ -326,14 +326,19 @@ namespace Papyrus
 	}
 
 	// ------------------------------------------------------------ victim voice
-	void SendAssaultAlarm(RE::Actor* a_victim)
-	{
-		CallMethod(a_victim, "Actor", "SendAssaultAlarm", RE::MakeFunctionArguments());
-	}
-
 	void StartCombat(RE::Actor* a_who, RE::Actor* a_target)
 	{
 		CallMethod(a_who, "Actor", "StartCombat", RE::MakeFunctionArguments(std::move(a_target)));
+	}
+
+	void StopCombat(RE::Actor* a_actor)
+	{
+		CallMethod(a_actor, "Actor", "StopCombat", RE::MakeFunctionArguments());
+	}
+
+	void AddCrimeGold(RE::TESFaction* a_crimeFaction, std::int32_t a_gold, bool a_violent)
+	{
+		CallMethod(a_crimeFaction, "Faction", "ModCrimeGold", RE::MakeFunctionArguments(std::move(a_gold), std::move(a_violent)));
 	}
 
 	void MuteOStim(RE::Actor* a_actor)
