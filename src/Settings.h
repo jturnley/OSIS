@@ -100,7 +100,7 @@ namespace Settings
 		inline bool bStyleGated = true;
 		inline float fToeDegrees = 35.0f;
 		inline float fFingerDegrees = 45.0f;
-		inline int iCurlAxis = 2;             // 0 X, 1 Y, 2 Z (bone-local)
+		inline int iCurlAxis = 0;             // 0 X, 1 Y, 2 Z (bone-local)
 	}
 
 	// ---------------------------------------------------------------- living skin (face overlays)
