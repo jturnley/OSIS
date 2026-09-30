@@ -13,7 +13,7 @@ namespace Compat
 		bool g_ddf = false;
 		bool g_notified = false;
 
-		constexpr std::array<const char*, kCount> kModuleName{ "Faces", "Body", "Living Skin", "Lip-Sync", "Softbody Arousal" };
+		constexpr std::array<const char*, kCount> kModuleName{ "Faces", "Body", "Living Skin", "Lip-Sync", "Arousal" };
 	}
 
 	void Detect()
@@ -39,7 +39,7 @@ namespace Compat
 		if (GetModuleHandleW(L"SoftbodyArousal.dll")) {
 			g_yield[kArousal] = true;
 			g_reason[kArousal] = "stood down: SoftbodyArousal.dll is loaded";
-			g_conflicts.push_back("SoftbodyArousal.dll is loaded: the Softbody Arousal module is off");
+			g_conflicts.push_back("SoftbodyArousal.dll is loaded: the Arousal module is off");
 		}
 		for (const auto& c : g_conflicts) logger::warn("{} (disable that mod to use the DLL's version)", c);
 		// Not an old version of ours, just another mod that moves the mouth; see LipSync::bYieldToDDF.

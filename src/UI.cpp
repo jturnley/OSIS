@@ -165,7 +165,7 @@ namespace
 		if (!conflicts.empty()) {
 			ig::SeparatorText("Old mods still active");
 			for (const auto& c : conflicts) ig::TextColored(kWarn, "%s", c.c_str());
-			ig::TextWrapped("Disable these in your mod manager: the original OSED mods and Softbody Arousal are replaced by this one, and the OSED Reborn <x> plugins are its Papyrus fallback, not an add-on.");
+			ig::TextWrapped("Disable these in your mod manager: the original OSED mods are replaced by this one, and the OSED Reborn <x> plugins are its Papyrus fallback, not an add-on.");
 		}
 
 		ig::SeparatorText("Scenes");
@@ -258,7 +258,7 @@ namespace
 				ModuleRow("Lip-Sync", Settings::LipSync::bEnabled, Compat::kLipSync,
 					"Moves the mouth with OStim's moans. Off for a mod that also drives the mouth. Dynamic Dialogue Framework does, "
 					"so Lip-Sync stands down while DDF is installed (see the Lip-Sync page).");
-				ModuleRow("Softbody Arousal", Settings::Arousal::bEnabled, Compat::kArousal,
+				ModuleRow("Arousal (body morphs)", Settings::Arousal::bEnabled, Compat::kArousal,
 					"Arousal body morphs and body blush. Off for another arousal-morph mod.");
 #if !OSIS_NEXUS
 				ModuleRow("Victim Voice", Settings::Voice::bEnabled, -1,
@@ -499,10 +499,10 @@ namespace
 			std::scoped_lock l(Settings::lock);
 			using namespace Settings::Skin;
 #if OSIS_NEXUS
-			ig::TextWrapped("Face overlays through RaceMenu's \"Face [Ovl#]\" slots. Blush follows excitement and the softbody arousal flush; "
+			ig::TextWrapped("Face overlays through RaceMenu's \"Face [Ovl#]\" slots. Blush follows excitement and the body's arousal flush; "
 			                "saliva is a short climax beat.");
 #else
-			ig::TextWrapped("Face overlays through RaceMenu's \"Face [Ovl#]\" slots. Blush follows excitement and the softbody arousal flush; "
+			ig::TextWrapped("Face overlays through RaceMenu's \"Face [Ovl#]\" slots. Blush follows excitement and the body's arousal flush; "
 			                "saliva is a short climax beat. Tears are reserved for non-consensual scenes: the victim wells up when distress starts "
 			                "and at a forced climax. Without a tear texture, tears fall back to a welling-eyes expression.");
 #endif
@@ -610,7 +610,7 @@ namespace
 		{
 			std::scoped_lock l(Settings::lock);
 			using namespace Settings::Arousal;
-			ig::SeparatorText("Softbody Arousal");
+			ig::SeparatorText("Arousal");
 			Check("Enabled", bEnabled);
 			Check("Affect player", bAffectPlayer);
 			Check("Affect nearby NPCs", bAffectNPCs);
