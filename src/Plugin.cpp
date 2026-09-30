@@ -12,7 +12,7 @@
 #include "Settings.h"
 #include "Skin.h"
 #include "UI.h"
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 #	include "SceneLock.h"
 #	include "SpellCast.h"
 #	include "Voice.h"
@@ -38,12 +38,12 @@ namespace Scheduler
 				if (!Hooks::NPCHooked()) Face::Output::UpdateNPCs(tickDt);
 				if (!Hooks::PlayerHooked()) Face::Output::Update(RE::PlayerCharacter::GetSingleton(), tickDt);
 			}
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 			SpellCast::Tick();
 #endif
 			Scenes::Tick();
 			LipSync::Poll();
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 			Voice::Tick();
 			SceneLock::Tick();
 #endif
@@ -90,7 +90,7 @@ namespace
 	{
 		auto path = SKSE::log::log_directory();
 		if (!path) return;
-		*path /= "OSEDReborn.log";
+		*path /= "OSIS.log";
 
 		auto sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(path->string(), true);
 		auto log = std::make_shared<spdlog::logger>("global log", std::move(sink));
@@ -122,11 +122,11 @@ namespace
 			Guarded("Living Skin", Skin::OnDataLoaded);
 			Guarded("Arousal", Arousal::Init);
 			Guarded("Lip-sync", LipSync::OnDataLoaded);
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 			Guarded("Victim voice", Voice::OnDataLoaded);
 #endif
 			Guarded("Scene tracking", Scenes::Init);
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 			Guarded("Spell-started scenes", SpellCast::Init);
 #endif
 			Scheduler::Start();
@@ -140,7 +140,7 @@ namespace
 			Arousal::OnGameLoad();
 			Body::ClearAll();
 			Skin::ClearAll();
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 			SpellCast::Clear();
 			Voice::Clear();
 			SceneLock::Clear();
@@ -158,7 +158,7 @@ SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 	InitLogger();
 	SKSE::Init(a_skse, { .trampoline = true, .trampolineSize = 64 });
 	Settings::Load();
-	logger::info("OSEDReborn v{}{} loading", SKSE::PluginDeclaration::GetSingleton()->GetVersion().string("."), OSED_NEXUS ? " (Nexus edition)" : "");
+	logger::info("OSIS v{}{} loading", SKSE::PluginDeclaration::GetSingleton()->GetVersion().string("."), OSIS_NEXUS ? " (Nexus edition)" : "");
 
 	SKSE::GetMessagingInterface()->RegisterListener(OnMessage);
 	Serialization::Install();

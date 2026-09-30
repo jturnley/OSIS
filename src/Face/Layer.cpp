@@ -19,10 +19,10 @@ namespace Face::Engine::detail
 
 		std::string LayerEventName(Thread& t, int raw, bool shy, bool bold)
 		{
-			if (t.afterglow > 0) return "osed_afterglow";
-			if (t.orgasm || raw >= 86) return "osed_climax_build";
-			if (shy) return "osed_shy_avert";
-			if (bold || raw >= 55) return "osed_focus";
+			if (t.afterglow > 0) return "osis_afterglow";
+			if (t.orgasm || raw >= 86) return "osis_climax_build";
+			if (shy) return "osis_shy_avert";
+			if (bold || raw >= 55) return "osis_focus";
 			return "";
 		}
 
@@ -298,9 +298,9 @@ namespace Face::Engine::detail
 		if (s.animeVariant < 0) s.animeVariant = PickSeed(t, Seed(a), 4);
 		const float now = Scenes::Now();
 		const bool tongueJson = !yieldMouth && TongueMoment(t, a, raw) && now >= s.tongueCooldownUntil;
-		if (yieldMouth) PlayOSEDExpressionEvent(t, s, a, "osed_anime_peak_eyes", 2.0f);
-		else if (tongueJson || s.tongueOn || s.tonguePrimeUntil > now) PlayOSEDExpressionEvent(t, s, a, "osed_anime_peak_tongue", 1.6f);
-		else PlayOSEDExpressionEvent(t, s, a, "osed_anime_peak", 2.0f);
+		if (yieldMouth) PlayOSEDExpressionEvent(t, s, a, "osis_anime_peak_eyes", 2.0f);
+		else if (tongueJson || s.tongueOn || s.tonguePrimeUntil > now) PlayOSEDExpressionEvent(t, s, a, "osis_anime_peak_tongue", 1.6f);
+		else PlayOSEDExpressionEvent(t, s, a, "osis_anime_peak", 2.0f);
 
 		if (S::iMode != S::kDirector) {
 			ApplyAnimeDirectLayer(s, a, raw, yieldMouth, tongueJson);
@@ -386,8 +386,8 @@ namespace Face::Engine::detail
 			}
 			const float hold = now + TongueHold();
 			if (s.tongueHoldUntil < hold && TongueMoment(t, a, raw)) s.tongueHoldUntil = hold;
-			const bool forceReplay = s.jsonEvent != "osed_anime_peak_tongue" || now >= s.jsonUntil - 0.8f;
-			PlayOSEDExpressionEvent(t, s, a, "osed_anime_peak_tongue", 1.6f, forceReplay);
+			const bool forceReplay = s.jsonEvent != "osis_anime_peak_tongue" || now >= s.jsonUntil - 0.8f;
+			PlayOSEDExpressionEvent(t, s, a, "osis_anime_peak_tongue", 1.6f, forceReplay);
 			if (!s.tongueOn && s.tonguePrimeUntil <= now) s.tonguePrimeUntil = now + 0.35f;
 			if (s.tonguePrimeUntil > now) {
 				if (director) ShapeAnimeTongueMouth(s, a, raw, false);
@@ -396,7 +396,7 @@ namespace Face::Engine::detail
 			}
 			// Director has no JSON event to time the tongue window, so it keeps the tongue
 			// out for as long as the hold lasts.
-			const bool window = director ? s.tongueHoldUntil > now : (s.jsonEvent == "osed_anime_peak_tongue" && now < s.jsonUntil - 0.6f);
+			const bool window = director ? s.tongueHoldUntil > now : (s.jsonEvent == "osis_anime_peak_tongue" && now < s.jsonUntil - 0.6f);
 			if (window) {
 				if (director) ShapeAnimeTongueMouth(s, a, raw, true);
 				else SetOwners(s, "OSED Anime", "Anime tongue JSON", "Anime JSON", s.headOwner);

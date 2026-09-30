@@ -6,7 +6,7 @@
 #include "Papyrus.h"
 #include "Pulse.h"
 #include "Settings.h"
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 #	include "SpellCast.h"
 #endif
 
@@ -103,7 +103,7 @@ namespace Scenes
 			auto it = g_threads.find(tid);
 			if (it == g_threads.end()) return;
 			auto& t = it->second;
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 			SpellCast::ThreadEnded(t.spellVictims);
 #endif
 			if (t.active) Face::Engine::EndScene(t);
@@ -135,7 +135,7 @@ namespace Scenes
 					}
 					const bool first = !t.actorsKnown;
 					ApplyActors(t, list);
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 					if (first) t.spellVictims = SpellCast::StartedBySpell(list);
 #endif
 					if (!WithinRange(t)) {

@@ -4,7 +4,7 @@
 
 #include "Papyrus.h"
 #include "Pulse.h"
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 #	include "SceneLock.h"
 #	include "Voice.h"
 #endif
@@ -174,6 +174,10 @@ namespace Face::Engine
 		int SPIDArchetype(RE::Actor* a)
 		{
 			if (!S::bSPIDPersonality || !a) return -1;
+			// OSED_* are the pre-rename keywords, still read so an old DISTR file keeps working.
+			if (HasKeywordEditorID(a, "OSIS_Personality_Bashful") || HasKeywordEditorID(a, "OSIS_Personality_Soft")) return 3;
+			if (HasKeywordEditorID(a, "OSIS_Personality_Bold")) return 2;
+			if (HasKeywordEditorID(a, "OSIS_Personality_Fierce")) return 4;
 			if (HasKeywordEditorID(a, "OSED_Personality_Bashful") || HasKeywordEditorID(a, "OSED_Personality_Soft")) return 3;
 			if (HasKeywordEditorID(a, "OSED_Personality_Bold")) return 2;
 			if (HasKeywordEditorID(a, "OSED_Personality_Fierce")) return 4;
@@ -226,7 +230,7 @@ namespace Face::Engine
 		std::unordered_map<RE::FormID, float> g_brokenCarry;
 		constexpr float kBrokenCarry = 10.0f;
 
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 		void Break(Thread& t, Slot& s, RE::Actor* a, std::string_view why)
 		{
 			s.broken = true;
@@ -375,7 +379,7 @@ namespace Face::Engine
 				x.actionAnySignal = x.actionOral;
 				for (auto* l : { &x.actionKiss, &x.actionVaginal, &x.actionAnal }) x.actionAnySignal.insert(x.actionAnySignal.end(), l->begin(), l->end());
 				x.tagOralAction = SplitCSV("oral,blowjob,deepthroat,cunnilingus,anilingus,rimjob,facefuck,fellatio,mouth");
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 				// Non-consent. "aggressive"/"aggressivedefault" are OStim's own marker for aggressive
 				// (non-consensual) threads: 1158 of the 1253 installed aggressive scenes also say
 				// forced/rape. A forced tag always wins over the rough list below.
@@ -385,7 +389,7 @@ namespace Face::Engine
 				// and "spank" never carry a forced tag; "femdom" does on 59 of 182 scenes.)
 				x.tagRough = SplitCSV("rough,dom,femdom,maledom,domination,dominant,bdsm,bondage,spank,spanking,choking,slave");
 				x.tagLoving = SplitCSV("loving,romance,romantic,tender,passionate");
-#if OSED_NEXUS
+#if OSIS_NEXUS
 				x.tagSub = SplitCSV("submissive,sub,bottom,receiving,passive");
 #else
 				x.tagSub = SplitCSV("victim,submissive,sub,bottom,receiving,passive");
@@ -1014,7 +1018,7 @@ namespace Face::Engine
 			++t.stageSeq;
 			t.sceneOral = HasOralSceneTag(t);
 		}
-#if OSED_NEXUS
+#if OSIS_NEXUS
 		// This edition has no non-consent: every scene is consensual, whatever its tags.
 		t.toneForced = false;
 		t.toneRough = t.meta && OStimData::HasAnySceneTag(*t.meta, T().tagRough);
@@ -1059,7 +1063,7 @@ namespace Face::Engine
 		}
 		t.sceneOral = HasOralSceneTag(t);
 		UpdateNormalStateFlag(t, true);
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 		if (!g_brokenCarry.empty()) {
 			const float now = Scenes::Now();
 			std::erase_if(g_brokenCarry, [&](const auto& kv) { return now - kv.second >= kBrokenCarry; });
@@ -1073,7 +1077,7 @@ namespace Face::Engine
 		}
 #endif
 		logger::debug("thread {} ready: scene={} actors={} player={}", t.id, t.sceneID, t.slots.size(), t.hasPlayer);
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 		Voice::Sync(t);
 		SceneLock::OnThreadReady(t);
 #endif
@@ -1085,7 +1089,7 @@ namespace Face::Engine
 	{
 		std::scoped_lock l(Settings::lock);
 		RefreshDerived(t, true);
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 		Voice::Sync(t);
 		SceneLock::OnSceneChanged(t);
 #endif
@@ -1104,7 +1108,7 @@ namespace Face::Engine
 		t.orgTicks = 0;
 		const int c = TimesClimaxed(a);
 		t.orgCount = c > t.orgCount ? c : t.orgCount + 1;
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 		if (S::bBrokenAfterClimax && !s->broken && s->painted && !t.consent && IsSubmissive(t, *s)) {
 			Break(t, *s, a, "climaxed as the victim");
 			s->shockUntil = Scenes::Now() + Settings::Voice::fShockSeconds;
@@ -1129,7 +1133,7 @@ namespace Face::Engine
 				ClearGazeAll(t);
 			}
 		}
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 		Voice::Sync(t);
 #endif
 		ApplyAll(t, (t.tick % ArcEvery(t)) == 0);
@@ -1163,7 +1167,7 @@ namespace Face::Engine
 			s.marker.reset();
 		}
 		if (t.hasPlayer) ClearWatcherTrialActor();
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 		Voice::OnSceneEnd(t);
 		SceneLock::OnSceneEnd(t);
 #endif

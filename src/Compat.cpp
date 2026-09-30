@@ -23,7 +23,7 @@ namespace Compat
 			if (dh && dh->LookupModByName(name)) {
 				g_yield[m] = true;
 				g_reason[m] = std::format("stood down: {} is active", name);
-				g_conflicts.push_back(std::format("{} is active: OSED Reborn's {} module is off", name, kModuleName[m]));
+				g_conflicts.push_back(std::format("{} is active: the {} module is off", name, kModuleName[m]));
 			}
 		};
 		// The original OSED mods, then this project's Papyrus fallback (renamed so it never
@@ -39,7 +39,7 @@ namespace Compat
 		if (GetModuleHandleW(L"SoftbodyArousal.dll")) {
 			g_yield[kArousal] = true;
 			g_reason[kArousal] = "stood down: SoftbodyArousal.dll is loaded";
-			g_conflicts.push_back("SoftbodyArousal.dll is loaded: OSED Reborn's Softbody Arousal module is off");
+			g_conflicts.push_back("SoftbodyArousal.dll is loaded: the Softbody Arousal module is off");
 		}
 		for (const auto& c : g_conflicts) logger::warn("{} (disable that mod to use the DLL's version)", c);
 		// Not an old version of ours, just another mod that moves the mouth; see LipSync::bYieldToDDF.
@@ -65,6 +65,6 @@ namespace Compat
 	{
 		if (g_notified || g_conflicts.empty()) return;
 		g_notified = true;
-		Papyrus::Notify(std::format("OSED Reborn: {} old mod(s) still active; see the Status page.", g_conflicts.size()));
+		Papyrus::Notify(std::format("OSIS: {} old mod(s) still active; see the Status page.", g_conflicts.size()));
 	}
 }

@@ -1,10 +1,10 @@
-# OSED Reborn: DLL design
+# OStim Standalone Immersive Sex (OSIS): DLL design
 
-One SKSE plugin, `OSEDReborn.dll`, replaces all four OSED Papyrus mods (Core, Body, Living
+One SKSE plugin, `OSIS.dll`, replaces all four OSED Papyrus mods (Core, Body, Living
 Skin, Lip-Sync) and Softbody Arousal. The plugin has no ESP, no Papyrus scripts and no MCM.
-Settings live in the SKSE Menu Framework (section "OSED Reborn") and in
-`SKSE/Plugins/OSEDReborn.ini`. The softbody morph and body-blush tables are in
-`SKSE/Plugins/OSEDReborn/morphs.json`.
+Settings live in the SKSE Menu Framework (section "OSIS") and in
+`SKSE/Plugins/OSIS.ini`. The softbody morph and body-blush tables are in
+`SKSE/Plugins/OSIS/morphs.json`.
 
 ## Threads of execution
 - **Game main thread (SKSE tasks):** all engine logic. A ticker thread queues `Scenes::Tick`

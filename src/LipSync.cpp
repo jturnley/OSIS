@@ -6,7 +6,7 @@
 #include "FsUtil.h"
 #include "Scenes.h"
 #include "Settings.h"
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 #	include "Voice.h"
 #endif
 
@@ -437,7 +437,7 @@ namespace LipSync
 		std::vector<std::pair<std::string, RE::FormID>> muffled;
 		ParseVoiceSets(refs, muffled);
 		auto* dh = RE::TESDataHandler::GetSingleton();
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 		// Everything a victim must not be heard making: the lip-synced sounds and the muffled ones.
 		for (const auto* list : { &refs, &muffled }) {
 			for (const auto& [mod, local] : *list) {
@@ -520,7 +520,7 @@ namespace LipSync
 				++g_stats.notInScene;
 				continue;
 			}
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 			// A victim's moans are muted: no mouth to move.
 			if (Voice::IsSilenced(owner)) continue;
 #endif

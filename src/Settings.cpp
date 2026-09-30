@@ -4,8 +4,8 @@ namespace Settings
 {
 	namespace
 	{
-		constexpr auto kIniPath = "Data/SKSE/Plugins/OSEDReborn.ini";
-		constexpr auto kTablePath = "Data/SKSE/Plugins/OSEDReborn/morphs.json";
+		constexpr auto kIniPath = "Data/SKSE/Plugins/OSIS.ini";
+		constexpr auto kTablePath = "Data/SKSE/Plugins/OSIS/morphs.json";
 
 		using Ref = std::variant<bool*, int*, float*, std::string*>;
 
@@ -45,7 +45,7 @@ namespace Settings
 				{ "Face", "bBreathing", &Face::bBreathing },
 				{ "Face", "bNaturalDetail", &Face::bNaturalDetail },
 				{ "Face", "bGaze", &Face::bGaze },
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 				{ "Face", "bGazeConsentOnly", &Face::bGazeConsentOnly },
 #endif
 				{ "Face", "bClimaxChoreo", &Face::bClimaxChoreo },
@@ -62,14 +62,14 @@ namespace Settings
 				{ "Face", "bSpeedSync", &Face::bSpeedSync },
 				{ "Face", "bRoleMetadata", &Face::bRoleMetadata },
 				{ "Face", "bEventBeats", &Face::bEventBeats },
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 				{ "Face", "bAggressorGrammar", &Face::bAggressorGrammar },
 				{ "Face", "bSpellNonConsent", &Face::bSpellNonConsent },
 				{ "Face", "bNCSceneLock", &Face::bNCSceneLock },
 				{ "Face", "fNCAutoInterval", &Face::fNCAutoInterval },
 #endif
 				{ "Face", "bPhraseGrammar", &Face::bPhraseGrammar },
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 				{ "Face", "bConsentGuardrails", &Face::bConsentGuardrails },
 				{ "Face", "bHardExclusionGate", &Face::bHardExclusionGate },
 				{ "Face", "bNoDistressOverwhelm", &Face::bNoDistressOverwhelm },
@@ -111,7 +111,7 @@ namespace Settings
 				{ "Skin", "bEnabled", &Skin::bEnabled },
 				{ "Skin", "fStrength", &Skin::fStrength },
 				{ "Skin", "bBlush", &Skin::bBlush },
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 				{ "Skin", "bTears", &Skin::bTears },
 				{ "Skin", "bEmoTears", &Skin::bEmoTears },
 #endif
@@ -120,7 +120,7 @@ namespace Settings
 				{ "Skin", "bFemaleOnly", &Skin::bFemaleOnly },
 				{ "Skin", "iFaceFirstSlot", &Skin::iFaceFirstSlot },
 				{ "Skin", "sBlushPath", &Skin::sBlushPath },
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 				{ "Skin", "sTearPath", &Skin::sTearPath },
 #endif
 				{ "Skin", "sSalivaPath", &Skin::sSalivaPath },
@@ -133,7 +133,7 @@ namespace Settings
 				{ "LipSync", "bHoldEyes", &LipSync::bHoldEyes },
 				{ "LipSync", "bYieldToDDF", &LipSync::bYieldToDDF },
 
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 				{ "Voice", "bEnabled", &Voice::bEnabled },
 				{ "Voice", "bVictimNoMoans", &Voice::bVictimNoMoans },
 				{ "Voice", "iVictimVoice", &Voice::iVictimVoice },

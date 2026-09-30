@@ -13,7 +13,7 @@
 #include "Scheduler.h"
 #include "Settings.h"
 #include "Skin.h"
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 #	include "SceneLock.h"
 #	include "Voice.h"
 #endif
@@ -165,14 +165,14 @@ namespace
 		if (!conflicts.empty()) {
 			ig::SeparatorText("Old mods still active");
 			for (const auto& c : conflicts) ig::TextColored(kWarn, "%s", c.c_str());
-			ig::TextWrapped("Disable these in your mod manager: the original OSED mods and Softbody Arousal are replaced by OSED Reborn, and the OSED Reborn <x> plugins are its Papyrus fallback, not an add-on.");
+			ig::TextWrapped("Disable these in your mod manager: the original OSED mods and Softbody Arousal are replaced by this one, and the OSED Reborn <x> plugins are its Papyrus fallback, not an add-on.");
 		}
 
 		ig::SeparatorText("Scenes");
 		const auto threads = Scenes::Snapshot();
 		if (threads.empty()) ig::TextDisabled("No OStim scene running.");
 		for (const auto& t : threads) {
-#if OSED_NEXUS
+#if OSIS_NEXUS
 			const char* tone = t.rough ? "  [rough]" : "";
 #else
 			const char* tone = t.consent ? (t.rough ? "  [rough, consensual]" : "") : (t.spell ? "  [non-consent: spell]" : "  [non-consent]");
@@ -207,7 +207,7 @@ namespace
 		ig::Text("Body: %s", Body::Status().c_str());
 		ig::Text("Living Skin: %s", Skin::Status().c_str());
 		ig::TextWrapped("Lip-Sync: %s", LipSync::Status().c_str());
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 		ig::TextWrapped("Scene lock: %s", SceneLock::Status().c_str());
 #endif
 		ig::Text("Watcher: %s", Face::Engine::WatcherStatus().c_str());
@@ -225,7 +225,7 @@ namespace
 			Skin::ClearAll();
 			Arousal::RequestClearAll();
 		});
-		ig::TextDisabled("Log: Documents/My Games/Skyrim Special Edition/SKSE/OSEDReborn.log");
+		ig::TextDisabled("Log: Documents/My Games/Skyrim Special Edition/SKSE/OSIS.log");
 	}
 
 	void __stdcall RenderGeneral()
@@ -233,7 +233,7 @@ namespace
 		{
 			std::scoped_lock l(Settings::lock);
 			using namespace Settings::General;
-			ig::SeparatorText("OSED Reborn");
+			ig::SeparatorText("OStim Standalone Immersive Sex");
 			bool was = bEnabled;
 			Check("Enabled", bEnabled, "Master switch. Turning it off ends OSED's control of every scene immediately.");
 			if (was && !bEnabled) OnGame([]() { Scenes::OnDisabled(); });
@@ -260,7 +260,7 @@ namespace
 					"so Lip-Sync stands down while DDF is installed (see the Lip-Sync page).");
 				ModuleRow("Softbody Arousal", Settings::Arousal::bEnabled, Compat::kArousal,
 					"Arousal body morphs and body blush. Off for another arousal-morph mod.");
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 				ModuleRow("Victim Voice", Settings::Voice::bEnabled, -1,
 					"Mutes OStim's moans on a victim and speaks their lines. Off for another mod that voices the scene.");
 				ModuleRow("Scene lock (non-consensual scenes only)", Settings::Face::bNCSceneLock, -1,
@@ -337,7 +337,7 @@ namespace
 					if (auto p = h.get()) Face::Output::Release(p.get(), 0.6f);
 				});
 			} else {
-				Papyrus::Notify("OSED Reborn: aim at an actor first");
+				Papyrus::Notify("OSIS: aim at an actor first");
 			}
 		});
 		SaveBar();
@@ -369,7 +369,7 @@ namespace
 				Check("Overwhelm face", bOverwhelmFace);
 				Check("Group conductor (3+ actors)", bGroupConductor);
 			}
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 			if (ig::CollapsingHeader("Consent")) {
 				Check("Aggressor grammar (forced/rape/aggressive tags mean non-consent)", bAggressorGrammar);
 				Tip("Scenes tagged forced, rape or aggressive (OStim's non-consent marker) are non-consensual. The victim reacts "
@@ -410,7 +410,7 @@ namespace
 #endif
 			if (ig::CollapsingHeader("Head and gaze")) {
 				Check("Gaze at partner", bGaze);
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 				Check("Only hold gaze when consensual", bGazeConsentOnly);
 #endif
 				Check("Headflow (throat arch, aversion, afterglow drop)", bHeadflow);
@@ -451,7 +451,7 @@ namespace
 		ig::SameLine();
 		if (ig::Button("Set")) OnGame([p = pick]() {
 			auto* a = CrosshairActor();
-			if (!a) return Papyrus::Notify("OSED Reborn: aim at an NPC first");
+			if (!a) return Papyrus::Notify("OSIS: aim at an NPC first");
 			Face::Engine::SetNpcPersonality(a, p - 1);
 			std::string src;
 			const int arch = Face::Engine::Archetype(a, &src);
@@ -460,7 +460,7 @@ namespace
 		ig::SameLine();
 		if (ig::Button("Show")) OnGame([]() {
 			auto* a = CrosshairActor();
-			if (!a) return Papyrus::Notify("OSED Reborn: aim at an NPC first");
+			if (!a) return Papyrus::Notify("OSIS: aim at an NPC first");
 			std::string src;
 			const int arch = Face::Engine::Archetype(a, &src);
 			Papyrus::Notify(std::format("{}: {} ({})", a->GetDisplayFullName(), Face::Engine::PersonalityName(arch), src));
@@ -488,7 +488,7 @@ namespace
 		}
 		if (ig::Button("Test on crosshair actor")) OnGame([]() {
 			if (auto* a = CrosshairActor()) Body::Test(a);
-			else Papyrus::Notify("OSED Reborn: aim at an actor first");
+			else Papyrus::Notify("OSIS: aim at an actor first");
 		});
 		SaveBar();
 	}
@@ -498,7 +498,7 @@ namespace
 		{
 			std::scoped_lock l(Settings::lock);
 			using namespace Settings::Skin;
-#if OSED_NEXUS
+#if OSIS_NEXUS
 			ig::TextWrapped("Face overlays through RaceMenu's \"Face [Ovl#]\" slots. Blush follows excitement and the softbody arousal flush; "
 			                "saliva is a short climax beat.");
 #else
@@ -509,7 +509,7 @@ namespace
 			Check("Enabled", bEnabled);
 			SliderF("Strength", fStrength, 0.0f, 1.5f);
 			Check("Blush", bBlush);
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 			Check("Tears", bTears);
 			Check("Emotional Tears Effect", bEmoTears, "If EmoTearsSpells.esp is installed, a crying victim also gets its streaming tears until the scene ends.");
 #endif
@@ -518,7 +518,7 @@ namespace
 			Check("Females only", bFemaleOnly);
 			SliderI("First face overlay slot", iFaceFirstSlot, 0, 15, "Slot 0 is often makeup; OSED uses one slot per effect from here.");
 			Path("Blush texture", sBlushPath, "Relative to Data\\textures, e.g. actors\\character\\Overlays\\FMS\\Blush\\Blush Cheeks 1.dds. Empty = auto.");
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 			Path("Tear texture", sTearPath);
 #endif
 			Path("Saliva texture", sSalivaPath);
@@ -527,12 +527,12 @@ namespace
 		ig::TextDisabled("RaceMenu face overlay slots: %d (skee64.ini [Overlays/Face] iNumOverlays)", slots);
 		const auto blush = Skin::ResolvedPath(0);
 		ig::TextDisabled("Blush texture in use: %s", blush.empty() ? "none" : blush.c_str());
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 		ig::TextDisabled("Emotional Tears Effect: %s", Skin::EmoTearsFound() ? "installed" : "not installed");
 #endif
 		if (Face::Engine::OBlushPresent()) ig::TextColored(kWarn, "OBlush is installed: OSED's face blush yields to it.");
 		if (ig::Button("Test blush")) OnGame([]() { if (auto* a = CrosshairActor()) Skin::TestBlush(a); });
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 		ig::SameLine();
 		if (ig::Button("Test tear")) OnGame([]() { if (auto* a = CrosshairActor()) Skin::TestTear(a); });
 #endif
@@ -565,7 +565,7 @@ namespace
 		SaveBar();
 	}
 
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 	void __stdcall RenderVoice()
 	{
 		{
@@ -745,10 +745,10 @@ namespace
 void UI::Register()
 {
 	if (!SKSEMenuFramework::IsInstalled()) {
-		logger::info("SKSE Menu Framework not installed - configure via OSEDReborn.ini instead.");
+		logger::info("SKSE Menu Framework not installed - configure via OSIS.ini instead.");
 		return;
 	}
-	SKSEMenuFramework::SetSection("OSED Reborn");
+	SKSEMenuFramework::SetSection("OSIS");
 	SKSEMenuFramework::AddSectionItem("Status", RenderStatus);
 	SKSEMenuFramework::AddSectionItem("General", RenderGeneral);
 	SKSEMenuFramework::AddSectionItem("Faces", RenderFaces);
@@ -757,7 +757,7 @@ void UI::Register()
 	SKSEMenuFramework::AddSectionItem("Body", RenderBody);
 	SKSEMenuFramework::AddSectionItem("Living Skin", RenderSkin);
 	SKSEMenuFramework::AddSectionItem("Lip-Sync", RenderLipSync);
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 	SKSEMenuFramework::AddSectionItem("Victim Voice", RenderVoice);
 #endif
 	SKSEMenuFramework::AddSectionItem("Arousal", RenderArousal);

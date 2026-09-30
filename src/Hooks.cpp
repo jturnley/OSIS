@@ -3,7 +3,7 @@
 #include "Body.h"
 #include "Face/Output.h"
 #include "Settings.h"
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 #	include "Voice.h"
 #endif
 
@@ -91,7 +91,7 @@ namespace Hooks
 		} else {
 			logger::warn("Animation hooks are off (bAnimationHooks): faces are written at 20 Hz from the main thread, toe/finger curl is off");
 		}
-#if !OSED_NEXUS
+#if !OSIS_NEXUS
 		bool voice;
 		{
 			std::scoped_lock l(Settings::lock);

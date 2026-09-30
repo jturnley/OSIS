@@ -727,13 +727,13 @@ namespace Voice
 		void TestPool(RE::Actor* a, Pool a_pool)
 		{
 			if (!a) {
-				Papyrus::Notify("OSED Reborn: aim at an actor first");
+				Papyrus::Notify("OSIS: aim at an actor first");
 				return;
 			}
 			const auto chain = Chain(a, a->IsGuard());
 			const auto line = Pick(chain, a_pool);
 			if (!line) {
-				Papyrus::Notify(std::format("OSED Reborn: no {} line for voice {}", kPoolNames[a_pool], chain.empty() ? "?" : chain.front()));
+				Papyrus::Notify(std::format("OSIS: no {} line for voice {}", kPoolNames[a_pool], chain.empty() ? "?" : chain.front()));
 				return;
 			}
 			Speak(a, *line);

@@ -2,7 +2,7 @@
 
 // All user settings. The SKSE Menu Framework pages edit these on the render thread while
 // the engine reads them on the game thread, so every access holds Settings::lock.
-// Persisted to Data/SKSE/Plugins/OSEDReborn.ini (+ OSEDReborn/morphs.json for the
+// Persisted to Data/SKSE/Plugins/OSIS.ini (+ OSIS/morphs.json for the
 // softbody morph and body-blush tables).
 namespace Settings
 {

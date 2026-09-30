@@ -12,7 +12,8 @@ namespace Arousal
 	{
 		namespace S = Settings::Arousal;
 
-		constexpr auto kMorphKey = "OSEDReborn_Arousal";
+		constexpr auto kMorphKey = "OSIS_Arousal";
+		constexpr auto kLegacyMorphKey = "OSEDReborn_Arousal";  // pre-rename builds; cleared, never written
 		// An actor missing from one update (3D reload at orgasm, a load door, briefly out of
 		// the high process) keeps its state this long before returning to rest.
 		constexpr float kGraceSeconds = 15.0f;
@@ -190,6 +191,7 @@ namespace Arousal
 		{
 			if (auto ptr = st.handle.get(); ptr) {
 				Papyrus::ClearBodyMorphKeys(ptr.get(), kMorphKey);
+				Papyrus::ClearBodyMorphKeys(ptr.get(), kLegacyMorphKey);
 				Papyrus::UpdateModelWeight(ptr.get());
 				ClearBlush(ptr.get(), st);
 			}
@@ -338,7 +340,10 @@ namespace Arousal
 			auto& st = g_states[a->GetFormID()];
 			const bool fresh = st.lastTick == 0 || st.applied.size() != s.morphs.size();
 			if (fresh) {
-				if (!st.applied.empty()) Papyrus::ClearBodyMorphKeys(a, kMorphKey);
+				if (!st.applied.empty()) {
+					Papyrus::ClearBodyMorphKeys(a, kMorphKey);
+					Papyrus::ClearBodyMorphKeys(a, kLegacyMorphKey);
+				}
 				st.handle = a->GetHandle();
 				st.name = a->GetDisplayFullName();
 				st.applied.assign(s.morphs.size(), std::numeric_limits<float>::quiet_NaN());
