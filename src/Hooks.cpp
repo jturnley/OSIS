@@ -2,6 +2,7 @@
 
 #include "Body.h"
 #include "Face/Output.h"
+#include "Voice.h"
 
 namespace Hooks
 {
@@ -75,5 +76,6 @@ namespace Hooks
 		PlayerUpdateAnimation::func = vtbl.write_vfunc(0x7D, PlayerUpdateAnimation::thunk);
 		logger::info("Installed player animation hook");
 		InstallNPC();
+		Voice::InstallHooks();
 	}
 }

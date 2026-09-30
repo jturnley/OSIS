@@ -1,6 +1,7 @@
 #include "Serialization.h"
 
 #include "Face/Engine.h"
+#include "Skin.h"
 
 namespace Serialization
 {
@@ -9,6 +10,7 @@ namespace Serialization
 		constexpr std::uint32_t kID = 'OSED';
 		constexpr std::uint32_t kPersonality = 'PERS';
 		constexpr std::uint32_t kTakenOver = 'TKOV';
+		constexpr std::uint32_t kEmoTears = 'EMOT';
 		constexpr std::uint32_t kVersion = 1;
 
 		void Save(SKSE::SerializationInterface* a_intfc)
@@ -28,6 +30,12 @@ namespace Serialization
 				a_intfc->WriteRecordData(n);
 				for (auto id : ids) a_intfc->WriteRecordData(id);
 			}
+			const auto emo = Skin::EmoTearIDs();
+			if (a_intfc->OpenRecord(kEmoTears, kVersion)) {
+				const auto n = static_cast<std::uint32_t>(emo.size());
+				a_intfc->WriteRecordData(n);
+				for (auto id : emo) a_intfc->WriteRecordData(id);
+			}
 		}
 
 		void Load(SKSE::SerializationInterface* a_intfc)
@@ -35,6 +43,7 @@ namespace Serialization
 			std::uint32_t type, version, length;
 			std::unordered_map<RE::FormID, int> pers;
 			std::vector<RE::FormID> taken;
+			std::vector<RE::FormID> emo;
 			while (a_intfc->GetNextRecordInfo(type, version, length)) {
 				if (version != kVersion) continue;
 				std::uint32_t n = 0;
@@ -50,18 +59,23 @@ namespace Serialization
 					} else if (type == kTakenOver) {
 						RE::FormID resolved = 0;
 						if (a_intfc->ResolveFormID(id, resolved)) taken.push_back(resolved);
+					} else if (type == kEmoTears) {
+						RE::FormID resolved = 0;
+						if (a_intfc->ResolveFormID(id, resolved)) emo.push_back(resolved);
 					}
 				}
 			}
 			logger::info("Cosave: {} NPC personality override(s), {} OStim face takeover(s) to restore", pers.size(), taken.size());
 			Face::Engine::SetNpcPersonalities(std::move(pers));
 			Face::Engine::SetTakenOverIDs(std::move(taken));
+			Skin::SetEmoTearIDs(std::move(emo));
 		}
 
 		void Revert(SKSE::SerializationInterface*)
 		{
 			Face::Engine::SetNpcPersonalities({});
 			Face::Engine::SetTakenOverIDs({});
+			Skin::SetEmoTearIDs({});
 		}
 	}
 

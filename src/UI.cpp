@@ -12,6 +12,7 @@
 #include "Scheduler.h"
 #include "Settings.h"
 #include "Skin.h"
+#include "Voice.h"
 
 namespace
 {
@@ -124,6 +125,8 @@ namespace
 	constexpr const char* kPresets[] = { "Recommended", "Subtle", "Cinematic", "Performance", "Minimal" };
 	constexpr const char* kSources[] = { "Auto (OSL first)", "OSL Aroused", "SLO Aroused NG", "OStim excitement only" };
 	constexpr const char* kAxes[] = { "X", "Y", "Z" };
+	constexpr const char* kVoiceModes[] = { "Silent", "Breathing only", "Full (help, lines, scream)" };
+	constexpr const char* kResponderModes[] = { "Nobody", "Guards", "Guards and allies" };
 	constexpr const char* kDoms[] = { "Anticipation", "Pleasure", "Plateau", "Distress", "Climax", "Afterglow" };
 
 	// ================================================================ pages
@@ -425,6 +428,7 @@ namespace
 			SliderF("Strength", fStrength, 0.0f, 1.5f);
 			Check("Blush", bBlush);
 			Check("Tears", bTears);
+			Check("Emotional Tears Effect", bEmoTears, "If EmoTearsSpells.esp is installed, a crying victim also gets its streaming tears until the scene ends.");
 			Check("Saliva", bSaliva);
 			Check("Scale with style", bStyleGated);
 			Check("Females only", bFemaleOnly);
@@ -437,6 +441,7 @@ namespace
 		ig::TextDisabled("RaceMenu face overlay slots: %d (skee64.ini [Overlays/Face] iNumOverlays)", slots);
 		const auto blush = Skin::ResolvedPath(0);
 		ig::TextDisabled("Blush texture in use: %s", blush.empty() ? "none" : blush.c_str());
+		ig::TextDisabled("Emotional Tears Effect: %s", Skin::EmoTearsFound() ? "installed" : "not installed");
 		if (Face::Engine::OBlushPresent()) ig::TextColored(kWarn, "OBlush is installed: OSED's face blush yields to it.");
 		if (ig::Button("Test blush")) OnGame([]() { if (auto* a = CrosshairActor()) Skin::TestBlush(a); });
 		ig::SameLine();
@@ -461,6 +466,44 @@ namespace
 			Check("Eyes squeeze with the moan", bHoldEyes);
 		}
 		ig::TextWrapped("%s", LipSync::Status().c_str());
+		SaveBar();
+	}
+
+	void __stdcall RenderVoice()
+	{
+		{
+			std::scoped_lock l(Settings::lock);
+			using namespace Settings::Voice;
+			ig::TextWrapped("The victim of a non-consensual scene. OStim's moans and climax sounds are muted on them. Instead they cry for help "
+			                "as it starts, and guards or allies in range answer. Then they protest, curse or beg by personality, scream at the "
+			                "climax that breaks them, and after that only breathe hard. All lines are vanilla Skyrim dialogue in the actor's own voice.");
+			Check("Enabled", bEnabled);
+			Check("Mute OStim moans on the victim", bVictimNoMoans);
+			ComboI("Victim voice", iVictimVoice, kVoiceModes, 3);
+			SliderF("Seconds between lines", fInterval, 3.0f, 30.0f, "%.0f", "Varies 40% either way. Panicked victims speak more often, numb ones less.");
+			Check("Mute OStim dialogue on the victim", bMuteDialogue, "OStim's spoken scene comments (OActor.Mute), until the scene ends.");
+
+			ig::SeparatorText("Call for help");
+			Check("Cry for help as it starts", bCallForHelp);
+			ComboI("Who answers", iResponders, kResponderModes, 3,
+				"Player as aggressor: an assault alarm from the victim, so the crime is reported and guards act on it. NPC aggressor: "
+				"guards and allies attack them. Combat can end the OStim scene.");
+			SliderF("Answer range", fResponderRange, 256.0f, 8192.0f, "%.0f");
+
+			ig::SeparatorText("Breaking climax");
+			Check("Scream", bBreakScream);
+			SliderF("Shocked face (s)", fShockSeconds, 0.0f, 10.0f, "%.1f", "Before the vacant face of a broken victim. 0 = straight to vacant.");
+		}
+		ig::SeparatorText("Status");
+		ig::TextWrapped("%s", Voice::Status().c_str());
+		if (ig::Button("Test cry for help")) OnGame([]() { Voice::TestHelp(CrosshairActor()); });
+		ig::SameLine();
+		if (ig::Button("Test line")) OnGame([]() { Voice::TestLine(CrosshairActor()); });
+		ig::SameLine();
+		if (ig::Button("Test scream")) OnGame([]() { Voice::TestScream(CrosshairActor()); });
+		ig::SameLine();
+		if (ig::Button("Test breathing")) OnGame([]() { Voice::TestBreath(CrosshairActor()); });
+		ig::TextDisabled("Tests speak on the crosshair actor; they don't call anyone.");
 		SaveBar();
 	}
 
@@ -616,6 +659,7 @@ void UI::Register()
 	SKSEMenuFramework::AddSectionItem("Body", RenderBody);
 	SKSEMenuFramework::AddSectionItem("Living Skin", RenderSkin);
 	SKSEMenuFramework::AddSectionItem("Lip-Sync", RenderLipSync);
+	SKSEMenuFramework::AddSectionItem("Victim Voice", RenderVoice);
 	SKSEMenuFramework::AddSectionItem("Arousal", RenderArousal);
 	SKSEMenuFramework::AddSectionItem("Arousal/Morphs", RenderMorphs);
 	SKSEMenuFramework::AddSectionItem("Arousal/Body Blush", RenderBlush);

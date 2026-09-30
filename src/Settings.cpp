@@ -101,6 +101,7 @@ namespace Settings
 				{ "Skin", "fStrength", &Skin::fStrength },
 				{ "Skin", "bBlush", &Skin::bBlush },
 				{ "Skin", "bTears", &Skin::bTears },
+				{ "Skin", "bEmoTears", &Skin::bEmoTears },
 				{ "Skin", "bSaliva", &Skin::bSaliva },
 				{ "Skin", "bStyleGated", &Skin::bStyleGated },
 				{ "Skin", "bFemaleOnly", &Skin::bFemaleOnly },
@@ -115,6 +116,17 @@ namespace Settings
 				{ "LipSync", "fRelease", &LipSync::fRelease },
 				{ "LipSync", "fMaxOpen", &LipSync::fMaxOpen },
 				{ "LipSync", "bHoldEyes", &LipSync::bHoldEyes },
+
+				{ "Voice", "bEnabled", &Voice::bEnabled },
+				{ "Voice", "bVictimNoMoans", &Voice::bVictimNoMoans },
+				{ "Voice", "iVictimVoice", &Voice::iVictimVoice },
+				{ "Voice", "fInterval", &Voice::fInterval },
+				{ "Voice", "bMuteDialogue", &Voice::bMuteDialogue },
+				{ "Voice", "bCallForHelp", &Voice::bCallForHelp },
+				{ "Voice", "iResponders", &Voice::iResponders },
+				{ "Voice", "fResponderRange", &Voice::fResponderRange },
+				{ "Voice", "bBreakScream", &Voice::bBreakScream },
+				{ "Voice", "fShockSeconds", &Voice::fShockSeconds },
 
 				{ "Arousal", "bEnabled", &Arousal::bEnabled },
 				{ "Arousal", "bAffectPlayer", &Arousal::bAffectPlayer },
@@ -160,6 +172,11 @@ namespace Settings
 			Arousal::iOverlaySlots = std::clamp(Arousal::iOverlaySlots, 0, 32);
 			LipSync::fAttack = std::clamp(LipSync::fAttack, 0.005f, 0.5f);
 			LipSync::fRelease = std::clamp(LipSync::fRelease, 0.02f, 1.0f);
+			Voice::iVictimVoice = std::clamp(Voice::iVictimVoice, 0, 2);
+			Voice::iResponders = std::clamp(Voice::iResponders, 0, 2);
+			Voice::fInterval = std::clamp(Voice::fInterval, 3.0f, 60.0f);
+			Voice::fResponderRange = std::clamp(Voice::fResponderRange, 256.0f, 8192.0f);
+			Voice::fShockSeconds = std::clamp(Voice::fShockSeconds, 0.0f, 10.0f);
 		}
 
 		void ReadIni(const CSimpleIniA& ini)

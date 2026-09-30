@@ -110,6 +110,7 @@ namespace Settings
 		inline float fStrength = 1.0f;
 		inline bool bBlush = true;
 		inline bool bTears = true;            // non-consensual scenes only, on the victim
+		inline bool bEmoTears = true;         // also Emotional Tears Effect (EmoTearsSpells.esp) if installed
 		inline bool bSaliva = true;
 		inline bool bStyleGated = true;
 		inline bool bFemaleOnly = false;
@@ -128,6 +129,21 @@ namespace Settings
 		inline float fRelease = 0.12f;        // envelope release (s)
 		inline float fMaxOpen = 0.85f;
 		inline bool bHoldEyes = true;         // squint with the moan while it plays
+	}
+
+	// ---------------------------------------------------------------- victim voice
+	namespace Voice
+	{
+		inline bool bEnabled = true;
+		inline bool bVictimNoMoans = true;    // mute OStim's moans and climax sounds on the victim
+		inline int iVictimVoice = 2;          // 0 silent, 1 breathing only, 2 full (help, lines, scream)
+		inline float fInterval = 9.0f;        // seconds between lines (+-40%)
+		inline bool bMuteDialogue = true;     // OActor.Mute on the victim: no OStim scene comments
+		inline bool bCallForHelp = true;
+		inline int iResponders = 2;           // 0 off, 1 guards, 2 guards and allies
+		inline float fResponderRange = 2048.0f;
+		inline bool bBreakScream = true;
+		inline float fShockSeconds = 3.0f;    // shocked face after the breaking climax (0 off)
 	}
 
 	// ---------------------------------------------------------------- softbody arousal

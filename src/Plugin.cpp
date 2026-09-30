@@ -13,6 +13,7 @@
 #include "Skin.h"
 #include "SpellCast.h"
 #include "UI.h"
+#include "Voice.h"
 
 namespace Scheduler
 {
@@ -34,6 +35,7 @@ namespace Scheduler
 			SpellCast::Tick();
 			Scenes::Tick();
 			LipSync::Poll();
+			Voice::Tick();
 			Skin::Tick();
 			Arousal::Tick();
 
@@ -109,6 +111,7 @@ namespace
 			Guarded("Living Skin", Skin::OnDataLoaded);
 			Guarded("Arousal", Arousal::Init);
 			Guarded("Lip-sync", LipSync::OnDataLoaded);
+			Guarded("Victim voice", Voice::OnDataLoaded);
 			Guarded("Scene tracking", Scenes::Init);
 			Guarded("Spell-started scenes", SpellCast::Init);
 			Scheduler::Start();
@@ -123,6 +126,7 @@ namespace
 			Arousal::OnGameLoad();
 			Body::ClearAll();
 			Skin::ClearAll();
+			Voice::Clear();
 			Compat::NotifyOnce();
 			break;
 		default:

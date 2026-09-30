@@ -45,6 +45,11 @@ namespace Papyrus
 	void SetLookAt(RE::Actor* a_actor, RE::TESObjectREFR* a_target);
 	void ClearLookAt(RE::Actor* a_actor);
 
+	// ---- victim voice
+	void SendAssaultAlarm(RE::Actor* a_victim);            // Actor.SendAssaultAlarm: the crime is reported
+	void StartCombat(RE::Actor* a_who, RE::Actor* a_target);
+	void MuteOStim(RE::Actor* a_actor);                    // OActor.Mute: OStim dialogue only, reset at thread end
+
 	// ---- Debug.Notification
 	void Notify(const std::string& a_text);
 

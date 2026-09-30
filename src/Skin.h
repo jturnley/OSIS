@@ -25,6 +25,13 @@ namespace Skin
 	void TestSaliva(RE::Actor* a_actor);
 	void TestBlush(RE::Actor* a_actor);
 
+	// Emotional Tears Effect: its tear ability goes on a crying victim until the distress ends.
+	// Abilities persist in saves, so the actors carrying one are kept in the cosave and stripped
+	// on the next load.
+	[[nodiscard]] bool EmoTearsFound();
+	[[nodiscard]] std::vector<RE::FormID> EmoTearIDs();
+	void SetEmoTearIDs(std::vector<RE::FormID> a_ids);
+
 	[[nodiscard]] int FaceOverlaySlots();   // skee64.ini [Overlays/Face] iNumOverlays
 	[[nodiscard]] std::string Status();
 	[[nodiscard]] std::string ResolvedPath(int a_effect);  // 0 blush, 1 saliva, 2 tear

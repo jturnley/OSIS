@@ -261,6 +261,22 @@ namespace Papyrus
 		CallMethod(a_actor, "Actor", "ClearLookAt", RE::MakeFunctionArguments());
 	}
 
+	// ------------------------------------------------------------ victim voice
+	void SendAssaultAlarm(RE::Actor* a_victim)
+	{
+		CallMethod(a_victim, "Actor", "SendAssaultAlarm", RE::MakeFunctionArguments());
+	}
+
+	void StartCombat(RE::Actor* a_who, RE::Actor* a_target)
+	{
+		CallMethod(a_who, "Actor", "StartCombat", RE::MakeFunctionArguments(std::move(a_target)));
+	}
+
+	void MuteOStim(RE::Actor* a_actor)
+	{
+		CallStatic("OActor", "Mute", RE::MakeFunctionArguments(std::move(a_actor)));
+	}
+
 	void Notify(const std::string& a_text)
 	{
 		CallStatic("Debug", "Notification", RE::MakeFunctionArguments(RE::BSFixedString(a_text)));

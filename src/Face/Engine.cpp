@@ -4,6 +4,7 @@
 
 #include "Papyrus.h"
 #include "Pulse.h"
+#include "Voice.h"
 
 namespace Face::Engine
 {
@@ -257,6 +258,27 @@ namespace Face::Engine
 			PulseActor(t, s, a, SelectDominant(t, enjEff, Raw(a)), PhrasePhase(t, idx, enjEff), enjEff);
 		}
 
+		// The climax that breaks the victim: eyes wide, brows up, jaw dropped, for a few seconds
+		// before the vacant face. The scream itself comes from Voice.
+		void ApplyShock(Thread& t, Slot& s, RE::Actor* a, int idx, bool ym, bool arc)
+		{
+			ReleaseOStimFace(s, a);
+			SetOSEDTongue(s, a, false);
+			std::array<float, 32> e{};
+			if (!ym) e[0] = 0.55f;  // Aah: the jaw drops
+			e[11] = 0.25f;          // Oh
+			e[20] = e[21] = 0.35f;  // BrowIn
+			e[22] = e[23] = 0.9f;   // BrowUp
+			e[30] = 12.0f;          // surprise
+			e[31] = 1.0f;
+			Output::ApplyPreset(a, e, ym, S::fGlobalStrength, 1.0f, 1.0f, 0.25f);
+			SetOwners(s, "Shock", ym ? MouthOwnerLabel(t, s, a, true) : "Shock", "Shock", "Shock");
+			if (arc) {
+				const int enjEff = EffectiveIntensity(t, a);
+				PulseActor(t, s, a, SelectDominant(t, enjEff, Raw(a)), PhrasePhase(t, idx, enjEff), enjEff);
+			}
+		}
+
 		void ApplyAll(Thread& t, bool arc)
 		{
 			if (!t.active) return;
@@ -284,6 +306,11 @@ namespace Face::Engine
 				}
 				RequestVoiceName(a);
 				const bool ym = MouthYielded(t, s, a);
+				if (Scenes::Now() < s.shockUntil) {
+					Output::SetMouthOwned(a, !ym);
+					ApplyShock(t, s, a, idx, ym, arc);
+					continue;
+				}
 				if (s.broken) {
 					Output::SetMouthOwned(a, !ym);
 					ApplyBroken(t, s, a, idx, ym, arc);
@@ -982,6 +1009,7 @@ namespace Face::Engine
 				}
 			}
 		}
+		for (auto& s : t.slots) s.victim = !t.consent && s.Get() && IsSubmissive(t, s);
 		UpdateNormalStateFlag(t, sceneChanged);
 	}
 
@@ -1014,6 +1042,7 @@ namespace Face::Engine
 			}
 		}
 		logger::debug("thread {} ready: scene={} actors={} player={}", t.id, t.sceneID, t.slots.size(), t.hasPlayer);
+		Voice::Sync(t);
 		ApplyAll(t, true);
 		t.nextTick = Scenes::Now() + TickInterval(t);
 	}
@@ -1022,6 +1051,7 @@ namespace Face::Engine
 	{
 		std::scoped_lock l(Settings::lock);
 		RefreshDerived(t, true);
+		Voice::Sync(t);
 		t.gasp = true;
 		ApplyAll(t, true);
 		t.gasp = false;
@@ -1037,7 +1067,11 @@ namespace Face::Engine
 		t.orgTicks = 0;
 		const int c = TimesClimaxed(a);
 		t.orgCount = c > t.orgCount ? c : t.orgCount + 1;
-		if (S::bBrokenAfterClimax && !s->broken && s->painted && !t.consent && IsSubmissive(t, *s)) Break(t, *s, a, "climaxed as the victim");
+		if (S::bBrokenAfterClimax && !s->broken && s->painted && !t.consent && IsSubmissive(t, *s)) {
+			Break(t, *s, a, "climaxed as the victim");
+			s->shockUntil = Scenes::Now() + Settings::Voice::fShockSeconds;
+			Voice::OnBreak(t, a);
+		}
 		ApplyAll(t, true);
 	}
 
@@ -1056,6 +1090,7 @@ namespace Face::Engine
 				ClearGazeAll(t);
 			}
 		}
+		Voice::Sync(t);
 		ApplyAll(t, (t.tick % ArcEvery(t)) == 0);
 		t.nextTick = Scenes::Now() + TickInterval(t);
 	}
@@ -1087,6 +1122,7 @@ namespace Face::Engine
 			s.marker.reset();
 		}
 		if (t.hasPlayer) ClearWatcherTrialActor();
+		Voice::OnSceneEnd(t);
 		t.active = false;
 		Pulse::SceneEnd(t.id);
 		logger::debug("thread {} ended", t.id);

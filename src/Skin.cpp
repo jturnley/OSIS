@@ -7,6 +7,7 @@
 #include "Face/Output.h"
 #include "Papyrus.h"
 #include "Scenes.h"
+#include "Scheduler.h"
 #include "Settings.h"
 
 namespace Skin
@@ -30,6 +31,7 @@ namespace Skin
 			float blushAlpha = 0.0f;
 			int salivaCount = 0;
 			float salivaCooldown = 0.0f;
+			bool emoTears = false;   // carries Emotional Tears Effect's ability
 		};
 
 		std::mutex g_lock;
@@ -37,6 +39,8 @@ namespace Skin
 		int g_faceSlots = 3;
 		bool g_autoBlush = false;
 		std::string g_status = "idle";
+		RE::SpellItem* g_emoTears = nullptr;     // EmoTearsSpells.esp zzTearsTestAbility
+		std::vector<RE::FormID> g_emoLeftovers;  // abilities a save made mid-scene left behind
 
 		std::string Normalize(std::string p)
 		{
@@ -124,9 +128,28 @@ namespace Skin
 			if (effect == kBlush) st.blushAlpha = 0.0f;
 		}
 
+		void AddEmo(RE::Actor* a, State& st)
+		{
+			if (st.emoTears || !g_emoTears) return;
+			{
+				std::scoped_lock l(Settings::lock);
+				if (!Settings::Skin::bEmoTears) return;
+			}
+			a->AddSpell(g_emoTears);
+			st.emoTears = true;
+		}
+
+		void ClearEmo(RE::Actor* a, State& st)
+		{
+			if (!st.emoTears) return;
+			if (g_emoTears) a->RemoveSpell(g_emoTears);
+			st.emoTears = false;
+		}
+
 		void ClearState(RE::Actor* a, State& st)
 		{
 			for (int e = 0; e < kCount; ++e) Clear(a, st, e);
+			ClearEmo(a, st);
 		}
 
 		// "Welling eyes" without a texture: brow in/up, a lowered gaze and a soft squint.
@@ -151,6 +174,7 @@ namespace Skin
 		void Tear(RE::Actor* a, State& st)
 		{
 			st.nextTear = Scenes::Now() + kTearCooldown;
+			AddEmo(a, st);  // streaming tears for as long as the distress lasts
 			if (!Path(kTear).empty()) {
 				float alpha;
 				{
@@ -224,6 +248,8 @@ namespace Skin
 		}
 		std::error_code ec;
 		g_autoBlush = std::filesystem::exists(std::string("Data/textures/") + kAutoBlush, ec);
+		if (auto* dh = RE::TESDataHandler::GetSingleton()) g_emoTears = dh->LookupForm<RE::SpellItem>(0xD65, "EmoTearsSpells.esp");
+		logger::info("Living Skin: Emotional Tears Effect {}", g_emoTears ? "found" : "not installed");
 		logger::info("Living Skin: {} face overlay slots; Female Makeup Suite cheek blush {}", g_faceSlots, g_autoBlush ? "found" : "not found");
 	}
 
@@ -246,11 +272,13 @@ namespace Skin
 		}
 		if (!b.consent) {
 			st.victim = b.victim;  // roles can change with the scene
+			if (!st.victim) ClearEmo(b.actor, st);
 			return;                // non-consensual: no blush or saliva
 		}
 		if (st.distress) {  // the thread moved on to a consensual scene: no more tears
 			st.distress = false;
 			st.victim = false;
+			ClearEmo(b.actor, st);
 		}
 		const float enjoy = std::clamp(static_cast<float>(b.enj) / 100.0f, 0.0f, 1.0f);
 		bool blush;
@@ -324,7 +352,10 @@ namespace Skin
 		// No blush or saliva for anyone in a non-consensual scene; tears only for the victim.
 		Clear(a, st, kBlush);
 		Clear(a, st, kSaliva);
-		if (!victim) Clear(a, st, kTear);
+		if (!st.victim) {
+			Clear(a, st, kTear);
+			ClearEmo(a, st);
+		}
 		if (paintable) VictimTear(a, st);
 	}
 
@@ -345,7 +376,31 @@ namespace Skin
 			if (auto* a = RE::TESForm::LookupByID<RE::Actor>(id)) ClearState(a, st);
 		}
 		g_states.clear();
+		if (g_emoTears) {
+			for (auto id : g_emoLeftovers) {
+				if (auto* a = RE::TESForm::LookupByID<RE::Actor>(id)) a->RemoveSpell(g_emoTears);
+			}
+		}
+		g_emoLeftovers.clear();
 		g_status = "cleared";
+	}
+
+	bool EmoTearsFound() { return g_emoTears != nullptr; }
+
+	std::vector<RE::FormID> EmoTearIDs()
+	{
+		std::scoped_lock l(g_lock);
+		std::vector<RE::FormID> out;
+		for (const auto& [id, st] : g_states) {
+			if (st.emoTears) out.push_back(id);
+		}
+		return out;
+	}
+
+	void SetEmoTearIDs(std::vector<RE::FormID> a_ids)
+	{
+		std::scoped_lock l(g_lock);
+		g_emoLeftovers = std::move(a_ids);  // stripped by ClearAll once the game has loaded
 	}
 
 	void Tick()
@@ -371,8 +426,17 @@ namespace Skin
 		Paintable(a, female);
 		std::scoped_lock l(g_lock);
 		auto& st = Track(a, female);
+		const bool hadEmo = st.emoTears;
 		Tear(a, st);
 		st.nextTear = 0.0f;  // a test must not delay a real tear
+		if (st.emoTears && !hadEmo) {
+			Scheduler::After(10.0f, [h = a->GetHandle()]() {
+				auto actor = h.get();
+				if (!actor) return;
+				std::scoped_lock l(g_lock);
+				if (auto it = g_states.find(actor->GetFormID()); it != g_states.end() && !it->second.distress) ClearEmo(actor.get(), it->second);
+			});
+		}
 	}
 
 	void TestSaliva(RE::Actor* a)

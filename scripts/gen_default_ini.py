@@ -42,6 +42,7 @@ notes = {
     "Body": "Toe curl / hand grip at climax. iCurlAxis: 0 X, 1 Y, 2 Z (bone-local).",
     "Skin": "Face overlays (\"Face [Ovl#]\"). Texture paths are relative to Data\\textures; an empty blush path auto-uses Female Makeup Suite's cheek blush if installed. Tears only appear in non-consensual scenes, on the victim.",
     "LipSync": "Mouth follows the moan OStim plays (decoded from your voice-set .wav files at startup).",
+    "Voice": "The victim of a non-consensual scene: OStim moans muted, a cry for help that guards/allies answer, personality lines, a scream at the breaking climax, then hard breathing. Vanilla Skyrim.esm lines only.\n; iVictimVoice: 0 silent, 1 breathing only, 2 full. iResponders: 0 nobody, 1 guards, 2 guards and allies.",
     "Arousal": "Softbody Arousal. iSource: 0 auto (OSL first), 1 OSL Aroused, 2 SLO Aroused NG, 3 OStim excitement only.\n; Body blush uses \"Body [Ovl#]\" slots iOverlayFirstSlot .. +iOverlaySlots-1; set skee64.ini [Overlays/Body] iNumOverlays to at least 12.",
 }
 

@@ -6,6 +6,7 @@
 #include "FsUtil.h"
 #include "Scenes.h"
 #include "Settings.h"
+#include "Voice.h"
 
 namespace LipSync
 {
@@ -38,18 +39,20 @@ namespace LipSync
 		std::mutex g_lock;
 		std::unordered_set<Key, KeyHash> g_wanted;                                     // moan files named by voice sets
 		std::unordered_map<Key, std::shared_ptr<const Envelope>, KeyHash> g_envelopes;  // decoded
+		std::unordered_set<Key, KeyHash> g_silence;     // every voice-set file, muffled too (a victim's are muted)
+		std::atomic_bool g_silenceFrozen = false;       // g_silence is complete and read without a lock
 		std::atomic_bool g_ready = false;
 		std::string g_status = "not started";
 		std::string g_lastMatch = "none yet";
 		std::size_t g_descriptors = 0;
 
 		// ------------------------------------------------------------ voice sets
-		void CollectSounds(const json& j, std::vector<std::pair<std::string, RE::FormID>>& out)
+		void CollectSounds(const json& j, std::vector<std::pair<std::string, RE::FormID>>& out, const char* a_key = "sound")
 		{
 			// A reaction set: { "sound": [ { "sound": { "mod", "formid" } } ], "soundMuffled": [...] }.
-			// Muffled sounds (sucking, gagging) are skipped: the mouth is busy then.
+			// Muffled sounds (sucking, gagging) are not lip-synced: the mouth is busy then.
 			if (j.is_object()) {
-				if (auto it = j.find("sound"); it != j.end() && it->is_array()) {
+				if (auto it = j.find(a_key); it != j.end() && it->is_array()) {
 					for (const auto& set : *it) {
 						if (!set.is_object() || !set.contains("sound")) continue;
 						const auto& f = set.at("sound");
@@ -61,7 +64,7 @@ namespace LipSync
 			}
 		}
 
-		void ParseVoiceSets(std::vector<std::pair<std::string, RE::FormID>>& out)
+		void ParseVoiceSets(std::vector<std::pair<std::string, RE::FormID>>& out, std::vector<std::pair<std::string, RE::FormID>>& muffled)
 		{
 			constexpr auto kRoot = "Data/SKSE/Plugins/OStim/voice sets";
 			std::error_code ec;
@@ -72,11 +75,16 @@ namespace LipSync
 					std::ifstream f(path);
 					const auto doc = json::parse(f, nullptr, true, true);
 					for (const char* key : { "moan", "climax", "climaxCommentSelf", "climaxCommentOther" }) {
-						if (doc.contains(key)) CollectSounds(doc.at(key), out);
+						if (!doc.contains(key)) continue;
+						CollectSounds(doc.at(key), out);
+						CollectSounds(doc.at(key), muffled, "soundMuffled");
 					}
 					for (const char* key : { "eventActorReactions", "eventTargetReactions", "eventPerformerReactions" }) {
 						if (!doc.contains(key) || !doc.at(key).is_object()) continue;
-						for (const auto& [ev, set] : doc.at(key).items()) CollectSounds(set, out);
+						for (const auto& [ev, set] : doc.at(key).items()) {
+							CollectSounds(set, out);
+							CollectSounds(set, muffled, "soundMuffled");
+						}
 					}
 				} catch (const std::exception& e) {
 					logger::warn("voice set {}: {}", FsUtil::Printable(path), e.what());
@@ -424,8 +432,20 @@ namespace LipSync
 	void OnDataLoaded()
 	{
 		std::vector<std::pair<std::string, RE::FormID>> refs;
-		ParseVoiceSets(refs);
+		std::vector<std::pair<std::string, RE::FormID>> muffled;
+		ParseVoiceSets(refs, muffled);
 		auto* dh = RE::TESDataHandler::GetSingleton();
+		// Everything a victim must not be heard making: the lip-synced sounds and the muffled ones.
+		for (const auto* list : { &refs, &muffled }) {
+			for (const auto& [mod, local] : *list) {
+				auto* form = dh ? dh->LookupForm<RE::BGSSoundDescriptorForm>(local, mod) : nullptr;
+				auto* def = form && form->soundDescriptor ? skyrim_cast<RE::BGSStandardSoundDef*>(form->soundDescriptor) : nullptr;
+				if (!def) continue;
+				for (const auto& id : def->soundFiles) g_silence.insert(ToKey(id));
+			}
+		}
+		g_silenceFrozen = true;
+		logger::info("Victim voice: {} OStim voice-set sound files can be muted on a victim", g_silence.size());
 		std::unordered_set<RE::FormID> seen;
 		std::vector<Descriptor> descs;
 		for (const auto& [mod, local] : refs) {
@@ -496,6 +516,8 @@ namespace LipSync
 				++g_stats.notInScene;
 				continue;
 			}
+			// A victim's moans are muted: no mouth to move.
+			if (Voice::IsSilenced(owner)) continue;
 			// Oral / dialogue: the mouth belongs to the animation or the voice line.
 			auto* t = Scenes::ThreadOf(owner);
 			auto* s = t ? t->Find(owner) : nullptr;
@@ -535,4 +557,12 @@ namespace LipSync
 		std::scoped_lock l(g_lock);
 		return g_envelopes.size();
 	}
+
+	bool IsMoanResource(const RE::BSResource::ID& a_id)
+	{
+		if (!g_silenceFrozen.load(std::memory_order_acquire)) return false;
+		return g_silence.contains(ToKey(a_id));
+	}
+
+	RE::Actor* ActorOf(RE::NiAVObject* a_node) { return OwnerOf(a_node); }
 }

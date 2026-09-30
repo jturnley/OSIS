@@ -18,4 +18,9 @@ namespace LipSync
 
 	[[nodiscard]] std::string Status();
 	[[nodiscard]] std::size_t EnvelopeCount();
+
+	// For Voice: is this sound file one of OStim's voice-set sounds (moans, climax, reactions,
+	// muffled ones included)? Safe from the audio thread once data has loaded.
+	[[nodiscard]] bool IsMoanResource(const RE::BSResource::ID& a_id);
+	[[nodiscard]] RE::Actor* ActorOf(RE::NiAVObject* a_node);  // the actor a playing sound follows
 }
