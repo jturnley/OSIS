@@ -484,12 +484,13 @@ namespace
 			Check("Enabled", bEnabled);
 			SliderF("Strength", fStrength, 0.0f, 1.0f);
 			Check("Toe curl", bToe);
-			SliderF("Toe degrees", fToeDegrees, 0.0f, 60.0f, "%.0f");
-			SliderF("Per-toe curl", fPerToe, 0.0f, 2.0f, "%.2f",
+			SliderF("Toe degrees", fToeDegrees, 0.0f, 90.0f, "%.0f",
+				"How far the whole-foot toe bone bends at full strength. Past about 60 the toes start to pass through the sole on most foot meshes, so raise it and look before you keep it.");
+			SliderF("Per-toe curl", fPerToe, 0.0f, 3.0f, "%.2f",
 				"Extra bend at each toe's own two joints, on top of the whole-foot toe bone. Only shows on feet weighted to "
 				"XPMSSE's per-toe bones (Aerosmith TJ Feet, for example); other feet look as before. 0 = off.");
 			Check("Hand grip", bHand);
-			SliderF("Finger degrees", fFingerDegrees, 0.0f, 90.0f, "%.0f");
+			SliderF("Finger degrees", fFingerDegrees, 0.0f, 120.0f, "%.0f");
 			ComboI("Curl axis", iCurlAxis, kAxes, 3, "Bone-local axis. If toes/fingers bend sideways, try another axis with the test button.");
 			Check("Scale with style", bStyleGated, "Realistic 35%, cinematic 70%, anime 100%.");
 		}

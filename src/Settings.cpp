@@ -189,7 +189,10 @@ namespace Settings
 			Face::fNCAutoInterval = std::clamp(Face::fNCAutoInterval, 5.0f, 120.0f);
 			if (Face::fAnimeEnd > Face::fAnimeStart) Face::fAnimeEnd = Face::fAnimeStart;
 			Body::iCurlAxis = std::clamp(Body::iCurlAxis, 0, 2);
-			Body::fPerToe = std::clamp(Body::fPerToe, 0.0f, 2.0f);
+			Body::fStrength = std::clamp(Body::fStrength, 0.0f, 1.0f);
+			Body::fToeDegrees = std::clamp(Body::fToeDegrees, 0.0f, 90.0f);
+			Body::fFingerDegrees = std::clamp(Body::fFingerDegrees, 0.0f, 120.0f);
+			Body::fPerToe = std::clamp(Body::fPerToe, 0.0f, 3.0f);
 			Skin::iFaceFirstSlot = std::clamp(Skin::iFaceFirstSlot, 0, 15);
 			Arousal::iSource = std::clamp(Arousal::iSource, 0, 3);
 			Arousal::fInterval = std::clamp(Arousal::fInterval, 0.25f, 30.0f);
