@@ -123,6 +123,7 @@ namespace Settings
 				{ "Skin", "bSaliva", &Skin::bSaliva },
 				{ "Skin", "bStyleGated", &Skin::bStyleGated },
 				{ "Skin", "bFemaleOnly", &Skin::bFemaleOnly },
+				{ "Skin", "bMatteOverlays", &Skin::bMatteOverlays },
 				{ "Skin", "iFaceFirstSlot", &Skin::iFaceFirstSlot },
 				{ "Skin", "sBlushPath", &Skin::sBlushPath },
 #if !OSIS_LITE

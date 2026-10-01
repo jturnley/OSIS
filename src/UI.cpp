@@ -523,6 +523,10 @@ namespace
 			Check("Saliva", bSaliva);
 			Check("Scale with style", bStyleGated);
 			Check("Females only", bFemaleOnly);
+			Check("Matte overlays", bMatteOverlays,
+				"Zeroes the overlay's emissive and shine so it reads as colour in the skin rather than a sheen. If overlays show up "
+				"as solid black squares (reported with some Community Shaders setups), turn this off and see if they come right. "
+				"Applies to the face overlays and the body blush.");
 			SliderI("First face overlay slot", iFaceFirstSlot, 0, 15, "Slot 0 is often makeup; OSED uses one slot per effect from here.");
 			Path("Blush texture", sBlushPath, "Relative to Data\\textures, e.g. actors\\character\\Overlays\\FMS\\Blush\\Blush Cheeks 1.dds. Empty = auto.");
 #if !OSIS_LITE

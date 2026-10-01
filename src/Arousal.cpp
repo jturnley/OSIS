@@ -68,6 +68,7 @@ namespace Arousal
 			int firstSlot, slots;
 			std::vector<S::Blush> blushes;
 			std::vector<S::RaceBlush> raceBlush;
+			bool matte;
 		};
 
 		Snap CopySettings()
@@ -75,7 +76,7 @@ namespace Arousal
 			std::scoped_lock l(Settings::lock);
 			return { S::bEnabled && Settings::General::bEnabled, S::bAffectPlayer, S::bAffectNPCs, S::bOStimExcitement, S::bSceneFactors,
 				S::bPersonality, S::iSource, S::iMaxNPCs, S::fIntensity, S::fRadius, S::fRiseHalfLife, S::fFallHalfLife, S::fClimaxHold,
-				S::morphs, S::bBlush, S::iOverlayFirstSlot, S::iOverlaySlots, S::blushes, S::raceBlush };
+				S::morphs, S::bBlush, S::iOverlayFirstSlot, S::iOverlaySlots, S::blushes, S::raceBlush, Settings::Skin::bMatteOverlays };
 		}
 
 		float Ease(float level, float start, float full)
@@ -152,7 +153,7 @@ namespace Arousal
 					std::string node = std::format("Body [Ovl{}]", s.firstSlot + static_cast<int>(i));
 					Papyrus::SetOverlayTexture(a, true, node, textures[i]);
 					Papyrus::SetOverlayTint(a, true, node, *tint);
-					Papyrus::SetOverlayMatte(a, true, node);
+					if (s.matte) Papyrus::SetOverlayMatte(a, true, node);
 					nodes.push_back(std::move(node));
 				}
 				for (size_t i = nodes.size(); i < st.blushNodes.size(); ++i) Papyrus::ClearOverlay(a, true, st.blushNodes[i]);

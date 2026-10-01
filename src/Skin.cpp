@@ -117,7 +117,7 @@ namespace Skin
 			Papyrus::AddOverlays(a);
 			Papyrus::SetOverlayTexture(a, st.female, node, path);
 			Papyrus::SetOverlayTint(a, st.female, node, kTint[effect]);
-			if (effect == kBlush) Papyrus::SetOverlayMatte(a, st.female, node);
+			if (effect == kBlush && Settings::Skin::bMatteOverlays) Papyrus::SetOverlayMatte(a, st.female, node);
 			Papyrus::SetOverlayAlpha(a, st.female, node, std::clamp(alpha, 0.0f, 1.0f));
 			st.on[effect] = true;
 			st.until[effect] = holdSeconds > 0.0f ? Scenes::Now() + holdSeconds : 0.0f;

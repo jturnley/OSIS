@@ -124,6 +124,9 @@ namespace Settings
 		inline bool bSaliva = true;
 		inline bool bStyleGated = true;
 		inline bool bFemaleOnly = false;
+		// Overlays are drawn matte (emissive and shine zeroed) so they read as colour in the skin.
+		// Some shader setups render a zeroed emissive as a solid black square; turn this off there.
+		inline bool bMatteOverlays = true;
 		inline int iFaceFirstSlot = 1;        // first "Face [Ovl#]" slot used (0 is often makeup)
 		inline std::string sBlushPath = "";
 		inline std::string sTearPath = "";
