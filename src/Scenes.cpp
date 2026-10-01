@@ -180,10 +180,29 @@ namespace Scenes
 		{
 			const auto gen = g_generation;
 			const int tid = t.id;
+			bool wantTongue;
+			{
+				std::scoped_lock sl(Settings::lock);
+				wantTongue = Settings::LipSync::bEnabled && Settings::LipSync::iTongueMode != Settings::LipSync::kTongueIgnore;
+			}
 			for (auto& s : t.slots) {
 				auto* a = s.Get();
 				if (!a || !s.painted) continue;
 				const RE::FormID id = s.id;
+				// Any mod that puts a tongue out through OStim shows up here, not just ours.
+				if (wantTongue) {
+					Papyrus::IsObjectEquipped(a, "tongue", [tid, id, gen](bool out) {
+						Task([tid, id, gen, out]() {
+							std::scoped_lock l(g_lock);
+							if (gen != g_generation) return;
+							auto it = g_threads.find(tid);
+							if (it == g_threads.end()) return;
+							for (auto& s : it->second.slots) {
+								if (s.id == id) s.tongueOut = out;
+							}
+						});
+					});
+				}
 				Papyrus::HasExpressionOverride(a, [tid, id, gen](bool has) {
 					Task([tid, id, gen, has]() {
 						std::scoped_lock l(g_lock);

@@ -429,7 +429,7 @@ namespace LipSync
 		// match per actor, so a log shows which stage fails if lip-sync stays silent.
 		struct PollStats
 		{
-			std::size_t clips = 0, matched = 0, notInScene = 0, noOwner = 0, mouthBusy = 0;
+			std::size_t clips = 0, matched = 0, notInScene = 0, noOwner = 0, mouthBusy = 0, tongueOut = 0;
 			float windowStart = 0.0f;
 		};
 		PollStats g_stats;
@@ -486,6 +486,8 @@ namespace LipSync
 	void Poll()
 	{
 		Face::Output::TrackParams params;
+		int tongueMode = Settings::LipSync::kTongueStop;
+		float tongueMinOpen = 0.45f;
 		{
 			std::scoped_lock l(Settings::lock);
 			if (!Settings::LipSync::bEnabled || !Settings::General::bEnabled) return;
@@ -494,6 +496,8 @@ namespace LipSync
 			params.attack = Settings::LipSync::fAttack;
 			params.release = Settings::LipSync::fRelease;
 			params.holdEyes = Settings::LipSync::bHoldEyes;
+			tongueMode = Settings::LipSync::iTongueMode;
+			tongueMinOpen = Settings::LipSync::fTongueMinOpen;
 		}
 		if (!g_ready || Compat::Disabled(Compat::kLipSync)) return;
 		auto* am = RE::BSAudioManager::GetSingleton();
@@ -536,6 +540,15 @@ namespace LipSync
 				++g_stats.mouthBusy;
 				continue;
 			}
+			// A tongue is out: closing lips over it make it clip through the mouth.
+			if (s && (s->tongueOut || s->tongueOn) && tongueMode != Settings::LipSync::kTongueIgnore) {
+				if (tongueMode == Settings::LipSync::kTongueStop) {
+					Face::Output::ClearMouthTrack(owner);
+					++g_stats.tongueOut;
+					continue;
+				}
+				params.minOpen = tongueMinOpen;  // Hold open: keep the lips clear of it
+			}
 			const float start = now - static_cast<float>(p.positionMS) / 1000.0f;
 			auto track = params;
 			if (s && s->broken) track.holdEyes = false;  // a broken victim's eyes don't squeeze
@@ -548,8 +561,8 @@ namespace LipSync
 			g_lastMatch = std::format("{} ({:.1f} s clip)", owner->GetDisplayFullName(), env->Duration());
 		}
 		if (g_stats.clips && now - g_stats.windowStart >= 10.0f) {
-			logger::info("Lip-sync: {} moan-clip polls in the last 10 s: {} lip-synced, {} mouth busy (oral/dialogue/override), {} not in a scene, {} with no owning actor",
-				g_stats.clips, g_stats.matched, g_stats.mouthBusy, g_stats.notInScene, g_stats.noOwner);
+			logger::info("Lip-sync: {} moan-clip polls in the last 10 s: {} lip-synced, {} mouth busy (oral/dialogue/override), {} tongue out, {} not in a scene, {} with no owning actor",
+				g_stats.clips, g_stats.matched, g_stats.mouthBusy, g_stats.tongueOut, g_stats.notInScene, g_stats.noOwner);
 			g_stats = PollStats{};
 			g_stats.windowStart = now;
 		} else if (!g_stats.clips) {

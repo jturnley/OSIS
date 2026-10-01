@@ -291,7 +291,7 @@ namespace Face::Output
 			const float k = 1.0f - std::exp(-dt / std::max(0.005f, tau));
 			st.trackOpen += (loud - st.trackOpen) * k;
 			st.trackBright += (bright - st.trackBright) * k;
-			const float open = std::clamp(st.trackOpen * p.gain, 0.0f, p.maxOpen);
+			const float open = std::clamp(st.trackOpen * p.gain, std::min(p.minOpen, p.maxOpen), p.maxOpen);
 			trackPh[kBigAah] = open * (0.55f + 0.45f * (1.0f - st.trackBright));
 			trackPh[kAah] = open * 0.35f;
 			trackPh[kOh] = open * 0.40f * (1.0f - st.trackBright);

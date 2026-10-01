@@ -139,6 +139,11 @@ namespace Settings
 		inline float fRelease = 0.12f;        // envelope release (s)
 		inline float fMaxOpen = 0.85f;
 		inline bool bHoldEyes = true;         // squint with the moan while it plays
+		// What the mouth does while a tongue is out (ours, or any ahegao mod that equips OStim's
+		// "tongue" object). Closing lips over an out tongue makes it clip through.
+		enum Tongue : int { kTongueStop = 0, kTongueHold = 1, kTongueIgnore = 2 };
+		inline int iTongueMode = kTongueStop;
+		inline float fTongueMinOpen = 0.45f;  // Hold open: the mouth never closes past this
 		inline bool bYieldToDDF = true;       // stand down while Dynamic Dialogue Framework is installed (both drive the mouth)
 	}
 

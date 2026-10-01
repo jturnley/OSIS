@@ -34,6 +34,7 @@ namespace Scenes
 		bool female = false;
 
 		bool exprOverride = false;   // OActor.HasExpressionOverride, polled
+		bool tongueOut = false;      // OActor.IsObjectEquipped("tongue"), polled: ours or an ahegao mod's
 		bool takenOver = false;      // we switched OStim's face writer off for this actor
 		std::string voiceName;
 		bool voiceRequested = false;

@@ -78,6 +78,7 @@ namespace Face::Output
 	struct TrackParams
 	{
 		float gain = 1.0f;
+		float minOpen = 0.0f;   // the mouth never closes past this (used to clear an out tongue)
 		float maxOpen = 0.85f;
 		float attack = 0.04f;
 		float release = 0.12f;

@@ -43,6 +43,7 @@ namespace Papyrus
 	void ClearExpression(RE::Actor* a_actor);
 	void EquipObject(RE::Actor* a_actor, const char* a_type, std::function<void(bool)> a_done = {});
 	void UnequipObject(RE::Actor* a_actor, const char* a_type);
+	void IsObjectEquipped(RE::Actor* a_actor, const char* a_type, std::function<void(bool)> a_done);
 	void GetVoiceSetName(RE::FormID a_baseID, std::function<void(std::string)> a_done);
 	void SetExcitementMultiplier(RE::Actor* a_actor, float a_multiplier);
 

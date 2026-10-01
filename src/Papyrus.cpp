@@ -256,6 +256,12 @@ namespace Papyrus
 		CallStatic("OActor", "UnequipObject", RE::MakeFunctionArguments(std::move(a_actor), RE::BSFixedString(a_type)));
 	}
 
+	void IsObjectEquipped(RE::Actor* a_actor, const char* a_type, std::function<void(bool)> a_done)
+	{
+		CallStatic("OActor", "IsObjectEquipped", RE::MakeFunctionArguments(std::move(a_actor), RE::BSFixedString(a_type)),
+			[done = std::move(a_done)](const RE::BSScript::Variable& v) { done(AsBool(v)); });
+	}
+
 	void GetVoiceSetName(RE::FormID a_baseID, std::function<void(std::string)> a_done)
 	{
 		CallStatic("OData", "GetVoiceSetName", RE::MakeFunctionArguments(static_cast<std::int32_t>(a_baseID)),

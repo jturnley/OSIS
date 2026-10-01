@@ -136,6 +136,8 @@ namespace Settings
 				{ "LipSync", "fRelease", &LipSync::fRelease },
 				{ "LipSync", "fMaxOpen", &LipSync::fMaxOpen },
 				{ "LipSync", "bHoldEyes", &LipSync::bHoldEyes },
+				{ "LipSync", "iTongueMode", &LipSync::iTongueMode },
+				{ "LipSync", "fTongueMinOpen", &LipSync::fTongueMinOpen },
 				{ "LipSync", "bYieldToDDF", &LipSync::bYieldToDDF },
 
 #if !OSIS_LITE
@@ -197,6 +199,8 @@ namespace Settings
 			Arousal::iOverlaySlots = std::clamp(Arousal::iOverlaySlots, 0, 32);
 			LipSync::fAttack = std::clamp(LipSync::fAttack, 0.005f, 0.5f);
 			LipSync::fRelease = std::clamp(LipSync::fRelease, 0.02f, 1.0f);
+			LipSync::iTongueMode = std::clamp(LipSync::iTongueMode, 0, 2);
+			LipSync::fTongueMinOpen = std::clamp(LipSync::fTongueMinOpen, 0.0f, 1.0f);
 			Voice::iVictimVoice = std::clamp(Voice::iVictimVoice, 0, 2);
 			Voice::iResponders = std::clamp(Voice::iResponders, 0, 2);
 			Voice::fInterval = std::clamp(Voice::fInterval, 3.0f, 60.0f);

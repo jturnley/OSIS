@@ -16,6 +16,9 @@ root = Path(__file__).resolve().parent.parent
 header = (root / "src/Settings.h").read_text(encoding="utf-8")
 source = (root / "src/Settings.cpp").read_text(encoding="utf-8")
 
+# The ini must hold numbers, never the C++ enumerator name; add new enumerators here.
+ENUMS = {"kDirector": "2", "kAuto": "0", "kTongueStop": "0", "kTongueHold": "1", "kTongueIgnore": "2"}
+
 # namespace -> {name: (value, comment)}
 defaults = {}
 ns = None
@@ -32,10 +35,9 @@ for line in header.splitlines():
         elif m.group(1) == "std::string":
             value = value.strip('"')
         elif m.group(1) == "int" and "::" not in value and not re.fullmatch(r"-?\d+", value):
-            value = {"kDirector": "2", "kAuto": "0"}.get(value, value)
+            value = ENUMS.get(value, value)
         defaults.setdefault(ns, {})[m.group(2)] = (value, m.group(4) or "")
 
-enum_values = {"kDirector": "2", "kAuto": "0"}
 binding = re.compile(r'\{ "(\w+)", "(\w+)", &(\w+)::(\w+) \}')
 
 
@@ -55,7 +57,7 @@ def sections_for(lite):
             continue
         sec, key, ns_name, var = m.groups()
         value, comment = defaults[ns_name][var]
-        value = enum_values.get(value, value)
+        value = ENUMS.get(value, value)
         sections.setdefault(sec, []).append((key, value, comment))
     return sections
 

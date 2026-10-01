@@ -148,6 +148,7 @@ namespace
 		else ig::TextColored(kGood, "on");
 	}
 
+	constexpr const char* kTongueModes[] = { "Stop lip-sync", "Hold the mouth open", "Ignore (old behaviour)" };
 	constexpr const char* kVoiceModes[] = { "Silent", "Breathing only", "Full (help, lines, scream)" };
 	constexpr const char* kResponderModes[] = { "Nobody", "Guards", "Guards and allies" };
 	constexpr const char* kDoms[] = { "Anticipation", "Pleasure", "Plateau", "Distress", "Climax", "Afterglow" };
@@ -560,6 +561,16 @@ namespace
 			SliderF("Attack (s)", fAttack, 0.005f, 0.2f, "%.3f");
 			SliderF("Release (s)", fRelease, 0.02f, 0.5f, "%.3f");
 			Check("Eyes squeeze with the moan", bHoldEyes);
+
+			ig::SeparatorText("While a tongue is out");
+			ig::TextWrapped("Ahegao mods stick the tongue out through OStim. If the mouth keeps closing over it the tongue clips "
+			                "through the lips and chin, so the mouth stands down instead. This covers any mod that uses OStim's "
+			                "tongue, not only this one's.");
+			ComboI("Mouth behaviour", iTongueMode, kTongueModes, 3,
+				"Stop: the mouth track is dropped until the tongue goes back in — safest. Hold open: the mouth keeps moving with "
+				"the moan but never closes past the floor below, which keeps some life in it. Ignore: what it did before.");
+			if (iTongueMode == kTongueHold) SliderF("Never close past", fTongueMinOpen, 0.0f, 1.0f, "%.2f");
+
 			Check("Stand down while Dynamic Dialogue Framework is installed", bYieldToDDF,
 				"DDF plays spoken lines with their own lip movement; with both driving the mouth, both break. Untick to run Lip-Sync anyway.");
 		}
