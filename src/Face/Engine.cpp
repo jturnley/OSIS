@@ -383,6 +383,10 @@ namespace Face::Engine
 				x.actionPenetration.insert(x.actionPenetration.end(), x.actionAnal.begin(), x.actionAnal.end());
 				x.actionAnySignal = x.actionOral;
 				for (auto* l : { &x.actionKiss, &x.actionVaginal, &x.actionAnal }) x.actionAnySignal.insert(x.actionAnySignal.end(), l->begin(), l->end());
+				// OStim puts the feet on different roles: footjob's actor "has the feet", while
+				// grinding/holding/kissing/tickling put them on the target.
+				x.actionFootActor = SplitCSV("footjob");
+				x.actionFootTarget = SplitCSV("grindingfoot,holdingfoot,kissingfoot,ticklingfoot");
 				x.tagOralAction = SplitCSV("oral,blowjob,deepthroat,cunnilingus,anilingus,rimjob,facefuck,fellatio,mouth");
 #if !OSIS_LITE
 				// Non-consent. "aggressive"/"aggressivedefault" are OStim's own marker for aggressive
@@ -751,6 +755,9 @@ namespace Face::Engine
 			b.victim = !t.consent && IsSubmissive(t, s);
 			b.broken = s.broken;
 			b.yieldMouth = MouthYielded(t, s, a);
+			b.footAction = t.meta && s.pos >= 0 &&
+			               (OStimData::FindAnyActionForActor(*t.meta, s.pos, T().actionFootActor) >= 0 ||
+			                   OStimData::FindAnyActionForTarget(*t.meta, s.pos, T().actionFootTarget) >= 0);
 			b.orgasm = t.orgasm;
 			b.sceneTime = SceneTime(t);
 			s.enj = enj;

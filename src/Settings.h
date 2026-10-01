@@ -110,6 +110,11 @@ namespace Settings
 		inline float fToeDegrees = 35.0f;
 		inline float fPerToe = 1.0f;          // extra curl at each toe's own joints (feet weighted to XPMSSE's per-toe bones); 0 off
 		inline float fFingerDegrees = 45.0f;
+		// Toes working during a foot action (footjob, grinding, tickling...) rather than only at
+		// climax, as a fraction of the climax angle. Off by default: it moves the same bones OStim
+		// measures for a footjob's peak, so it wants looking at before it is trusted.
+		inline bool bFootFlex = false;
+		inline float fFootFlexScale = 0.35f;
 		inline int iCurlAxis = 0;             // 0 X, 1 Y, 2 Z (bone-local)
 	}
 

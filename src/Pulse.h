@@ -23,6 +23,7 @@ namespace Pulse
 		bool victim = false;  // judged the submissive actor of a non-consensual scene
 		bool broken = false;  // a victim who climaxed: tears keep coming, nothing else reacts
 		bool yieldMouth = false;
+		bool footAction = false;  // this actor's feet are the ones being used
 		bool orgasm = false;
 		float sceneTime = 0.0f;
 	};

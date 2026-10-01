@@ -491,6 +491,13 @@ namespace
 				"XPMSSE's per-toe bones (Aerosmith TJ Feet, for example); other feet look as before. 0 = off.");
 			Check("Hand grip", bHand);
 			SliderF("Finger degrees", fFingerDegrees, 0.0f, 120.0f, "%.0f");
+			ig::SeparatorText("During foot actions");
+			Check("Toes work during foot actions", bFootFlex,
+				"Normally the toes only move at climax. With this on they hold a lower flex for as long as a footjob, "
+				"foot grinding, foot kissing or tickling is running, building with excitement. Off by default: it moves the "
+				"same bones OStim measures to time a footjob's peak, so check that peaks still feel right before keeping it.");
+			if (bFootFlex) SliderF("Flex strength", fFootFlexScale, 0.0f, 1.0f, "%.2f", "A fraction of the climax curl angle.");
+
 			ComboI("Curl axis", iCurlAxis, kAxes, 3, "Bone-local axis. If toes/fingers bend sideways, try another axis with the test button.");
 			Check("Scale with style", bStyleGated, "Realistic 35%, cinematic 70%, anime 100%.");
 		}

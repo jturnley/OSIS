@@ -36,8 +36,11 @@ namespace Body
 		struct State
 		{
 			float magnitude = 0.0f;
+			float sustain = 0.0f;        // current sustained flex, eased toward the target
+			float sustainTarget = 0.0f;  // set per arc while a foot action is running
 			float start = 0.0f;
 			float hold = kHold;
+			float lastUpdate = 0.0f;
 			const RE::NiAVObject* root = nullptr;
 			bool reported = false;  // logged the first application of this curl
 			std::vector<RE::NiAVObject*> toes;
@@ -160,6 +163,31 @@ namespace Body
 		}
 	}
 
+	// A foot action is running: hold a low flex so the toes are working, not frozen. Scaled by
+	// excitement so it builds, and never more than the climax curl, which still wins outright.
+	void OnPaint(const Pulse::Beat& b)
+	{
+		float want = 0.0f;
+		if (b.footAction && b.actor) {
+			std::scoped_lock l(Settings::lock);
+			if (Settings::Body::bFootFlex && Settings::Body::bEnabled && Settings::Body::bToe &&
+				Settings::General::bEnabled && !Compat::Disabled(Compat::kBody)) {
+				const float excite = std::clamp(static_cast<float>(b.raw) / 100.0f, 0.0f, 1.0f);
+				want = Settings::Body::fFootFlexScale * Settings::Body::fStrength * StyleScalar() * (0.4f + 0.6f * excite);
+			}
+		}
+		if (!b.actor) return;
+		std::scoped_lock l(g_lock);
+		auto it = g_states.find(b.actor->GetFormID());
+		if (it == g_states.end()) {
+			if (want <= 0.0f) return;
+			if (!Animatable(b.actor)) return;
+			it = g_states.emplace(b.actor->GetFormID(), State{}).first;
+		}
+		it->second.sustainTarget = std::clamp(want, 0.0f, 1.0f);
+		g_count = g_states.size();
+	}
+
 	void OnClimaxPeak(RE::Actor* a, float value)
 	{
 		float mag;
@@ -194,6 +222,7 @@ namespace Body
 			auto& st = it->second;
 			const float now = Scenes::Now();
 			if (now - st.start < kRampIn + st.hold) st.start = now - (kRampIn + st.hold);
+			st.sustainTarget = 0.0f;  // the next Paint puts it back if a foot action is still running
 		}
 	}
 
@@ -243,11 +272,19 @@ namespace Body
 
 		const float t = Scenes::Now() - st.start;
 		float env;
-		if (t < kRampIn) env = t / kRampIn;
+		if (st.magnitude <= 0.0f) env = 0.0f;  // sustained flex only: no climax curl running
+		else if (t < kRampIn) env = t / kRampIn;
 		else if (t < kRampIn + st.hold) env = 1.0f;
 		else env = 1.0f - (t - kRampIn - st.hold) / kRampOut;
+		// Ease the sustained flex in and out so starting or ending a foot action doesn't snap.
+		constexpr float kSustainEase = 0.9f;  // seconds to close most of the gap
+		const float dtEase = std::clamp(Scenes::Now() - st.lastUpdate, 0.0f, 0.5f);
+		st.lastUpdate = Scenes::Now();
+		st.sustain += (st.sustainTarget - st.sustain) * (1.0f - std::exp(-dtEase / kSustainEase));
+		if (std::abs(st.sustainTarget - st.sustain) < 0.005f) st.sustain = st.sustainTarget;
+
 		auto* root = a->Get3D1(false);
-		if (env <= 0.0f) {
+		if (env <= 0.0f && st.sustain <= 0.0f) {
 			if (root && root == st.root) {
 				RestoreToes(st);
 				RE::NiUpdateData done{ 0.0f, RE::NiUpdateData::Flag::kNone };
@@ -257,7 +294,7 @@ namespace Body
 			g_count = g_states.size();
 			return;
 		}
-		env = env * env * (3.0f - 2.0f * env);  // smoothstep
+		env = env > 0.0f ? env * env * (3.0f - 2.0f * env) : 0.0f;  // smoothstep
 
 		if (!root) return;
 		if (root != st.root) Resolve(st, root);
@@ -267,7 +304,8 @@ namespace Body
 				a->GetFormID(), st.toes.size(), st.toeBones.size(), st.fingers.size(), axis, toeDeg * st.magnitude, fingerDeg * st.magnitude);
 		}
 
-		const float k = st.magnitude * env;
+		// The climax curl wins while it lasts; otherwise the sustained flex holds the toes.
+		const float k = std::max(st.magnitude * env, st.sustain);
 		if (toe) {
 			const auto r = AxisRotation(axis, toeDeg * k);  // toes curl down (the negative angle bent them up)
 			for (auto* n : st.toes) n->local.rotate = n->local.rotate * r;

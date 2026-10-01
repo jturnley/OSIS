@@ -32,6 +32,7 @@ namespace Face::Engine::detail
 	struct Tags
 	{
 		TagList actionOral, actionKiss, actionVaginal, actionAnal, actionPenetration, actionAnySignal;
+		TagList actionFootActor, actionFootTarget;  // whose feet: footjob's actor, everything else's target
 		TagList tagOralAction, tagForced, tagRough, tagLoving, tagSub, tagDom;
 		TagList deepthroat;
 	};

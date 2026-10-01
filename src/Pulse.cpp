@@ -35,6 +35,7 @@ namespace Pulse
 
 	void Paint(const Beat& b)
 	{
+		Body::OnPaint(b);
 		Skin::OnPaint(b);
 		Emit("SLED_Paint", b.thread, b.actor, static_cast<float>(b.enj));
 		Emit("SLED_Phase", b.thread, b.actor, static_cast<float>(b.phrase));
