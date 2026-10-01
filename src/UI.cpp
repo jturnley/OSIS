@@ -30,6 +30,7 @@ namespace
 	// Widgets mark the page dirty; one Save button writes the files.
 	bool g_dirty = false;
 	char g_newName[96] = {};
+	char g_newRace[64] = {};
 
 	const ig::ImVec4 kGood{ 0.4f, 0.9f, 0.4f, 1.0f };
 	const ig::ImVec4 kBad{ 0.9f, 0.4f, 0.4f, 1.0f };
@@ -741,6 +742,46 @@ namespace
 			if (ig::Button("Restore default regions")) {
 				blushes = DefaultBlushes();
 				g_dirty = true;
+			}
+
+			ig::SeparatorText("Per-race visibility");
+			ig::TextWrapped("The overlays are one grey texture tinted per race, so the same opacity looks subtle on dark skin and "
+			                "overpowering on pale skin. These multiply the alpha for that race. The name is matched anywhere in the "
+			                "race's editor ID, so \"nord\" also covers modded Nord variants; the first match wins, and a race with no "
+			                "row here stays at 1.00.");
+			int removeRace = -1;
+			for (size_t i = 0; i < raceBlush.size(); ++i) {
+				auto& r = raceBlush[i];
+				ig::PushID(static_cast<int>(i) + 2000);
+				SliderF(r.race.c_str(), r.mult, 0.0f, 3.0f, "%.2fx");
+				ig::SameLine();
+				if (ig::Button("Remove")) removeRace = static_cast<int>(i);
+				ig::PopID();
+			}
+			if (removeRace >= 0) {
+				raceBlush.erase(raceBlush.begin() + removeRace);
+				g_dirty = true;
+			}
+			ig::InputText("Race name", g_newRace, sizeof(g_newRace));
+			ig::SetItemTooltip("Part of the race's editor ID, lower case: nord, redguard, darkelf, orc, highelf...");
+			ig::SameLine();
+			if (ig::Button("Add race") && g_newRace[0]) {
+				std::string id = g_newRace;
+				std::ranges::transform(id, id.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+				raceBlush.push_back({ id, 1.0f });
+				g_newRace[0] = '\0';
+				g_dirty = true;
+			}
+			if (ig::Button("Restore default multipliers")) {
+				raceBlush = DefaultRaceBlush();
+				g_dirty = true;
+			}
+			if (auto* a = CrosshairActor()) {
+				if (auto* race = a->GetRace()) {
+					if (const char* id = race->GetFormEditorID(); id && *id) {
+						ig::TextDisabled("Crosshair actor's race: %s", id);
+					}
+				}
 			}
 		}
 		SaveBar();

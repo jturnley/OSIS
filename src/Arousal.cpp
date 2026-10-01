@@ -67,6 +67,7 @@ namespace Arousal
 			bool blush;
 			int firstSlot, slots;
 			std::vector<S::Blush> blushes;
+			std::vector<S::RaceBlush> raceBlush;
 		};
 
 		Snap CopySettings()
@@ -74,7 +75,7 @@ namespace Arousal
 			std::scoped_lock l(Settings::lock);
 			return { S::bEnabled && Settings::General::bEnabled, S::bAffectPlayer, S::bAffectNPCs, S::bOStimExcitement, S::bSceneFactors,
 				S::bPersonality, S::iSource, S::iMaxNPCs, S::fIntensity, S::fRadius, S::fRiseHalfLife, S::fFallHalfLife, S::fClimaxHold,
-				S::morphs, S::bBlush, S::iOverlayFirstSlot, S::iOverlaySlots, S::blushes };
+				S::morphs, S::bBlush, S::iOverlayFirstSlot, S::iOverlaySlots, S::blushes, S::raceBlush };
 		}
 
 		float Ease(float level, float start, float full)
@@ -83,13 +84,30 @@ namespace Arousal
 			return t * t * (3.0f - 2.0f * t);
 		}
 
-		// Overlay tint per race; the Body Blushing textures are neutral grey, so the tint
-		// supplies the hue. nullopt for races that should not blush.
-		std::optional<std::int32_t> BlushTint(RE::Actor* a)
+		std::string RaceID(RE::Actor* a)
 		{
 			auto* race = a->GetRace();
 			std::string id = race ? race->GetFormEditorID() : "";
 			std::ranges::transform(id, id.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+			return id;
+		}
+
+		// The same alpha reads very differently on pale and on dark skin, so each race scales it.
+		// First substring match wins; a race with no row is left at 1.
+		float BlushRaceMult(RE::Actor* a, const Snap& s)
+		{
+			const std::string id = RaceID(a);
+			for (const auto& r : s.raceBlush) {
+				if (!r.race.empty() && id.contains(r.race)) return r.mult;
+			}
+			return 1.0f;
+		}
+
+		// Overlay tint per race; the Body Blushing textures are neutral grey, so the tint
+		// supplies the hue. nullopt for races that should not blush.
+		std::optional<std::int32_t> BlushTint(RE::Actor* a)
+		{
+			const std::string id = RaceID(a);
 			if (id.contains("khajiit") || id.contains("argonian") || id.contains("vampire")) return std::nullopt;
 			if (id.contains("redguard")) return 0xC01810;
 			if (id.contains("darkelf")) return 0xA81858;
@@ -142,9 +160,10 @@ namespace Arousal
 				st.blushTextures = std::move(textures);
 				st.blushAlpha.assign(active.size(), std::numeric_limits<float>::quiet_NaN());
 			}
+			const float raceMult = BlushRaceMult(a, s);
 			for (size_t i = 0; i < active.size(); ++i) {
 				const auto* b = active[i];
-				const float alpha = std::clamp(b->max * Ease(st.level, b->start, b->full) * s.intensity * st.flushMult, 0.0f, 1.0f);
+				const float alpha = std::clamp(b->max * Ease(st.level, b->start, b->full) * s.intensity * st.flushMult * raceMult, 0.0f, 1.0f);
 				if (!std::isnan(st.blushAlpha[i]) && std::abs(alpha - st.blushAlpha[i]) <= 0.01f) continue;
 				Papyrus::SetOverlayAlpha(a, true, st.blushNodes[i], alpha);
 				st.blushAlpha[i] = alpha;

@@ -200,11 +200,23 @@ namespace Settings
 		inline int iOverlayFirstSlot = 6;
 		inline int iOverlaySlots = 6;
 
+		// A body-blush alpha multiplier per race. The overlays are one grey texture tinted per
+		// race, so the same alpha reads very differently on pale and dark skin. `race` is matched
+		// as a lowercase substring of the race's editor ID, first match wins, so "nord" also
+		// covers modded Nord variants. A race with no row uses 1.0.
+		struct RaceBlush
+		{
+			std::string race;
+			float mult = 1.0f;
+		};
+
 		inline std::vector<Morph> morphs;
 		inline std::vector<Blush> blushes;
+		inline std::vector<RaceBlush> raceBlush;
 
 		std::vector<Morph> DefaultMorphs();
 		std::vector<Blush> DefaultBlushes();
+		std::vector<RaceBlush> DefaultRaceBlush();
 	}
 
 	void Load();

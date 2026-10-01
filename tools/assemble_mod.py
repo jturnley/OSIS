@@ -185,7 +185,8 @@ one SKSE plugin, plus an arousal-driven body response. This folder is generated 
 `SKSE/Plugins/OSIS.dll`. There is no plugin (.esp), no Papyrus script and no MCM.
 Settings are in the SKSE Menu Framework (section "OSIS") and in
 `SKSE/Plugins/OSIS.ini`; softbody morph and body-blush tables are in
-`SKSE/Plugins/OSIS/morphs.json`. Settings you save in game are written to that INI, so
+`SKSE/Plugins/OSIS/morphs.json`, which also holds the per-race body-blush multipliers.
+Settings you save in game are written to that INI, so
 reinstalling this mod with "Replace" resets them to the defaults shipped here.
 
 Changes from the originals that you'll notice:

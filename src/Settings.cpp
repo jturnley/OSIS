@@ -264,6 +264,23 @@ namespace Settings
 			};
 		}
 
+		// Tuned so the flush reads about the same on every skin. Pale races need less alpha than
+		// the tint already gives them; ashen, green and dark-brown skin need considerably more.
+		std::vector<RaceBlush> DefaultRaceBlush()
+		{
+			return {
+				{ "nord", 0.85f },
+				{ "imperial", 0.85f },
+				{ "breton", 0.85f },
+				{ "highelf", 0.90f },
+				{ "elder", 0.90f },
+				{ "woodelf", 1.05f },
+				{ "darkelf", 1.35f },
+				{ "orc", 1.40f },
+				{ "redguard", 1.60f },
+			};
+		}
+
 		std::vector<Blush> DefaultBlushes()
 		{
 			// Sexual flush spreads from the upper chest outward. The textures' own
@@ -335,7 +352,9 @@ namespace Settings
 		using namespace Arousal;
 		std::vector<Morph> loaded;
 		std::vector<Blush> loadedBlush;
+		std::vector<RaceBlush> loadedRace;
 		bool haveBlush = false;
+		bool haveRace = false;
 		try {
 			std::ifstream f(kTablePath);
 			if (f) {
@@ -351,6 +370,16 @@ namespace Settings
 						b.enabled = j.value("enabled", true);
 						if (b.full <= b.start) b.full = b.start + 0.01f;
 						loadedBlush.push_back(std::move(b));
+					}
+				}
+				if (doc.contains("raceBlush")) {
+					haveRace = true;
+					for (const auto& j : doc.at("raceBlush")) {
+						RaceBlush r;
+						r.race = j.at("race").get<std::string>();
+						std::ranges::transform(r.race, r.race.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
+						r.mult = std::clamp(j.value("mult", 1.0f), 0.0f, 3.0f);
+						if (!r.race.empty()) loadedRace.push_back(std::move(r));
 					}
 				}
 				for (const auto& j : doc.at("morphs")) {
@@ -369,21 +398,27 @@ namespace Settings
 			logger::error("{}: {} - using built-in morph table.", kTablePath, e.what());
 			loaded.clear();
 			loadedBlush.clear();
+			loadedRace.clear();
 			haveBlush = false;
+			haveRace = false;
 		}
 		if (loaded.empty()) loaded = DefaultMorphs();
 		if (!haveBlush) loadedBlush = DefaultBlushes();
+		if (!haveRace) loadedRace = DefaultRaceBlush();
 
 		std::scoped_lock l(lock);
 		morphs = std::move(loaded);
 		blushes = std::move(loadedBlush);
-		logger::info("{} softbody morphs, {} body-blush regions configured.", morphs.size(), blushes.size());
+		raceBlush = std::move(loadedRace);
+		logger::info("{} softbody morphs, {} body-blush regions, {} per-race blush multiplier(s) configured.",
+			morphs.size(), blushes.size(), raceBlush.size());
 	}
 
 	bool SaveTables()
 	{
 		json arr = json::array();
 		json blushArr = json::array();
+		json raceArr = json::array();
 		{
 			std::scoped_lock l(lock);
 			for (const auto& m : Arousal::morphs) {
@@ -391,6 +426,9 @@ namespace Settings
 			}
 			for (const auto& b : Arousal::blushes) {
 				blushArr.push_back({ { "name", b.name }, { "start", b.start }, { "full", b.full }, { "max", b.max }, { "enabled", b.enabled } });
+			}
+			for (const auto& r : Arousal::raceBlush) {
+				raceArr.push_back({ { "race", r.race }, { "mult", r.mult } });
 			}
 		}
 		std::error_code ec;
@@ -400,7 +438,7 @@ namespace Settings
 			logger::error("Failed to write {}", kTablePath);
 			return false;
 		}
-		f << json{ { "morphs", arr }, { "blush", blushArr } }.dump(4);
+		f << json{ { "morphs", arr }, { "blush", blushArr }, { "raceBlush", raceArr } }.dump(4);
 		return true;
 	}
 

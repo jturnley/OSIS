@@ -1,34 +1,244 @@
 {
     "morphs": [
-        { "name": "NipBGone",              "start": 0.05, "full": 0.35, "max": 0.00, "rest": 0.30, "enabled": true },
-        { "name": "NippleShy_v2",          "start": 0.05, "full": 0.35, "max": 0.00, "rest": 0.30, "enabled": true },
-        { "name": "NipplePerkiness",       "start": 0.05, "full": 0.40, "max": 0.45, "enabled": true },
-        { "name": "NippleTube_v2",         "start": 0.10, "full": 0.50, "max": 0.25, "enabled": true },
-        { "name": "NippleThicc_v2",        "start": 0.15, "full": 0.60, "max": 0.30, "enabled": true },
-        { "name": "NippleManga",           "start": 0.10, "full": 0.50, "max": 0.80, "enabled": true },
-        { "name": "NippleSize",            "start": 0.15, "full": 0.60, "max": -0.10, "enabled": true },
-        { "name": "AreolaSize",            "start": 0.10, "full": 0.50, "max": -0.20, "enabled": true },
-        { "name": "AreolaPull_v2",         "start": 0.10, "full": 0.50, "max": -0.15, "enabled": true },
-        { "name": "NipplePuffy_v2",        "start": 0.55, "full": 0.90, "max": 0.60, "enabled": true },
-        { "name": "Breasts",               "start": 0.40, "full": 1.00, "max": 0.06, "enabled": true },
-        { "name": "LabiaNeat_v2",          "start": 0.10, "full": 0.50, "max": 0.00, "rest": 0.30, "enabled": true },
-        { "name": "Innieoutie",            "start": 0.10, "full": 0.50, "max": 0.00, "rest": 0.30, "enabled": true },
-        { "name": "Labiapuffyness",        "start": 0.10, "full": 0.60, "max": 0.15, "enabled": true },
-        { "name": "ClitSwell_v2",          "start": 0.20, "full": 0.70, "max": 0.60, "enabled": true },
-        { "name": "Clit",                  "start": 0.20, "full": 0.70, "max": 0.60, "enabled": true },
-        { "name": "LabiaMorePuffyness_v2", "start": 0.25, "full": 0.80, "max": 0.40, "enabled": true },
-        { "name": "Cutepuffyness",         "start": 0.30, "full": 0.90, "max": 0.40, "enabled": true },
-        { "name": "LabiaBulgogi_v2",       "start": 0.45, "full": 0.95, "max": 0.35, "enabled": true },
-        { "name": "Labiaprotrude2",        "start": 0.40, "full": 0.90, "max": 0.35, "enabled": true },
-        { "name": "Labiaspread",           "start": 0.45, "full": 0.95, "max": 0.40, "enabled": true },
-        { "name": "VaginaHole",            "start": 0.65, "full": 1.00, "max": 0.15, "enabled": true }
+        {
+            "name": "NipBGone",
+            "start": 0.05,
+            "full": 0.35,
+            "max": 0.0,
+            "rest": 0.3,
+            "enabled": true
+        },
+        {
+            "name": "NippleShy_v2",
+            "start": 0.05,
+            "full": 0.35,
+            "max": 0.0,
+            "rest": 0.3,
+            "enabled": true
+        },
+        {
+            "name": "NipplePerkiness",
+            "start": 0.05,
+            "full": 0.4,
+            "max": 0.45,
+            "enabled": true
+        },
+        {
+            "name": "NippleTube_v2",
+            "start": 0.1,
+            "full": 0.5,
+            "max": 0.25,
+            "enabled": true
+        },
+        {
+            "name": "NippleThicc_v2",
+            "start": 0.15,
+            "full": 0.6,
+            "max": 0.3,
+            "enabled": true
+        },
+        {
+            "name": "NippleManga",
+            "start": 0.1,
+            "full": 0.5,
+            "max": 0.8,
+            "enabled": true
+        },
+        {
+            "name": "NippleSize",
+            "start": 0.15,
+            "full": 0.6,
+            "max": -0.1,
+            "enabled": true
+        },
+        {
+            "name": "AreolaSize",
+            "start": 0.1,
+            "full": 0.5,
+            "max": -0.2,
+            "enabled": true
+        },
+        {
+            "name": "AreolaPull_v2",
+            "start": 0.1,
+            "full": 0.5,
+            "max": -0.15,
+            "enabled": true
+        },
+        {
+            "name": "NipplePuffy_v2",
+            "start": 0.55,
+            "full": 0.9,
+            "max": 0.6,
+            "enabled": true
+        },
+        {
+            "name": "Breasts",
+            "start": 0.4,
+            "full": 1.0,
+            "max": 0.06,
+            "enabled": true
+        },
+        {
+            "name": "LabiaNeat_v2",
+            "start": 0.1,
+            "full": 0.5,
+            "max": 0.0,
+            "rest": 0.3,
+            "enabled": true
+        },
+        {
+            "name": "Innieoutie",
+            "start": 0.1,
+            "full": 0.5,
+            "max": 0.0,
+            "rest": 0.3,
+            "enabled": true
+        },
+        {
+            "name": "Labiapuffyness",
+            "start": 0.1,
+            "full": 0.6,
+            "max": 0.15,
+            "enabled": true
+        },
+        {
+            "name": "ClitSwell_v2",
+            "start": 0.2,
+            "full": 0.7,
+            "max": 0.6,
+            "enabled": true
+        },
+        {
+            "name": "Clit",
+            "start": 0.2,
+            "full": 0.7,
+            "max": 0.6,
+            "enabled": true
+        },
+        {
+            "name": "LabiaMorePuffyness_v2",
+            "start": 0.25,
+            "full": 0.8,
+            "max": 0.4,
+            "enabled": true
+        },
+        {
+            "name": "Cutepuffyness",
+            "start": 0.3,
+            "full": 0.9,
+            "max": 0.4,
+            "enabled": true
+        },
+        {
+            "name": "LabiaBulgogi_v2",
+            "start": 0.45,
+            "full": 0.95,
+            "max": 0.35,
+            "enabled": true
+        },
+        {
+            "name": "Labiaprotrude2",
+            "start": 0.4,
+            "full": 0.9,
+            "max": 0.35,
+            "enabled": true
+        },
+        {
+            "name": "Labiaspread",
+            "start": 0.45,
+            "full": 0.95,
+            "max": 0.4,
+            "enabled": true
+        },
+        {
+            "name": "VaginaHole",
+            "start": 0.65,
+            "full": 1.0,
+            "max": 0.15,
+            "enabled": true
+        }
     ],
     "blush": [
-        { "name": "Blush_Chest_Upper",  "start": 0.25, "full": 0.70, "max": 1.00, "enabled": true },
-        { "name": "Blush_Chest_Center", "start": 0.30, "full": 0.75, "max": 1.00, "enabled": true },
-        { "name": "Blush_Breast",       "start": 0.35, "full": 0.85, "max": 0.90, "enabled": true },
-        { "name": "Blush_Coochie",      "start": 0.35, "full": 0.85, "max": 1.00, "enabled": true },
-        { "name": "Blush_Thigh_Inside", "start": 0.45, "full": 0.95, "max": 0.90, "enabled": true },
-        { "name": "Blush_Shoulder",     "start": 0.55, "full": 1.00, "max": 0.80, "enabled": true }
+        {
+            "name": "Blush_Chest_Upper",
+            "start": 0.25,
+            "full": 0.7,
+            "max": 1.0,
+            "enabled": true
+        },
+        {
+            "name": "Blush_Chest_Center",
+            "start": 0.3,
+            "full": 0.75,
+            "max": 1.0,
+            "enabled": true
+        },
+        {
+            "name": "Blush_Breast",
+            "start": 0.35,
+            "full": 0.85,
+            "max": 0.9,
+            "enabled": true
+        },
+        {
+            "name": "Blush_Coochie",
+            "start": 0.35,
+            "full": 0.85,
+            "max": 1.0,
+            "enabled": true
+        },
+        {
+            "name": "Blush_Thigh_Inside",
+            "start": 0.45,
+            "full": 0.95,
+            "max": 0.9,
+            "enabled": true
+        },
+        {
+            "name": "Blush_Shoulder",
+            "start": 0.55,
+            "full": 1.0,
+            "max": 0.8,
+            "enabled": true
+        }
+    ],
+    "raceBlush": [
+        {
+            "race": "nord",
+            "mult": 0.85
+        },
+        {
+            "race": "imperial",
+            "mult": 0.85
+        },
+        {
+            "race": "breton",
+            "mult": 0.85
+        },
+        {
+            "race": "highelf",
+            "mult": 0.9
+        },
+        {
+            "race": "elder",
+            "mult": 0.9
+        },
+        {
+            "race": "woodelf",
+            "mult": 1.05
+        },
+        {
+            "race": "darkelf",
+            "mult": 1.35
+        },
+        {
+            "race": "orc",
+            "mult": 1.4
+        },
+        {
+            "race": "redguard",
+            "mult": 1.6
+        }
     ]
 }
