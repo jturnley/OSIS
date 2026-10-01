@@ -42,8 +42,8 @@ using json = nlohmann::json;
 
 namespace logger = SKSE::log;
 
-// The Nexus edition (xmake target OSISNexus) is compiled without the non-consent features.
-#ifndef OSIS_NEXUS
-#	define OSIS_NEXUS 0
+// The Lite edition (xmake target OSISLite) is compiled without the non-consent features.
+#ifndef OSIS_LITE
+#	define OSIS_LITE 0
 #endif
 using namespace std::literals;

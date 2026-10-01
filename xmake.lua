@@ -28,11 +28,11 @@ set_warnings("allextra")
 
 -- Two editions of OSIS.dll ("OStim Standalone Immersive Sex") from the same source:
 --   OSIS       the full plugin (LoversLab), build/windows/x64/<mode>
---   OSISNexus  the Nexus edition, build/nexus/windows/x64/<mode>: compiled with OSIS_NEXUS, which
+--   OSISLite  the Lite edition, build/lite/windows/x64/<mode>: compiled with OSIS_LITE, which
 --              leaves out the non-consent features (their code, settings and menu pages), not
 --              just switches them off.
 -- Both are the same SKSE plugin ("OSIS"); install one or the other.
-local function osis_plugin(targetname, nexus)
+local function osis_plugin(targetname, lite)
     target(targetname)
         set_basename("OSIS")
         set_symbols("debug")
@@ -47,10 +47,10 @@ local function osis_plugin(targetname, nexus)
         -- SKSEMenuFramework.h is vendored and still uses <codecvt>.
         add_defines("_SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING")
         add_headerfiles("src/**.h")
-        if nexus then
-            add_defines("OSIS_NEXUS=1")
+        if lite then
+            add_defines("OSIS_LITE=1")
             add_files("src/**.cpp|Voice.cpp|SceneLock.cpp|SpellCast.cpp")
-            set_targetdir("build/nexus/$(plat)/$(arch)/$(mode)")
+            set_targetdir("build/lite/$(plat)/$(arch)/$(mode)")
         else
             add_files("src/**.cpp")
         end
@@ -69,4 +69,4 @@ local function osis_plugin(targetname, nexus)
 end
 
 osis_plugin("OSIS", false)
-osis_plugin("OSISNexus", true)
+osis_plugin("OSISLite", true)

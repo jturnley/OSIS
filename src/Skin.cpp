@@ -253,7 +253,7 @@ namespace Skin
 		}
 		std::error_code ec;
 		g_autoBlush = std::filesystem::exists(std::string("Data/textures/") + kAutoBlush, ec);
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 		if (auto* dh = RE::TESDataHandler::GetSingleton()) g_emoTears = dh->LookupForm<RE::SpellItem>(0xD65, "EmoTearsSpells.esp");
 		logger::info("Living Skin: Emotional Tears Effect {}", g_emoTears ? "found" : "not installed");
 #endif

@@ -9,7 +9,7 @@
 
 #include "Papyrus.h"
 #include "Pulse.h"
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 #	include "SceneLock.h"
 #	include "Voice.h"
 #endif
@@ -235,7 +235,7 @@ namespace Face::Engine
 		std::unordered_map<RE::FormID, float> g_brokenCarry;
 		constexpr float kBrokenCarry = 10.0f;
 
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 		void Break(Thread& t, Slot& s, RE::Actor* a, std::string_view why)
 		{
 			s.broken = true;
@@ -384,7 +384,7 @@ namespace Face::Engine
 				x.actionAnySignal = x.actionOral;
 				for (auto* l : { &x.actionKiss, &x.actionVaginal, &x.actionAnal }) x.actionAnySignal.insert(x.actionAnySignal.end(), l->begin(), l->end());
 				x.tagOralAction = SplitCSV("oral,blowjob,deepthroat,cunnilingus,anilingus,rimjob,facefuck,fellatio,mouth");
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 				// Non-consent. "aggressive"/"aggressivedefault" are OStim's own marker for aggressive
 				// (non-consensual) threads: 1158 of the 1253 installed aggressive scenes also say
 				// forced/rape. A forced tag always wins over the rough list below.
@@ -394,7 +394,7 @@ namespace Face::Engine
 				// and "spank" never carry a forced tag; "femdom" does on 59 of 182 scenes.)
 				x.tagRough = SplitCSV("rough,dom,femdom,maledom,domination,dominant,bdsm,bondage,spank,spanking,choking,slave");
 				x.tagLoving = SplitCSV("loving,romance,romantic,tender,passionate");
-#if OSIS_NEXUS
+#if OSIS_LITE
 				x.tagSub = SplitCSV("submissive,sub,bottom,receiving,passive");
 #else
 				x.tagSub = SplitCSV("victim,submissive,sub,bottom,receiving,passive");
@@ -1023,7 +1023,7 @@ namespace Face::Engine
 			++t.stageSeq;
 			t.sceneOral = HasOralSceneTag(t);
 		}
-#if OSIS_NEXUS
+#if OSIS_LITE
 		// This edition has no non-consent: every scene is consensual, whatever its tags.
 		t.toneForced = false;
 		t.toneRough = t.meta && OStimData::HasAnySceneTag(*t.meta, T().tagRough);
@@ -1068,7 +1068,7 @@ namespace Face::Engine
 		}
 		t.sceneOral = HasOralSceneTag(t);
 		UpdateNormalStateFlag(t, true);
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 		if (!g_brokenCarry.empty()) {
 			const float now = Scenes::Now();
 			std::erase_if(g_brokenCarry, [&](const auto& kv) { return now - kv.second >= kBrokenCarry; });
@@ -1082,7 +1082,7 @@ namespace Face::Engine
 		}
 #endif
 		logger::debug("thread {} ready: scene={} actors={} player={}", t.id, t.sceneID, t.slots.size(), t.hasPlayer);
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 		Voice::Sync(t);
 		SceneLock::OnThreadReady(t);
 #endif
@@ -1094,7 +1094,7 @@ namespace Face::Engine
 	{
 		std::scoped_lock l(Settings::lock);
 		RefreshDerived(t, true);
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 		Voice::Sync(t);
 		SceneLock::OnSceneChanged(t);
 #endif
@@ -1113,7 +1113,7 @@ namespace Face::Engine
 		t.orgTicks = 0;
 		const int c = TimesClimaxed(a);
 		t.orgCount = c > t.orgCount ? c : t.orgCount + 1;
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 		if (S::bBrokenAfterClimax && !s->broken && s->painted && !t.consent && IsSubmissive(t, *s)) {
 			Break(t, *s, a, "climaxed as the victim");
 			s->shockUntil = Scenes::Now() + Settings::Voice::fShockSeconds;
@@ -1138,7 +1138,7 @@ namespace Face::Engine
 				ClearGazeAll(t);
 			}
 		}
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 		Voice::Sync(t);
 #endif
 		ApplyAll(t, (t.tick % ArcEvery(t)) == 0);
@@ -1172,7 +1172,7 @@ namespace Face::Engine
 			s.marker.reset();
 		}
 		if (t.hasPlayer) ClearWatcherTrialActor();
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 		Voice::OnSceneEnd(t);
 		SceneLock::OnSceneEnd(t);
 #endif

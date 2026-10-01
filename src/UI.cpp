@@ -18,7 +18,7 @@
 #include "Scheduler.h"
 #include "Settings.h"
 #include "Skin.h"
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 #	include "SceneLock.h"
 #	include "Voice.h"
 #endif
@@ -177,7 +177,7 @@ namespace
 		const auto threads = Scenes::Snapshot();
 		if (threads.empty()) ig::TextDisabled("No OStim scene running.");
 		for (const auto& t : threads) {
-#if OSIS_NEXUS
+#if OSIS_LITE
 			const char* tone = t.rough ? "  [rough]" : "";
 #else
 			const char* tone = t.consent ? (t.rough ? "  [rough, consensual]" : "") : (t.spell ? "  [non-consent: spell]" : "  [non-consent]");
@@ -212,7 +212,7 @@ namespace
 		ig::Text("Body: %s", Body::Status().c_str());
 		ig::Text("Living Skin: %s", Skin::Status().c_str());
 		ig::TextWrapped("Lip-Sync: %s", LipSync::Status().c_str());
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 		ig::TextWrapped("Scene lock: %s", SceneLock::Status().c_str());
 #endif
 		ig::Text("Watcher: %s", Face::Engine::WatcherStatus().c_str());
@@ -265,7 +265,7 @@ namespace
 					"so Lip-Sync stands down while DDF is installed (see the Lip-Sync page).");
 				ModuleRow("Arousal (body morphs)", Settings::Arousal::bEnabled, Compat::kArousal,
 					"Arousal body morphs and body blush. Off for another arousal-morph mod.");
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 				ModuleRow("Victim Voice", Settings::Voice::bEnabled, -1,
 					"Mutes OStim's moans on a victim and speaks their lines. Off for another mod that voices the scene.");
 				ModuleRow("Scene lock (non-consensual scenes only)", Settings::Face::bNCSceneLock, -1,
@@ -374,7 +374,7 @@ namespace
 				Check("Overwhelm face", bOverwhelmFace);
 				Check("Group conductor (3+ actors)", bGroupConductor);
 			}
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 			if (ig::CollapsingHeader("Consent")) {
 				Check("Aggressor grammar (forced/rape/aggressive tags mean non-consent)", bAggressorGrammar);
 				Tip("Scenes tagged forced, rape or aggressive (OStim's non-consent marker) are non-consensual. The victim reacts "
@@ -415,7 +415,7 @@ namespace
 #endif
 			if (ig::CollapsingHeader("Head and gaze")) {
 				Check("Gaze at partner", bGaze);
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 				Check("Only hold gaze when consensual", bGazeConsentOnly);
 #endif
 				Check("Headflow (throat arch, aversion, afterglow drop)", bHeadflow);
@@ -503,7 +503,7 @@ namespace
 		{
 			std::scoped_lock l(Settings::lock);
 			using namespace Settings::Skin;
-#if OSIS_NEXUS
+#if OSIS_LITE
 			ig::TextWrapped("Face overlays through RaceMenu's \"Face [Ovl#]\" slots. Blush follows excitement and the body's arousal flush; "
 			                "saliva is a short climax beat.");
 #else
@@ -514,7 +514,7 @@ namespace
 			Check("Enabled", bEnabled);
 			SliderF("Strength", fStrength, 0.0f, 1.5f);
 			Check("Blush", bBlush);
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 			Check("Tears", bTears);
 			Check("Emotional Tears Effect", bEmoTears, "If EmoTearsSpells.esp is installed, a crying victim also gets its streaming tears until the scene ends.");
 #endif
@@ -523,7 +523,7 @@ namespace
 			Check("Females only", bFemaleOnly);
 			SliderI("First face overlay slot", iFaceFirstSlot, 0, 15, "Slot 0 is often makeup; OSED uses one slot per effect from here.");
 			Path("Blush texture", sBlushPath, "Relative to Data\\textures, e.g. actors\\character\\Overlays\\FMS\\Blush\\Blush Cheeks 1.dds. Empty = auto.");
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 			Path("Tear texture", sTearPath);
 #endif
 			Path("Saliva texture", sSalivaPath);
@@ -532,12 +532,12 @@ namespace
 		ig::TextDisabled("RaceMenu face overlay slots: %d (skee64.ini [Overlays/Face] iNumOverlays)", slots);
 		const auto blush = Skin::ResolvedPath(0);
 		ig::TextDisabled("Blush texture in use: %s", blush.empty() ? "none" : blush.c_str());
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 		ig::TextDisabled("Emotional Tears Effect: %s", Skin::EmoTearsFound() ? "installed" : "not installed");
 #endif
 		if (Face::Engine::OBlushPresent()) ig::TextColored(kWarn, "OBlush is installed: OSED's face blush yields to it.");
 		if (ig::Button("Test blush")) OnGame([]() { if (auto* a = CrosshairActor()) Skin::TestBlush(a); });
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 		ig::SameLine();
 		if (ig::Button("Test tear")) OnGame([]() { if (auto* a = CrosshairActor()) Skin::TestTear(a); });
 #endif
@@ -570,7 +570,7 @@ namespace
 		SaveBar();
 	}
 
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 	void __stdcall RenderVoice()
 	{
 		{
@@ -762,7 +762,7 @@ void UI::Register()
 	SKSEMenuFramework::AddSectionItem("Body", RenderBody);
 	SKSEMenuFramework::AddSectionItem("Living Skin", RenderSkin);
 	SKSEMenuFramework::AddSectionItem("Lip-Sync", RenderLipSync);
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 	SKSEMenuFramework::AddSectionItem("Victim Voice", RenderVoice);
 #endif
 	SKSEMenuFramework::AddSectionItem("Arousal", RenderArousal);

@@ -50,7 +50,7 @@ namespace Settings
 				{ "Face", "bBreathing", &Face::bBreathing },
 				{ "Face", "bNaturalDetail", &Face::bNaturalDetail },
 				{ "Face", "bGaze", &Face::bGaze },
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 				{ "Face", "bGazeConsentOnly", &Face::bGazeConsentOnly },
 #endif
 				{ "Face", "bClimaxChoreo", &Face::bClimaxChoreo },
@@ -67,14 +67,14 @@ namespace Settings
 				{ "Face", "bSpeedSync", &Face::bSpeedSync },
 				{ "Face", "bRoleMetadata", &Face::bRoleMetadata },
 				{ "Face", "bEventBeats", &Face::bEventBeats },
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 				{ "Face", "bAggressorGrammar", &Face::bAggressorGrammar },
 				{ "Face", "bSpellNonConsent", &Face::bSpellNonConsent },
 				{ "Face", "bNCSceneLock", &Face::bNCSceneLock },
 				{ "Face", "fNCAutoInterval", &Face::fNCAutoInterval },
 #endif
 				{ "Face", "bPhraseGrammar", &Face::bPhraseGrammar },
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 				{ "Face", "bConsentGuardrails", &Face::bConsentGuardrails },
 				{ "Face", "bHardExclusionGate", &Face::bHardExclusionGate },
 				{ "Face", "bNoDistressOverwhelm", &Face::bNoDistressOverwhelm },
@@ -116,7 +116,7 @@ namespace Settings
 				{ "Skin", "bEnabled", &Skin::bEnabled },
 				{ "Skin", "fStrength", &Skin::fStrength },
 				{ "Skin", "bBlush", &Skin::bBlush },
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 				{ "Skin", "bTears", &Skin::bTears },
 				{ "Skin", "bEmoTears", &Skin::bEmoTears },
 #endif
@@ -125,7 +125,7 @@ namespace Settings
 				{ "Skin", "bFemaleOnly", &Skin::bFemaleOnly },
 				{ "Skin", "iFaceFirstSlot", &Skin::iFaceFirstSlot },
 				{ "Skin", "sBlushPath", &Skin::sBlushPath },
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 				{ "Skin", "sTearPath", &Skin::sTearPath },
 #endif
 				{ "Skin", "sSalivaPath", &Skin::sSalivaPath },
@@ -138,7 +138,7 @@ namespace Settings
 				{ "LipSync", "bHoldEyes", &LipSync::bHoldEyes },
 				{ "LipSync", "bYieldToDDF", &LipSync::bYieldToDDF },
 
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 				{ "Voice", "bEnabled", &Voice::bEnabled },
 				{ "Voice", "bVictimNoMoans", &Voice::bVictimNoMoans },
 				{ "Voice", "iVictimVoice", &Voice::iVictimVoice },

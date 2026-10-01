@@ -17,7 +17,7 @@
 #include "Settings.h"
 #include "Skin.h"
 #include "UI.h"
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 #	include "SceneLock.h"
 #	include "SpellCast.h"
 #	include "Voice.h"
@@ -43,12 +43,12 @@ namespace Scheduler
 				if (!Hooks::NPCHooked()) Face::Output::UpdateNPCs(tickDt);
 				if (!Hooks::PlayerHooked()) Face::Output::Update(RE::PlayerCharacter::GetSingleton(), tickDt);
 			}
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 			SpellCast::Tick();
 #endif
 			Scenes::Tick();
 			LipSync::Poll();
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 			Voice::Tick();
 			SceneLock::Tick();
 #endif
@@ -127,11 +127,11 @@ namespace
 			Guarded("Living Skin", Skin::OnDataLoaded);
 			Guarded("Arousal", Arousal::Init);
 			Guarded("Lip-sync", LipSync::OnDataLoaded);
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 			Guarded("Victim voice", Voice::OnDataLoaded);
 #endif
 			Guarded("Scene tracking", Scenes::Init);
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 			Guarded("Spell-started scenes", SpellCast::Init);
 #endif
 			Scheduler::Start();
@@ -145,7 +145,7 @@ namespace
 			Arousal::OnGameLoad();
 			Body::ClearAll();
 			Skin::ClearAll();
-#if !OSIS_NEXUS
+#if !OSIS_LITE
 			SpellCast::Clear();
 			Voice::Clear();
 			SceneLock::Clear();
@@ -163,7 +163,7 @@ SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 	InitLogger();
 	SKSE::Init(a_skse, { .trampoline = true, .trampolineSize = 64 });
 	Settings::Load();
-	logger::info("OSIS v{}{} loading", SKSE::PluginDeclaration::GetSingleton()->GetVersion().string("."), OSIS_NEXUS ? " (Nexus edition)" : "");
+	logger::info("OSIS v{}{} loading", SKSE::PluginDeclaration::GetSingleton()->GetVersion().string("."), OSIS_LITE ? "" : " (LoversLab edition)");
 
 	SKSE::GetMessagingInterface()->RegisterListener(OnMessage);
 	Serialization::Install();
