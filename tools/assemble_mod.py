@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# OStim Standalone Immersive Sex (OSIS) - Copyright (C) 2026 jturnley
+# Free software under the GNU General Public License v3 or later; see LICENSE.
+
 """Assemble the MO2 mods of both editions from the xmake builds (`xmake build` makes both DLLs):
   mods/OStim Standalone Immersive Sex           the full plugin (LoversLab): build/windows/x64/<mode>, plus dist/
   mods/OStim Standalone Immersive Sex (Nexus)  the Nexus edition, compiled without the non-consent
@@ -210,6 +214,27 @@ the DLL still tracks scenes and runs body, skin, lip-sync and arousal, and only 
 Every module can also be switched off on its own (General page, "Modules"), for when another mod
 already does that job. Lip-Sync stands down by itself while Dynamic Dialogue Framework is
 installed, since both drive the mouth; the Lip-Sync page can override that.
+
+## Source and licence
+
+This mod links CommonLibSSE-NG, which is licensed under the GNU General Public License v3, so
+this mod is GPL-3.0 too.
+
+OStim Standalone Immersive Sex (OSIS)
+Copyright (C) 2026 jturnley
+
+This program is free software: you can redistribute it and/or modify it under the terms of the
+GNU General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without
+even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
+
+The full licence text is in `LICENSE.txt` beside this file, and at
+<https://www.gnu.org/licenses/gpl-3.0.html>.
+
+Complete source code: <https://github.com/jturnley/OSIS>
 
 ## Requirements
 

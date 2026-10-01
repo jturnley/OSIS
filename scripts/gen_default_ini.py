@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# OStim Standalone Immersive Sex (OSIS) - Copyright (C) 2026 jturnley
+# Free software under the GNU General Public License v3 or later; see LICENSE.
+
 """Generate the default OSIS.ini of both editions from the defaults in src/Settings.h:
 dist/SKSE/Plugins/OSIS.ini (full) and dist-nexus/SKSE/Plugins/OSIS.ini (Nexus).
 

@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// OStim Standalone Immersive Sex (OSIS) - Copyright (C) 2026 jturnley
+// Free software under the GNU General Public License v3 or later; see LICENSE in this
+// repository. Distributed WITHOUT ANY WARRANTY. <https://www.gnu.org/licenses/>
+
 #include "Arousal.h"
 #include "Body.h"
 #include "Compat.h"

@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// OStim Standalone Immersive Sex (OSIS) - Copyright (C) 2026 jturnley
+// Free software under the GNU General Public License v3 or later; see LICENSE in this
+// repository. Distributed WITHOUT ANY WARRANTY. <https://www.gnu.org/licenses/>
+
 // OSED 1.0 prototype layer (Assist / Enhanced over OStim's own face), anime accents and the
 // tongue object, the 2.0 normal (pre-animation) state, the breath layer and the watcher
 // trial. Ported from OSExpressionFaces.psc.

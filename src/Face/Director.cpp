@@ -1,3 +1,8 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// OStim Standalone Immersive Sex (OSIS) - Copyright (C) 2026 jturnley
+// Free software under the GNU General Public License v3 or later; see LICENSE in this
+// repository. Distributed WITHOUT ANY WARRANTY. <https://www.gnu.org/licenses/>
+
 // The Director: OSExpressionFaces.ApplyArc and its helpers. In OSED 2.0 this was the
 // dormant "mode 2" face writer (it fought OStim's face updater on a 3 s Papyrus tick and
 // every eye/brow write went to a wrong Mfg id). With per-frame output it is the default.
