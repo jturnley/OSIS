@@ -871,6 +871,10 @@ namespace Face::Engine
 	bool OBlushPresent() { return g_oblush; }
 	bool DevicesPresent() { return g_kGag != nullptr; }
 
+	bool AhegaoPresent() { return detail::AhegaoModInstalled(); }
+
+	bool FaceYielded() { return detail::AhegaoYield(); }
+
 	std::string AhegaoStatus()
 	{
 		std::string why;

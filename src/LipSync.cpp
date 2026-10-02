@@ -499,7 +499,9 @@ namespace LipSync
 			tongueMode = Settings::LipSync::iTongueMode;
 			tongueMinOpen = Settings::LipSync::fTongueMinOpen;
 		}
-		if (!g_ready || Compat::Disabled(Compat::kLipSync)) return;
+		// An ahegao mod owns the faces this session. Lip-sync writes the mouth too, so it has to
+		// stand down with the rest of the face engine or it goes on fighting on its own.
+		if (!g_ready || Compat::Disabled(Compat::kLipSync) || Face::Engine::FaceYielded()) return;
 		auto* am = RE::BSAudioManager::GetSingleton();
 		if (!am) return;
 
@@ -578,6 +580,7 @@ namespace LipSync
 	std::string Status()
 	{
 		std::scoped_lock l(g_lock);
+		if (Face::Engine::FaceYielded()) return "stood down: an ahegao mod owns the faces";
 		return std::format("{}; last lip-synced: {}", g_status, g_lastMatch);
 	}
 

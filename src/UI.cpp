@@ -185,6 +185,7 @@ namespace
 			Row("SLO Aroused NG", Arousal::HasSLO());
 			Row("OBlush (face blush yields to it)", Face::Engine::OBlushPresent());
 			Row("Devious Devices (gag/blindfold faces)", Face::Engine::DevicesPresent());
+			Row("Ahegao Expressions (faces yield to it)", Face::Engine::AhegaoPresent());
 			ig::EndTable();
 		}
 		ig::TextDisabled("%s", Face::Engine::AhegaoStatus().c_str());

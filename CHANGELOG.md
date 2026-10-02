@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.3.1
+
+### Fixed
+- **Lip-sync kept writing the mouth during the ahegao yield.** It is gated on its own switch and
+  the old-mod conflicts, never on the face engine standing down, so handing the faces over left
+  it fighting on its own. It now stands down with the rest of the face engine and says so on the
+  Status and Lip-Sync pages.
+
+### Changed
+- Ahegao Expressions is a row in the Requirements table like everything else, instead of a
+  sentence underneath it.
+
 ## 1.3.0
 
 ### Changed

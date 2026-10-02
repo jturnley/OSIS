@@ -66,4 +66,8 @@ namespace Face::Engine
 	[[nodiscard]] bool OBlushPresent();
 	[[nodiscard]] bool DevicesPresent();
 	[[nodiscard]] std::string AhegaoStatus();
+	// Ahegao Expressions is installed. Separate from the yield, which can be forced on without it.
+	[[nodiscard]] bool AhegaoPresent();
+	// No module may write a face: an ahegao mod owns them all for this session.
+	[[nodiscard]] bool FaceYielded();
 }
