@@ -95,6 +95,8 @@ namespace Face::Engine::detail
 	[[nodiscard]] const char* ScenarioName(int scenario);
 	[[nodiscard]] const char* DomName(int dom);
 	[[nodiscard]] bool AhegaoYield();
+	// Ahegao Expressions is installed, whether or not the yield is acting on it.
+	[[nodiscard]] bool AhegaoModInstalled();
 	// An ahegao mod is driving this actor right now: a tongue is out that we did not equip.
 	[[nodiscard]] bool ExternalAhegao(const Slot& s);
 

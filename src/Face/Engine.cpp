@@ -771,7 +771,11 @@ namespace Face::Engine
 		// and go mid-session.
 		bool AhegaoModInstalled()
 		{
-			static const bool has = HasPlugin("AhegaoExpressions.esp");
+			static const bool has = [] {
+				const bool found = HasPlugin("AhegaoExpressions.esp");
+				logger::info("Ahegao Expressions {}", found ? "is installed: the face engine stands down" : "not found");
+				return found;
+			}();
 			return has;
 		}
 
@@ -869,7 +873,11 @@ namespace Face::Engine
 
 	std::string AhegaoStatus()
 	{
-		return std::string(S::bAhegaoModYield ? "Yield ON: " : "Yield OFF: ") + g_ahegaoFound;
+		std::string why;
+		if (S::bAhegaoModYield) why = "forced on";
+		else if (detail::AhegaoModInstalled()) why = S::bAhegaoAutoYield ? "Ahegao Expressions is installed" : "";
+		if (!why.empty()) return "Yield ON (" + why + "): no faces written, body only. " + g_ahegaoFound;
+		return "Yield OFF: " + g_ahegaoFound;
 	}
 
 	float StyleValue() { return detail::StyleValue(); }

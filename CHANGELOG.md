@@ -12,6 +12,9 @@
 - The per-actor hand-over no longer holds the jaw open around another mod's tongue. Their tongue,
   their mouth; the clearance only ever arrived at the wrong moment.
 
+- The Status page says whether the yield is in effect and why, and the log records the
+  detection at startup.
+
 ### Fixed
 - The custom blush texture tooltip printed its example path with the backslashes eaten.
 
