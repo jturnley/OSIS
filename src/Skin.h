@@ -37,7 +37,9 @@ namespace Skin
 	[[nodiscard]] std::vector<RE::FormID> EmoTearIDs();
 	void SetEmoTearIDs(std::vector<RE::FormID> a_ids);
 
-	[[nodiscard]] int FaceOverlaySlots();   // skee64.ini [Overlays/Face] iNumOverlays
+	[[nodiscard]] int FaceOverlaySlots();
+	// How many slots the enabled effects with a texture actually need.
+	[[nodiscard]] int FaceSlotsNeeded();   // skee64.ini [Overlays/Face] iNumOverlays
 	[[nodiscard]] std::string Status();
 	[[nodiscard]] std::string ResolvedPath(int a_effect);  // 0 blush, 1 saliva, 2 tear
 }

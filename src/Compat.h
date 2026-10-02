@@ -24,6 +24,9 @@ namespace Compat
 	[[nodiscard]] bool Disabled(Module a_module);
 	[[nodiscard]] std::string Reason(Module a_module);  // why it stood down, empty when it didn't
 	[[nodiscard]] bool DDFActive();       // Dynamic Dialogue Framework: Lip-Sync stands down unless told not to
+	// Overlay Distribution Framework: hands RaceMenu overlays to NPCs on its own, from the same
+	// numbered slots this mod writes to. Not a conflict by itself, worth knowing about in a report.
+	[[nodiscard]] bool ODFActive();
 	[[nodiscard]] std::vector<std::string> Conflicts();
 	void NotifyOnce();                    // first game load: in-game notification
 }

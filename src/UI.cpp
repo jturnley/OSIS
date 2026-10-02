@@ -186,6 +186,7 @@ namespace
 			Row("OBlush (face blush yields to it)", Face::Engine::OBlushPresent());
 			Row("Devious Devices (gag/blindfold faces)", Face::Engine::DevicesPresent());
 			Row("Ahegao Expressions (faces yield to it)", Face::Engine::AhegaoPresent());
+			Row("Overlay Distribution Framework", Compat::ODFActive(), "installed (shares overlay slots)", "not installed");
 			ig::EndTable();
 		}
 		ig::TextDisabled("%s", Face::Engine::AhegaoStatus().c_str());
@@ -637,6 +638,17 @@ namespace
 		}
 		const int slots = Skin::FaceOverlaySlots();
 		ig::TextDisabled("RaceMenu face overlay slots: %d (skee64.ini [Overlays/Face] iNumOverlays)", slots);
+		{
+			std::scoped_lock l(Settings::lock);
+			const int needed = Settings::Skin::iFaceFirstSlot + Skin::FaceSlotsNeeded();
+			if (needed > slots) {
+				ig::TextColored(kWarn, "RaceMenu has %d face overlay slots; this needs %d.", slots, needed);
+				ig::TextColored(kWarn, "Set [Overlays/Face] iNumOverlays=%d in skee64.ini and restart.", needed);
+			} else if (Compat::ODFActive()) {
+				ig::TextDisabled("Overlay Distribution Framework also uses these slots. If an overlay goes black or goes "
+				                 "missing, raise iNumOverlays and move First slot above the ones it uses.");
+			}
+		}
 		const auto blush = Skin::ResolvedPath(0);
 		ig::TextDisabled("Blush texture in use: %s", blush.empty() ? "none" : blush.c_str());
 #if !OSIS_LITE

@@ -270,6 +270,15 @@ namespace Skin
 
 	int FaceOverlaySlots() { return g_faceSlots; }
 
+	int FaceSlotsNeeded()
+	{
+		int n = 0;
+		for (int e = 0; e < kCount; ++e) {
+			if (!Path(e).empty()) ++n;
+		}
+		return n;
+	}
+
 	std::string ResolvedPath(int effect) { return Path(effect); }
 
 	void OnPaint(const Pulse::Beat& b)

@@ -16,6 +16,7 @@ namespace Compat
 		std::array<std::string, kCount> g_reason;
 		std::vector<std::string> g_conflicts;
 		bool g_ddf = false;
+		bool g_odf = false;
 		bool g_notified = false;
 
 		constexpr std::array<const char*, kCount> kModuleName{ "Faces", "Body", "Living Skin", "Lip-Sync", "Arousal" };
@@ -48,6 +49,9 @@ namespace Compat
 		}
 		for (const auto& c : g_conflicts) logger::warn("{} (disable that mod to use the DLL's version)", c);
 		// Not an old version of ours, just another mod that moves the mouth; see LipSync::bYieldToDDF.
+		std::error_code odfEc;
+		g_odf = std::filesystem::exists("Data/SKSE/Plugins/ODF_distribution_rules", odfEc);
+		if (g_odf) logger::info("Overlay Distribution Framework is installed: it claims overlay slots of its own");
 		g_ddf = dh && dh->LookupModByName("TMS_DynamicDialogue.esp");
 		if (g_ddf) logger::info("Dynamic Dialogue Framework is active: Lip-Sync stands down while bYieldToDDF is on");
 	}
@@ -63,6 +67,8 @@ namespace Compat
 	}
 
 	bool DDFActive() { return g_ddf; }
+
+	bool ODFActive() { return g_odf; }
 
 	std::vector<std::string> Conflicts() { return g_conflicts; }
 

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.4
+
+### Added
+- **Overlay Distribution Framework is reported on the Status page.** It hands RaceMenu overlays
+  to NPCs on its own, from the same numbered slots this mod writes to, so it is worth seeing in
+  a screenshot when overlays misbehave.
+- The Living Skin page warns when the face effects do not fit in the slots RaceMenu has, the way
+  the body blush page already did, and says what to set iNumOverlays to.
+
 ## 1.3.3
 
 ### Fixed
