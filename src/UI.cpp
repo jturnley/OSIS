@@ -109,6 +109,26 @@ namespace
 		return nullptr;
 	}
 
+	// What the test buttons act on. During a scene the crosshair is useless - OStim hides the HUD
+	// and takes the camera - so fall back to the player's own scene. The partner is preferred over
+	// the player, whose face you cannot see in third person anyway.
+	RE::Actor* TestTarget()
+	{
+		if (auto* a = CrosshairActor()) return a;
+		std::scoped_lock l(Scenes::Lock());
+		auto* t = Scenes::PlayerThread();
+		if (!t) return nullptr;
+		auto* player = RE::PlayerCharacter::GetSingleton();
+		RE::Actor* first = nullptr;
+		for (auto& slot : t->slots) {
+			auto* a = slot.Get();
+			if (!a) continue;
+			if (!first) first = a;
+			if (a != player) return a;
+		}
+		return first;
+	}
+
 	void SaveBar()
 	{
 		ig::Separator();
@@ -342,10 +362,10 @@ namespace
 		ig::Spacing();
 		// Equipping OStim's tongue by hand is exactly what an ahegao mod does, so this exercises
 		// the hand-over without waiting for one to fire.
-		if (ig::Button("Test: tongue out for 8s (crosshair actor)")) OnGame([]() {
-			auto* a = CrosshairActor();
+		if (ig::Button("Test: tongue out for 8s")) OnGame([]() {
+			auto* a = TestTarget();
 			if (!a) {
-				Papyrus::Notify("OSIS: aim at an actor first");
+				Papyrus::Notify("OSIS: aim at an actor, select one in the console, or start a scene");
 				return;
 			}
 			Papyrus::EquipObject(a, "tongue");
@@ -356,15 +376,15 @@ namespace
 		});
 		ig::SetItemTooltip("Puts OStim's tongue on the actor the way an ahegao mod does. In a scene, watch the Status page: the "
 		                   "owner columns should switch to \"Ahegao mod\" while it is out, then switch back.");
-		if (ig::Button("Test face on crosshair actor")) OnGame([]() {
-			if (auto* a = CrosshairActor()) {
+		if (ig::Button("Test face")) OnGame([]() {
+			if (auto* a = TestTarget()) {
 				Face::Engine::TestOnActor(a);
 				const auto h = a->GetHandle();
 				Scheduler::After(6.0f, [h]() {
 					if (auto p = h.get()) Face::Output::Release(p.get(), 0.6f);
 				});
 			} else {
-				Papyrus::Notify("OSIS: aim at an actor first");
+				Papyrus::Notify("OSIS: aim at an actor, select one in the console, or start a scene");
 			}
 		});
 		SaveBar();
@@ -477,8 +497,8 @@ namespace
 		ig::Combo("##npcpers", &pick, kPersonalities, 6);
 		ig::SameLine();
 		if (ig::Button("Set")) OnGame([p = pick]() {
-			auto* a = CrosshairActor();
-			if (!a) return Papyrus::Notify("OSIS: aim at an NPC first");
+			auto* a = TestTarget();
+			if (!a) return Papyrus::Notify("OSIS: aim at an NPC, select one in the console, or start a scene");
 			Face::Engine::SetNpcPersonality(a, p - 1);
 			std::string src;
 			const int arch = Face::Engine::Archetype(a, &src);
@@ -486,8 +506,8 @@ namespace
 		});
 		ig::SameLine();
 		if (ig::Button("Show")) OnGame([]() {
-			auto* a = CrosshairActor();
-			if (!a) return Papyrus::Notify("OSIS: aim at an NPC first");
+			auto* a = TestTarget();
+			if (!a) return Papyrus::Notify("OSIS: aim at an NPC, select one in the console, or start a scene");
 			std::string src;
 			const int arch = Face::Engine::Archetype(a, &src);
 			Papyrus::Notify(std::format("{}: {} ({})", a->GetDisplayFullName(), Face::Engine::PersonalityName(arch), src));
@@ -521,9 +541,9 @@ namespace
 			ComboI("Curl axis", iCurlAxis, kAxes, 3, "Bone-local axis. If toes/fingers bend sideways, try another axis with the test button.");
 			Check("Scale with style", bStyleGated, "Realistic 35%, cinematic 70%, anime 100%.");
 		}
-		if (ig::Button("Test on crosshair actor")) OnGame([]() {
-			if (auto* a = CrosshairActor()) Body::Test(a);
-			else Papyrus::Notify("OSIS: aim at an actor first");
+		if (ig::Button("Test")) OnGame([]() {
+			if (auto* a = TestTarget()) Body::Test(a);
+			else Papyrus::Notify("OSIS: aim at an actor, select one in the console, or start a scene");
 		});
 		SaveBar();
 	}
@@ -570,13 +590,13 @@ namespace
 		ig::TextDisabled("Emotional Tears Effect: %s", Skin::EmoTearsFound() ? "installed" : "not installed");
 #endif
 		if (Face::Engine::OBlushPresent()) ig::TextColored(kWarn, "OBlush is installed: OSED's face blush yields to it.");
-		if (ig::Button("Test blush")) OnGame([]() { if (auto* a = CrosshairActor()) Skin::TestBlush(a); });
+		if (ig::Button("Test blush")) OnGame([]() { if (auto* a = TestTarget()) Skin::TestBlush(a); });
 #if !OSIS_LITE
 		ig::SameLine();
-		if (ig::Button("Test tear")) OnGame([]() { if (auto* a = CrosshairActor()) Skin::TestTear(a); });
+		if (ig::Button("Test tear")) OnGame([]() { if (auto* a = TestTarget()) Skin::TestTear(a); });
 #endif
 		ig::SameLine();
-		if (ig::Button("Test saliva")) OnGame([]() { if (auto* a = CrosshairActor()) Skin::TestSaliva(a); });
+		if (ig::Button("Test saliva")) OnGame([]() { if (auto* a = TestTarget()) Skin::TestSaliva(a); });
 		SaveBar();
 	}
 
@@ -644,13 +664,13 @@ namespace
 		}
 		ig::SeparatorText("Status");
 		ig::TextWrapped("%s", Voice::Status().c_str());
-		if (ig::Button("Test cry for help")) OnGame([]() { Voice::TestHelp(CrosshairActor()); });
+		if (ig::Button("Test cry for help")) OnGame([]() { Voice::TestHelp(TestTarget()); });
 		ig::SameLine();
-		if (ig::Button("Test line")) OnGame([]() { Voice::TestLine(CrosshairActor()); });
+		if (ig::Button("Test line")) OnGame([]() { Voice::TestLine(TestTarget()); });
 		ig::SameLine();
-		if (ig::Button("Test scream")) OnGame([]() { Voice::TestScream(CrosshairActor()); });
+		if (ig::Button("Test scream")) OnGame([]() { Voice::TestScream(TestTarget()); });
 		ig::SameLine();
-		if (ig::Button("Test breathing")) OnGame([]() { Voice::TestBreath(CrosshairActor()); });
+		if (ig::Button("Test breathing")) OnGame([]() { Voice::TestBreath(TestTarget()); });
 		ig::TextDisabled("Tests speak on the crosshair actor; they don't call anyone.");
 		SaveBar();
 	}

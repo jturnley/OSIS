@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.3
+
+### Changed
+- **The test buttons no longer need the crosshair.** During a scene the crosshair picks up
+  nothing, because OStim hides the HUD and takes the camera, which made every test button
+  unusable exactly when you wanted it. They now fall back to the player's own scene, preferring
+  the partner over the player. Aiming at someone, or selecting them in the console, still wins.
+
 ## 1.2.2
 
 ### Added
