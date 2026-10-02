@@ -64,6 +64,9 @@ namespace Face::Output
 	// Stop writing the mouth (phonemes) so OStim's oral override, dialogue lip-sync or
 	// another mod can drive it. Taking it back resumes from the live values.
 	void SetMouthOwned(RE::Actor* a_actor, bool a_owned);
+	// Hold the jaw at least this far open and keep the lips apart, whatever else is driving the
+	// mouth. Used while a tongue is out, where a closing mouth pushes it through the lips. 0 off.
+	void SetMouthFloor(RE::Actor* a_actor, float a_floor);
 
 	// Lip-sync layer: a loudness/brightness envelope decoded from the moan file that is
 	// playing on the actor. While it plays it replaces the base mouth.

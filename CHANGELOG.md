@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.1.1
+
+### Fixed
+- **A tongue out no longer clips through the lips.** 1.1.0 stopped lip-sync while a tongue was
+  out, but stopping it let the mouth fall back to closed, which is exactly the pose that pushes
+  the tongue through. The jaw is now held open and the lips kept apart at the point the face is
+  written, so it holds whether lip-sync, the expression grammar, or nothing at all is driving the
+  mouth. The setting now chooses only whether the moan still moves the mouth above that floor.
+
 ## 1.1.0
 
 ### Added

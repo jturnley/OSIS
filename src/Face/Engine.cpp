@@ -310,6 +310,13 @@ namespace Face::Engine
 				auto& s = t.slots[idx];
 				auto* a = s.Get();
 				if (!a || !s.painted || !a->Is3DLoaded()) continue;
+				// A tongue out (ours or an ahegao mod's) holds the jaw clear of it for as long as it
+				// is out, whether or not lip-sync or the grammar is writing the mouth this frame.
+				{
+					const bool tongue = s.tongueOut || s.tongueOn;
+					const bool want = tongue && Settings::LipSync::iTongueMode != Settings::LipSync::kTongueIgnore;
+					Output::SetMouthFloor(a, want ? Settings::LipSync::fTongueMinOpen : 0.0f);
+				}
 				if (faceOff) {
 					if (s.faced) {  // switched off mid-scene: hand the face back
 						ClearOSEDPrototypeActor(s, a);

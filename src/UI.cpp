@@ -149,7 +149,7 @@ namespace
 	}
 
 	constexpr const char* kBodySexes[] = { "Any body", "Female only", "Male only" };
-	constexpr const char* kTongueModes[] = { "Stop lip-sync", "Hold the mouth open", "Ignore (old behaviour)" };
+	constexpr const char* kTongueModes[] = { "Hold the jaw open, stop lip-sync", "Hold the jaw open, keep lip-syncing", "Ignore" };
 	constexpr const char* kVoiceModes[] = { "Silent", "Breathing only", "Full (help, lines, scream)" };
 	constexpr const char* kResponderModes[] = { "Nobody", "Guards", "Guards and allies" };
 	constexpr const char* kDoms[] = { "Anticipation", "Pleasure", "Plateau", "Distress", "Climax", "Afterglow" };
@@ -576,13 +576,15 @@ namespace
 			Check("Eyes squeeze with the moan", bHoldEyes);
 
 			ig::SeparatorText("While a tongue is out");
-			ig::TextWrapped("Ahegao mods stick the tongue out through OStim. If the mouth keeps closing over it the tongue clips "
-			                "through the lips and chin, so the mouth stands down instead. This covers any mod that uses OStim's "
-			                "tongue, not only this one's.");
+			ig::TextWrapped("Ahegao mods stick the tongue out through OStim. A mouth that closes over it pushes the tongue through "
+			                "the lips and chin, so while a tongue is out the jaw is held open and the lips kept apart, whatever is "
+			                "driving the mouth. This covers any mod that uses OStim's tongue, not only this one's.");
 			ComboI("Mouth behaviour", iTongueMode, kTongueModes, 3,
-				"Stop: the mouth track is dropped until the tongue goes back in — safest. Hold open: the mouth keeps moving with "
-				"the moan but never closes past the floor below, which keeps some life in it. Ignore: what it did before.");
-			if (iTongueMode == kTongueHold) SliderF("Never close past", fTongueMinOpen, 0.0f, 1.0f, "%.2f");
+				"Both of the first two hold the jaw open and the lips apart for as long as the tongue is out. They differ only in "
+				"whether the moan still moves the mouth above that: stopping is the calmer look, keeping it leaves some life in the "
+				"face. Ignore restores the old behaviour, where the mouth closed over the tongue.");
+			if (iTongueMode != kTongueIgnore) SliderF("Hold the jaw open to", fTongueMinOpen, 0.0f, 1.0f, "%.2f",
+				"Raise this if the tongue still clips at its widest.");
 
 			Check("Stand down while Dynamic Dialogue Framework is installed", bYieldToDDF,
 				"DDF plays spoken lines with their own lip movement; with both driving the mouth, both break. Untick to run Lip-Sync anyway.");

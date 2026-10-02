@@ -47,6 +47,7 @@ namespace Face::Output
 			std::array<Channel, kExpressions> expr{};
 			bool mouthOwned = true;
 			bool reseedMouth = true;   // copy live phonemes before the first write
+			float mouthFloor = 0.0f;   // a tongue is out: never close the jaw past this
 			bool reseedAll = true;
 			bool releasing = false;
 			bool exprUsed = false;
@@ -154,6 +155,13 @@ namespace Face::Output
 		}
 	}
 
+	void SetMouthFloor(RE::Actor* a, float floor)
+	{
+		std::scoped_lock l(g_lock);
+		auto* st = Get(a, floor > 0.0f);  // only worth a new state when there is a floor to hold
+		if (st) st->mouthFloor = std::clamp(floor, 0.0f, 1.0f);
+	}
+
 	void SetMouthOwned(RE::Actor* a, bool owned)
 	{
 		std::scoped_lock l(g_lock);
@@ -200,6 +208,7 @@ namespace Face::Output
 		}
 		for (auto& c : st->expr) c.Set(0.0f, speed);
 		st->track.reset();
+		st->mouthFloor = 0.0f;
 		st->mouthOwned = true;
 		st->releasing = true;
 	}
@@ -308,14 +317,31 @@ namespace Face::Output
 			c.Step(dt);
 			settled &= c.cur <= 0.005f;
 			const bool baseWrites = st.mouthOwned && c.used;
+			bool write = true;
+			float v;
 			if (st.trackBlend > 0.0f) {
 				const float base = baseWrites ? c.cur : 0.0f;
-				Write(fg->phenomeKeyFrame, i, base + (trackPh[i] - base) * st.trackBlend);
+				v = base + (trackPh[i] - base) * st.trackBlend;
 			} else if (baseWrites) {
-				Write(fg->phenomeKeyFrame, i, c.cur);
+				v = c.cur;
+			} else {
+				v = 0.0f;
+				write = false;
 			}
+			// A tongue is out. Whoever is driving the mouth, the jaw stays open and the lips stay
+			// apart, or the tongue is pushed straight through them.
+			if (st.mouthFloor > 0.0f) {
+				if (i == kBigAah) {
+					v = std::max(v, st.mouthFloor);
+					write = true;
+				} else if (i == kBMP) {
+					v = 0.0f;
+					write = true;
+				}
+			}
+			if (write) Write(fg->phenomeKeyFrame, i, v);
 		}
-		settled &= st.trackBlend <= 0.0f;
+		settled &= st.trackBlend <= 0.0f && st.mouthFloor <= 0.0f;
 		for (int i = kBrowDownL; i < kModifiers; ++i) {
 			auto& c = st.mod[i];
 			if (!c.used) continue;
