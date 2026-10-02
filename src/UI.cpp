@@ -148,6 +148,7 @@ namespace
 		else ig::TextColored(kGood, "on");
 	}
 
+	constexpr const char* kBodySexes[] = { "Any body", "Female only", "Male only" };
 	constexpr const char* kTongueModes[] = { "Stop lip-sync", "Hold the mouth open", "Ignore (old behaviour)" };
 	constexpr const char* kVoiceModes[] = { "Silent", "Breathing only", "Full (help, lines, scream)" };
 	constexpr const char* kResponderModes[] = { "Nobody", "Guards", "Guards and allies" };
@@ -695,6 +696,8 @@ namespace
 				SliderF("Full", m.full, 0.0f, 1.0f);
 				SliderF("Rest", m.rest, -1.0f, 1.5f);
 				SliderF("Max", m.max, -1.0f, 1.5f);
+				ComboI("Body", m.sex, kBodySexes, 3, "CBBE/3BA slider names mean nothing on a male body, so the stock rows are female "
+					"only. Add rows set to Male if your male body has morphs worth driving.");
 				if (m.full <= m.start) m.full = std::min(1.0f, m.start + 0.01f);
 				if (ig::Button("Remove")) removeAt = static_cast<int>(i);
 				ig::PopID();
@@ -746,6 +749,36 @@ namespace
 				SliderF("Full", b.full, 0.0f, 1.0f);
 				SliderF("Max", b.max, 0.0f, 1.0f);
 				if (b.full <= b.start) b.full = std::min(1.0f, b.start + 0.01f);
+				{
+					char tex[200];
+					strncpy_s(tex, b.texture.c_str(), _TRUNCATE);
+					if (ig::InputText("Texture", tex, sizeof(tex))) {
+						b.texture = tex;
+						g_dirty = true;
+					}
+					ig::SetItemTooltip("Empty: use Body Blushing's region of this name. Otherwise a path under Data\textures, "
+					                   "e.g. actors\character\overlays\MyBlush\chest.dds");
+				}
+				ComboI("Body", b.sex, kBodySexes, 3, "Body Blushing's textures are painted on the female UV, so the stock rows are "
+					"female only. A male body needs its own textures: add rows, set this to Male and point them at your files.");
+				{
+					bool custom = b.tint >= 0;
+					if (ig::Checkbox("Own colour", &custom)) {
+						b.tint = custom ? 0xFF2030 : -1;
+						g_dirty = true;
+					}
+					ig::SetItemTooltip("Off: the per-race colour. On: this region keeps the colour below, even on a race that would "
+					                   "otherwise not blush at all.");
+					if (b.tint >= 0) {
+						float col[3]{ ((b.tint >> 16) & 0xFF) / 255.0f, ((b.tint >> 8) & 0xFF) / 255.0f, (b.tint & 0xFF) / 255.0f };
+						if (ig::ColorEdit3("Colour", col)) {
+							b.tint = (static_cast<std::int32_t>(col[0] * 255.0f + 0.5f) << 16) |
+							         (static_cast<std::int32_t>(col[1] * 255.0f + 0.5f) << 8) |
+							         static_cast<std::int32_t>(col[2] * 255.0f + 0.5f);
+							g_dirty = true;
+						}
+					}
+				}
 				if (ig::Button("Remove")) removeAt = static_cast<int>(i);
 				ig::PopID();
 			}

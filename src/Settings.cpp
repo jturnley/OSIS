@@ -377,6 +377,9 @@ namespace Settings
 						b.name = j.at("name").get<std::string>();
 						b.start = j.value("start", 0.0f);
 						b.full = j.value("full", 1.0f);
+						b.texture = j.value("texture", std::string{});
+						b.sex = std::clamp(j.value("sex", static_cast<int>(kFemaleBody)), 0, 2);
+						b.tint = j.value("tint", -1);
 						b.max = std::clamp(j.value("max", 1.0f), 0.0f, 1.0f);
 						b.enabled = j.value("enabled", true);
 						if (b.full <= b.start) b.full = b.start + 0.01f;
@@ -400,6 +403,7 @@ namespace Settings
 					m.full = j.value("full", 1.0f);
 					m.max = j.value("max", 0.0f);
 					m.enabled = j.value("enabled", true);
+					m.sex = std::clamp(j.value("sex", static_cast<int>(kFemaleBody)), 0, 2);
 					m.rest = j.value("rest", 0.0f);
 					if (m.full <= m.start) m.full = m.start + 0.01f;
 					loaded.push_back(std::move(m));
@@ -433,10 +437,12 @@ namespace Settings
 		{
 			std::scoped_lock l(lock);
 			for (const auto& m : Arousal::morphs) {
-				arr.push_back({ { "name", m.name }, { "start", m.start }, { "full", m.full }, { "max", m.max }, { "rest", m.rest }, { "enabled", m.enabled } });
+				arr.push_back({ { "name", m.name }, { "sex", m.sex }, { "start", m.start }, { "full", m.full }, { "max", m.max }, { "rest", m.rest },
+					{ "enabled", m.enabled } });
 			}
 			for (const auto& b : Arousal::blushes) {
-				blushArr.push_back({ { "name", b.name }, { "start", b.start }, { "full", b.full }, { "max", b.max }, { "enabled", b.enabled } });
+				blushArr.push_back({ { "name", b.name }, { "texture", b.texture }, { "sex", b.sex }, { "tint", b.tint }, { "start", b.start },
+					{ "full", b.full }, { "max", b.max }, { "enabled", b.enabled } });
 			}
 			for (const auto& r : Arousal::raceBlush) {
 				raceArr.push_back({ { "race", r.race }, { "mult", r.mult } });

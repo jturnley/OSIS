@@ -40,6 +40,7 @@ namespace Arousal
 			std::vector<float> applied;
 			std::uint32_t lastTick = 0;
 			bool legacyCleared = false;
+			bool female = true;
 
 			std::vector<std::string> blushNodes;
 			std::vector<std::string> blushTextures;
@@ -85,6 +86,22 @@ namespace Arousal
 			return t * t * (3.0f - 2.0f * t);
 		}
 
+		bool SexMatch(int want, bool female)
+		{
+			return want == S::kAnySex || (want == S::kFemaleBody) == female;
+		}
+
+		// A row's own texture wins; otherwise the Body Blushing region of that name. Paths are
+		// given relative to Data\textures, and a leading data\ or textures\ is tolerated.
+		std::string BlushTexture(const S::Blush& b)
+		{
+			if (b.texture.empty()) return "Actors\\Character\\Overlays\\CheeseBlushOverlays\\" + b.name + ".dds";
+			std::string p = b.texture;
+			if (_strnicmp(p.c_str(), "data\\", 5) == 0 || _strnicmp(p.c_str(), "data/", 5) == 0) p.erase(0, 5);
+			if (_strnicmp(p.c_str(), "textures\\", 9) == 0 || _strnicmp(p.c_str(), "textures/", 9) == 0) p.erase(0, 9);
+			return p;
+		}
+
 		std::string RaceID(RE::Actor* a)
 		{
 			auto* race = a->GetRace();
@@ -119,7 +136,7 @@ namespace Arousal
 
 		void ClearBlush(RE::Actor* a, ActorState& st)
 		{
-			for (const auto& node : st.blushNodes) Papyrus::ClearOverlay(a, true, node);
+			for (const auto& node : st.blushNodes) Papyrus::ClearOverlay(a, st.female, node);
 			st.blushNodes.clear();
 			st.blushTextures.clear();
 			st.blushAlpha.clear();
@@ -129,13 +146,16 @@ namespace Arousal
 		{
 			std::vector<const S::Blush*> active;
 			const auto tint = s.blush ? BlushTint(a) : std::nullopt;
-			if (tint) {
+			if (s.blush) {
 				for (const auto& b : s.blushes) {
-					if (b.enabled && active.size() < static_cast<size_t>(s.slots)) active.push_back(&b);
+					// A row with its own colour paints even on a race that has no default tint.
+					if (!b.enabled || (!tint && b.tint < 0)) continue;
+					if (!SexMatch(b.sex, st.female)) continue;
+					if (active.size() < static_cast<size_t>(s.slots)) active.push_back(&b);
 				}
 			}
 			std::vector<std::string> textures;
-			for (const auto* b : active) textures.push_back("Actors\\Character\\Overlays\\CheeseBlushOverlays\\" + b->name + ".dds");
+			for (const auto* b : active) textures.push_back(BlushTexture(*b));
 
 			const void* root = a->Get3D();
 			if (textures.empty()) {
@@ -151,12 +171,12 @@ namespace Arousal
 				std::vector<std::string> nodes;
 				for (size_t i = 0; i < textures.size(); ++i) {
 					std::string node = std::format("Body [Ovl{}]", s.firstSlot + static_cast<int>(i));
-					Papyrus::SetOverlayTexture(a, true, node, textures[i]);
-					Papyrus::SetOverlayTint(a, true, node, *tint);
-					if (s.matte) Papyrus::SetOverlayMatte(a, true, node);
+					Papyrus::SetOverlayTexture(a, st.female, node, textures[i]);
+					Papyrus::SetOverlayTint(a, st.female, node, active[i]->tint >= 0 ? active[i]->tint : *tint);
+					if (s.matte) Papyrus::SetOverlayMatte(a, st.female, node);
 					nodes.push_back(std::move(node));
 				}
-				for (size_t i = nodes.size(); i < st.blushNodes.size(); ++i) Papyrus::ClearOverlay(a, true, st.blushNodes[i]);
+				for (size_t i = nodes.size(); i < st.blushNodes.size(); ++i) Papyrus::ClearOverlay(a, st.female, st.blushNodes[i]);
 				st.blushNodes = std::move(nodes);
 				st.blushTextures = std::move(textures);
 				st.blushAlpha.assign(active.size(), std::numeric_limits<float>::quiet_NaN());
@@ -166,16 +186,17 @@ namespace Arousal
 				const auto* b = active[i];
 				const float alpha = std::clamp(b->max * Ease(st.level, b->start, b->full) * s.intensity * st.flushMult * raceMult, 0.0f, 1.0f);
 				if (!std::isnan(st.blushAlpha[i]) && std::abs(alpha - st.blushAlpha[i]) <= 0.01f) continue;
-				Papyrus::SetOverlayAlpha(a, true, st.blushNodes[i], alpha);
+				Papyrus::SetOverlayAlpha(a, st.female, st.blushNodes[i], alpha);
 				st.blushAlpha[i] = alpha;
 			}
 		}
 
+		// Both sexes are tracked; which rows actually paint is decided per table row, so a male
+		// body does nothing at all until someone adds male rows with their own textures.
 		bool Eligible(RE::Actor* a)
 		{
 			if (!a || !a->Is3DLoaded() || a->IsDead() || a->IsChild()) return false;
-			auto* base = a->GetActorBase();
-			return base && base->GetSex() == RE::SEX::kFemale;
+			return a->GetActorBase() != nullptr;
 		}
 
 		std::vector<RE::Actor*> Gather(const Snap& s)
@@ -371,6 +392,7 @@ namespace Arousal
 				}
 				st.handle = a->GetHandle();
 				st.name = a->GetDisplayFullName();
+				if (auto* base = a->GetActorBase()) st.female = base->GetSex() == RE::SEX::kFemale;
 				st.applied.assign(s.morphs.size(), std::numeric_limits<float>::quiet_NaN());
 			}
 			if (!st.legacyCleared) {
@@ -403,8 +425,13 @@ namespace Arousal
 			bool changed = false;
 			for (size_t i = 0; i < s.morphs.size(); ++i) {
 				const auto& m = s.morphs[i];
-				const float v = m.enabled ? m.rest + (m.max - m.rest) * Ease(st.level, m.start, m.full) * s.intensity : 0.0f;
+				const bool applies = m.enabled && SexMatch(m.sex, st.female);
 				const float prev = st.applied[i];
+				if (!applies && std::isnan(prev)) {
+					st.applied[i] = 0.0f;  // never set on this body: nothing to clear
+					continue;
+				}
+				const float v = applies ? m.rest + (m.max - m.rest) * Ease(st.level, m.start, m.full) * s.intensity : 0.0f;
 				if (!std::isnan(prev) && std::abs(v - prev) <= 0.005f) continue;
 				if (v == 0.0f) Papyrus::ClearBodyMorph(a, m.name, kMorphKey);
 				else Papyrus::SetBodyMorph(a, m.name, kMorphKey, v);

@@ -175,6 +175,10 @@ namespace Settings
 	{
 		enum Source : int { kAuto = 0, kOSL = 1, kSLO = 2, kOStimOnly = 3 };
 
+		// Which body a table row applies to. Rows written before this existed load as Female,
+		// which is what they were.
+		enum Sex : int { kAnySex = 0, kFemaleBody = 1, kMaleBody = 2 };
+
 		struct Morph
 		{
 			std::string name;
@@ -183,15 +187,19 @@ namespace Settings
 			float max = 0.0f;    // slider value at full (negative allowed)
 			bool enabled = true;
 			float rest = 0.0f;   // slider value while unaroused
+			int sex = kFemaleBody;
 		};
 
 		struct Blush
 		{
-			std::string name;    // Body Blushing texture name, no folder or .dds
+			std::string name;      // label, and the Body Blushing texture name when `texture` is empty
 			float start = 0.0f;
 			float full = 1.0f;
-			float max = 1.0f;    // overlay alpha at full
+			float max = 1.0f;      // overlay alpha at full
 			bool enabled = true;
+			std::string texture;   // optional: your own path under Data\textures, overrides `name`
+			int sex = kFemaleBody;
+			std::int32_t tint = -1;  // 0xRRGGBB; -1 uses the per-race colour
 		};
 
 		inline bool bEnabled = true;
