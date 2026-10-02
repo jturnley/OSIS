@@ -180,17 +180,14 @@ namespace Scenes
 		{
 			const auto gen = g_generation;
 			const int tid = t.id;
-			bool wantTongue;
-			{
-				std::scoped_lock sl(Settings::lock);
-				wantTongue = Settings::LipSync::bEnabled && Settings::LipSync::iTongueMode != Settings::LipSync::kTongueIgnore;
-			}
 			for (auto& s : t.slots) {
 				auto* a = s.Get();
 				if (!a || !s.painted) continue;
 				const RE::FormID id = s.id;
-				// Any mod that puts a tongue out through OStim shows up here, not just ours.
-				if (wantTongue) {
+				// Any mod that puts a tongue out through OStim shows up here, not just ours. Always
+				// polled: this drives handing the face to an ahegao mod, not only lip-sync, so it
+				// must work with lip-sync off or its tongue handling set to Ignore.
+				{
 					Papyrus::IsObjectEquipped(a, "tongue", [tid, id, gen](bool out) {
 						Task([tid, id, gen, out]() {
 							std::scoped_lock l(g_lock);

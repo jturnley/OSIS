@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.1
+
+### Fixed
+- The tongue was only polled while lip-sync was enabled and its tongue handling was not set to
+  Ignore. That was fine when the flag only drove lip-sync, but it now also decides when to hand
+  the face to an ahegao mod, so with lip-sync off the hand-over never happened. Always polled now.
+
 ## 1.2.0
 
 ### Added
