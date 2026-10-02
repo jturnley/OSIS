@@ -87,7 +87,7 @@ namespace Settings
 		inline bool bNormalGlancePlayer = true;
 		inline bool bWatcher = false;
 
-		inline bool bAhegaoModYield = false;
+		inline bool bAhegaoModYield = false;  // blanket fallback; a live tongue is detected per actor anyway
 		inline bool bAnimeTongue = false;
 		inline bool bAnimeTongueFull = false;
 		inline bool bTongueLife = false;

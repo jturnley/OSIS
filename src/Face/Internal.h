@@ -95,6 +95,8 @@ namespace Face::Engine::detail
 	[[nodiscard]] const char* ScenarioName(int scenario);
 	[[nodiscard]] const char* DomName(int dom);
 	[[nodiscard]] bool AhegaoYield();
+	// An ahegao mod is driving this actor right now: a tongue is out that we did not equip.
+	[[nodiscard]] bool ExternalAhegao(const Slot& s);
 
 	void SetOwners(Slot& s, std::string face, std::string mouth, std::string eye, std::string head);
 	void PulseActor(Thread& t, Slot& s, RE::Actor* a, int dom, int phrase, int enj);

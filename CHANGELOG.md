@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.0
+
+### Added
+- **Ahegao mods are handed the whole face, per actor, while they are actually running.** Ahegao
+  Expressions and anything like it put the tongue out with OStim's `tongue` object and then write
+  their own phonemes. That tongue is now detected live, and for as long as it is out this mod
+  stops writing that actor's face entirely, then takes it back when the tongue goes in. Previously
+  only the mouth was yielded, so the two fought over the eyes and brows, and the alternative was a
+  blanket switch that stood down for the whole session. That switch remains as a fallback for
+  ahegao mods that work some other way.
+
 ## 1.1.1
 
 ### Fixed

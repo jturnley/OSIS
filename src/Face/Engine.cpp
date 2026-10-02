@@ -310,11 +310,33 @@ namespace Face::Engine
 				auto& s = t.slots[idx];
 				auto* a = s.Get();
 				if (!a || !s.painted || !a->Is3DLoaded()) continue;
-				// A tongue out (ours or an ahegao mod's) holds the jaw clear of it for as long as it
-				// is out, whether or not lip-sync or the grammar is writing the mouth this frame.
+				// An ahegao mod has this actor: hand the whole face over until it is done. It sets
+				// its own mouth, so our jaw floor would only fight it.
+				if (ExternalAhegao(s)) {
+					if (!Output::IsSuspended(a)) {
+						// Drop our own prototype claim without calling OStim's clear, which would
+						// take their expression override down with ours.
+						s.jsonEvent.clear();
+						s.jsonUntil = 0.0f;
+						s.animeActive = false;
+						s.animeVariant = -1;
+						s.tongueLifeUntil = s.tongueLifeNext = s.tonguePrimeUntil = s.tongueHoldUntil = s.tongueCooldownUntil = 0.0f;
+						Output::SetMouthFloor(a, 0.0f);
+						Output::SetSuspended(a, true);
+						logger::debug("thread {}: {:08X} {} handed to an ahegao mod", t.id, a->GetFormID(), a->GetDisplayFullName());
+					}
+					SetOwners(s, "Ahegao mod", "Ahegao mod", "Ahegao mod", "Ahegao mod");
+					if (arc) {
+						const int enjEff = EffectiveIntensity(t, a);
+						PulseActor(t, s, a, SelectDominant(t, enjEff, Raw(a)), PhrasePhase(t, idx, enjEff), enjEff);
+					}
+					continue;
+				}
+				Output::SetSuspended(a, false);
+				// Our own tongue out: hold the jaw clear of it for as long as it is out, whether or
+				// not lip-sync or the grammar is writing the mouth this frame.
 				{
-					const bool tongue = s.tongueOut || s.tongueOn;
-					const bool want = tongue && Settings::LipSync::iTongueMode != Settings::LipSync::kTongueIgnore;
+					const bool want = s.tongueOn && Settings::LipSync::iTongueMode != Settings::LipSync::kTongueIgnore;
 					Output::SetMouthFloor(a, want ? Settings::LipSync::fTongueMinOpen : 0.0f);
 				}
 				if (faceOff) {
@@ -740,6 +762,11 @@ namespace Face::Engine
 		}
 
 		bool AhegaoYield() { return S::bAhegaoModYield; }
+
+		// Ahegao Expressions and friends put the tongue out with OActor.EquipObject(act, "tongue")
+		// and then write their own phonemes. A tongue that is out but not ours means one of them
+		// has this actor, so we stop writing its face until the tongue goes back in.
+		bool ExternalAhegao(const Slot& s) { return s.tongueOut && !s.tongueOn; }
 
 		void SetOwners(Slot& s, std::string face, std::string mouth, std::string eye, std::string head)
 		{

@@ -334,7 +334,10 @@ namespace
 			Check("Tongue at the peak (anime style)", bAnimeTongue);
 			Check("Full tongue mode", bAnimeTongueFull);
 			Check("Tongue life (rare small pulses)", bTongueLife);
-			Check("Yield to another ahegao mod", bAhegaoModYield);
+			Check("Always yield to another ahegao mod", bAhegaoModYield,
+				"Not usually needed now. An ahegao mod that puts the tongue out through OStim is detected while it is actually "
+				"running, and this mod hands that actor's whole face over for as long as it lasts, then takes it back by itself. "
+				"Tick this only if yours drives faces some other way and the two still fight.");
 		}
 		ig::Spacing();
 		if (ig::Button("Test face on crosshair actor")) OnGame([]() {

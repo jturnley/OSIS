@@ -48,6 +48,7 @@ namespace Face::Output
 			bool mouthOwned = true;
 			bool reseedMouth = true;   // copy live phonemes before the first write
 			float mouthFloor = 0.0f;   // a tongue is out: never close the jaw past this
+			bool suspended = false;    // another mod owns this face; write nothing
 			bool reseedAll = true;
 			bool releasing = false;
 			bool exprUsed = false;
@@ -155,6 +156,24 @@ namespace Face::Output
 		}
 	}
 
+	void SetSuspended(RE::Actor* a, bool suspended)
+	{
+		std::scoped_lock l(g_lock);
+		auto* st = Get(a, false);
+		if (!st || st->suspended == suspended) return;
+		st->suspended = suspended;
+		// Coming back: the other mod left its own values in the face data, so re-read them
+		// before blending, or the first frame snaps.
+		if (!suspended) st->reseedAll = true;
+	}
+
+	bool IsSuspended(RE::Actor* a)
+	{
+		std::scoped_lock l(g_lock);
+		auto* st = Get(a, false);
+		return st && st->suspended;
+	}
+
 	void SetMouthFloor(RE::Actor* a, float floor)
 	{
 		std::scoped_lock l(g_lock);
@@ -209,6 +228,7 @@ namespace Face::Output
 		for (auto& c : st->expr) c.Set(0.0f, speed);
 		st->track.reset();
 		st->mouthFloor = 0.0f;
+		st->suspended = false;
 		st->mouthOwned = true;
 		st->releasing = true;
 	}
@@ -258,6 +278,7 @@ namespace Face::Output
 		if (it == g_states.end()) return;
 		auto& st = it->second;
 
+		if (st.suspended) return;  // another mod owns this face
 		auto* fg = a->GetFaceGenAnimationData();
 		if (!fg) return;
 		dt = std::clamp(dt, 0.0f, 0.1f);

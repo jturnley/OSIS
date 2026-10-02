@@ -540,8 +540,13 @@ namespace LipSync
 				++g_stats.mouthBusy;
 				continue;
 			}
-			// A tongue is out: closing lips over it make it clip through the mouth.
-			if (s && (s->tongueOut || s->tongueOn) && tongueMode != Settings::LipSync::kTongueIgnore) {
+			// An ahegao mod owns this face; leave its mouth alone entirely.
+			if (s && s->tongueOut && !s->tongueOn) {
+				++g_stats.tongueOut;
+				continue;
+			}
+			// Our own tongue is out: closing lips over it make it clip through the mouth.
+			if (s && s->tongueOn && tongueMode != Settings::LipSync::kTongueIgnore) {
 				if (tongueMode == Settings::LipSync::kTongueStop) {
 					Face::Output::ClearMouthTrack(owner);
 					++g_stats.tongueOut;

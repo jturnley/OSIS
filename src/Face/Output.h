@@ -67,6 +67,10 @@ namespace Face::Output
 	// Hold the jaw at least this far open and keep the lips apart, whatever else is driving the
 	// mouth. Used while a tongue is out, where a closing mouth pushes it through the lips. 0 off.
 	void SetMouthFloor(RE::Actor* a_actor, float a_floor);
+	// Write nothing at all for this actor while another mod owns its face. The channels are
+	// kept, so painting resumes where it left off; the other mod's values simply stand.
+	void SetSuspended(RE::Actor* a_actor, bool a_suspended);
+	[[nodiscard]] bool IsSuspended(RE::Actor* a_actor);
 
 	// Lip-sync layer: a loudness/brightness envelope decoded from the moan file that is
 	// playing on the actor. While it plays it replaces the base mouth.
