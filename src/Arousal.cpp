@@ -8,6 +8,7 @@
 #include "Compat.h"
 #include "Face/Engine.h"
 #include "FsUtil.h"
+#include "Overlays.h"
 #include "Papyrus.h"
 #include "Scenes.h"
 #include "Settings.h"
@@ -54,6 +55,7 @@ namespace Arousal
 		std::atomic_bool g_clearRequested = false;
 		std::uint32_t g_tick = 0;
 		std::unordered_set<std::string> g_missingBlush;  // texture paths already warned about
+		bool g_warnedSlots = false;
 		float g_lastTick = 0.0f;
 		float g_nextTick = 0.0f;
 		int g_bodyOverlays = 6;
@@ -180,9 +182,23 @@ namespace Arousal
 			if (textures != st.blushTextures || root != st.last3D || g_tick % kRefreshTicks == 0) {
 				st.last3D = root;
 				Papyrus::AddOverlays(a);
+				// Which slots are actually free on this actor, rather than the configured run:
+				// ODF, an ahegao mod or a hand-painted overlay may be sitting in them.
+				const int have = BodyOverlaySlots();
+				const auto claimed = Overlays::Claim(a, false, static_cast<int>(textures.size()), s.firstSlot,
+					std::min(have, s.firstSlot + s.slots), textures);
+				if (claimed.size() < textures.size()) {
+					textures.resize(claimed.size());
+					active.resize(claimed.size());
+					if (!g_warnedSlots) {
+						g_warnedSlots = true;
+						logger::warn("Arousal: only {} body overlay slot(s) free of {}; some blush rows are not painted",
+							claimed.size(), have);
+					}
+				}
 				std::vector<std::string> nodes;
 				for (size_t i = 0; i < textures.size(); ++i) {
-					std::string node = std::format("Body [Ovl{}]", s.firstSlot + static_cast<int>(i));
+					std::string node = std::format("Body [Ovl{}]", claimed[i]);
 					Papyrus::SetOverlayTexture(a, st.female, node, textures[i]);
 					Papyrus::SetOverlayTint(a, st.female, node, active[i]->tint >= 0 ? active[i]->tint : *tint);
 					if (s.matte) Papyrus::SetOverlayMatte(a, st.female, node);

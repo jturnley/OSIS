@@ -646,8 +646,8 @@ namespace
 				ig::TextColored(kWarn, "RaceMenu has %d face overlay slots; this needs %d.", slots, needed);
 				ig::TextColored(kWarn, "Set [Overlays/Face] iNumOverlays=%d in skee64.ini and restart.", needed);
 			} else if (Compat::ODFActive()) {
-				ig::TextDisabled("Overlay Distribution Framework also uses these slots. If an overlay goes black or goes "
-				                 "missing, raise iNumOverlays and move First slot above the ones it uses.");
+				ig::TextDisabled("Overlay Distribution Framework also uses these slots. Slots another mod already holds are "
+				                 "skipped, so raising iNumOverlays gives everyone room.");
 			}
 		}
 		const auto blush = Skin::ResolvedPath(0);

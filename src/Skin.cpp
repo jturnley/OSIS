@@ -11,6 +11,7 @@
 #include "Face/Engine.h"
 #include "Face/Output.h"
 #include "FsUtil.h"
+#include "Overlays.h"
 #include "Papyrus.h"
 #include "Scenes.h"
 #include "Scheduler.h"
@@ -38,6 +39,10 @@ namespace Skin
 			int salivaCount = 0;
 			float salivaCooldown = 0.0f;
 			bool emoTears = false;   // carries Emotional Tears Effect's ability
+			// Face slots claimed for this actor, one per effect, -1 when none was free. Re-read
+			// when the actor's 3D changes, since the overlay nodes go with it.
+			std::array<int, kCount> slot{ -1, -1, -1 };
+			const void* last3D = nullptr;
 		};
 
 		std::mutex g_lock;
@@ -46,6 +51,7 @@ namespace Skin
 		bool g_autoBlush = false;
 		std::string g_status = "idle";
 		std::unordered_set<std::string> g_missing;  // texture paths already warned about
+		std::unordered_set<RE::FormID> g_warnedFaceSlots;
 		RE::SpellItem* g_emoTears = nullptr;     // EmoTearsSpells.esp zzTearsTestAbility
 		std::vector<RE::FormID> g_emoLeftovers;  // abilities a save made mid-scene left behind
 
@@ -69,17 +75,36 @@ namespace Skin
 		}
 
 		// Effects with a texture get consecutive slots from iFaceFirstSlot, in effect order.
-		int SlotOf(int effect)
+		// Which face slots this actor can spare. Other mods write into the same numbered nodes -
+		// an ahegao mod's blush, OBlush, a hand-painted overlay - so the slots are read back off
+		// the actor rather than counted off from the configured first slot.
+		void ClaimFaceSlots(RE::Actor* a, State& st)
 		{
-			int slot;
+			const void* root = a ? a->Get3D(false) : nullptr;
+			if (root == st.last3D && st.slot[kBlush] >= 0) return;
+			st.last3D = root;
+			st.slot.fill(-1);
+
+			std::vector<int> wants;  // effects that have a texture, in order
+			std::vector<std::string> ours;
+			for (int e = 0; e < kCount; ++e) {
+				auto path = Path(e);
+				if (path.empty()) continue;
+				wants.push_back(e);
+				ours.push_back(std::move(path));
+			}
+			if (wants.empty()) return;
+			int first;
 			{
 				std::scoped_lock l(Settings::lock);
-				slot = Settings::Skin::iFaceFirstSlot;
+				first = Settings::Skin::iFaceFirstSlot;
 			}
-			for (int e = 0; e < effect; ++e) {
-				if (!Path(e).empty()) ++slot;
+			const auto claimed = Overlays::Claim(a, true, static_cast<int>(wants.size()), first, g_faceSlots, ours);
+			for (size_t i = 0; i < claimed.size(); ++i) st.slot[wants[i]] = claimed[i];
+			if (claimed.size() < wants.size() && g_warnedFaceSlots.insert(a->GetFormID()).second) {
+				logger::warn("Living Skin: {} has {} free face overlay slot(s) of {}; other mods hold the rest",
+					a->GetDisplayFullName(), claimed.size(), g_faceSlots);
 			}
-			return slot < g_faceSlots ? slot : -1;
 		}
 
 		std::string Node(int slot) { return std::format("Face [Ovl{}]", slot); }
@@ -106,7 +131,8 @@ namespace Skin
 		void Apply(RE::Actor* a, State& st, int effect, float alpha, float holdSeconds)
 		{
 			const auto path = Path(effect);
-			const int slot = SlotOf(effect);
+			ClaimFaceSlots(a, st);
+			const int slot = st.slot[effect];
 			if (path.empty()) {
 				g_status = std::format("no texture for effect {}", effect);
 				return;
@@ -119,7 +145,7 @@ namespace Skin
 				return;
 			}
 			if (slot < 0) {
-				g_status = std::format("no free face overlay slot (skee64.ini has {})", g_faceSlots);
+				g_status = std::format("no free face overlay slot (skee64.ini has {}, other mods hold the rest)", g_faceSlots);
 				return;
 			}
 			const auto node = Node(slot);
@@ -136,7 +162,9 @@ namespace Skin
 		void Clear(RE::Actor* a, State& st, int effect)
 		{
 			if (!st.on[effect]) return;
-			if (const int slot = SlotOf(effect); slot >= 0) Papyrus::ClearOverlay(a, st.female, Node(slot));
+			// The slot this effect was painted into, not a recomputed one: clearing the wrong node
+			// would wipe whatever mod now holds it.
+			if (const int slot = st.slot[effect]; slot >= 0) Papyrus::ClearOverlay(a, st.female, Node(slot));
 			st.on[effect] = false;
 			st.until[effect] = 0.0f;
 			if (effect == kBlush) st.blushAlpha = 0.0f;

@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.4.0
+
+### Added
+- **Overlay slots are claimed from what is actually free on the actor.** Face overlays and body
+  blush used to count off from a configured first slot and hope. They now read each RaceMenu
+  overlay node back off the actor's own 3D, skip the ones another mod is already using, and take
+  the free ones above the configured slot. This sees every mod's work - Overlay Distribution
+  Framework, an ahegao mod, an overlay painted by hand in RaceMenu - because it reads the result
+  rather than anyone's configuration.
+- Face slots are claimed per actor rather than globally, since who holds what differs by NPC.
+
+### Notes
+- The limit is timing, not authorship: an overlay applied after we look is invisible until the
+  next rebuild. The body blush re-reads every ten ticks; face slots re-read when the actor's 3D
+  changes. Nothing is claimed below the configured first slot, which stays a reservation for
+  other mods. When too few slots are free, fewer rows are painted and the log says so.
+
 ## 1.3.5
 
 ### Fixed
