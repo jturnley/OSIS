@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.3.2
+
+### Added
+- **Every setting has a rollover explanation now.** 96 of the 143 controls had no tooltip, which
+  left most of the Director page unreadable unless you had the source open. Each one says what it
+  actually does, and what it depends on where that is not obvious - the anime accents needing
+  Style above 1.5, act-type awareness needing scene metadata, the cry for help being what brings
+  the responders.
+
+### Removed
+- `bEventBeats`, a Face setting that nothing has ever read. It was in the first commit and was
+  never wired to anything. Leaving the key in an existing ini is harmless; it is ignored.
+
 ## 1.3.1
 
 ### Fixed

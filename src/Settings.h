@@ -62,7 +62,6 @@ namespace Settings
 		inline bool bExcitementGradient = true;
 		inline bool bSpeedSync = true;
 		inline bool bRoleMetadata = true;
-		inline bool bEventBeats = true;
 		inline bool bAggressorGrammar = true;
 		inline bool bSpellNonConsent = true;          // scenes started by the player's spell (Matchmaker...) are non-consensual
 		inline bool bNCSceneLock = true;              // a thread started non-consensual plays non-consensual scenes only

@@ -266,9 +266,12 @@ namespace
 			bool was = bEnabled;
 			Check("Enabled", bEnabled, "Master switch. Turning it off ends OSED's control of every scene immediately.");
 			if (was && !bEnabled) OnGame([]() { Scenes::OnDisabled(); });
-			Check("Paint NPCs in the player's scene", bIncludeNPCs);
+			Check("Paint NPCs in the player's scene", bIncludeNPCs,
+				"Off: only the player's own face is driven, and their partners keep whatever OStim or another mod gives them.");
 			Check("Direct NPC-only scenes too", bNPCOnlyScenes, "OStim NPCs and similar mods start scenes without the player. OSED 2.0 ignored them.");
-			SliderF("NPC-only scene radius", fNPCSceneRadius, 500.0f, 10000.0f, "%.0f");
+			SliderF("NPC-only scene radius", fNPCSceneRadius, 500.0f, 10000.0f, "%.0f",
+				"Scenes without the player that start farther away than this are left alone: too far to watch, and every "
+				"painted actor costs a little work each frame.");
 			if (ig::Checkbox("Debug logging", &bDebug)) {
 				spdlog::set_level(bDebug ? spdlog::level::debug : spdlog::level::info);
 				g_dirty = true;
@@ -335,26 +338,42 @@ namespace
 				g_dirty = true;
 			}
 
-			SliderF("Strength", fGlobalStrength, 0.0f, 2.0f);
+			SliderF("Strength", fGlobalStrength, 0.0f, 2.0f, "%.2f", "How large every expression comes out. 1.00 is the authored size.");
 			SliderF("Style (realistic > cinematic > anime)", fStyle, 0.0f, 2.0f, "%.2f", "Above 1.5 enables the anime climax accents and tongue options.");
-			SliderF("Eye strength", fEyeStrength, 0.0f, 1.5f);
-			ComboI("Profile", iProfile, kProfiles, 3);
+			SliderF("Eye strength", fEyeStrength, 0.0f, 1.5f, "%.2f",
+				"The share of an expression that goes to the eyes: lids, squint and brow. Style raises it a little on its own.");
+			ComboI("Profile", iProfile, kProfiles, 3, "A size preset on top of Strength: Subtle 70%, Normal 100%, Expressive 130%.");
 			SliderF("Beat interval (s)", fBaseInterval, 1.0f, 8.0f, "%.1f", "How often the grammar picks a new face. Output is smoothed every frame in between.");
-			SliderF("Interval jitter (s)", fIntervalJitter, 0.0f, 3.0f, "%.1f");
-			SliderF("Transition (s)", fTransition, 0.05f, 2.0f);
+			SliderF("Interval jitter (s)", fIntervalJitter, 0.0f, 3.0f, "%.1f",
+				"Random variation either way on the beat interval, so the face does not change on a metronome.");
+			SliderF("Transition (s)", fTransition, 0.05f, 2.0f, "%.2f",
+				"How long a new face takes to blend in. Short is snappy, long is dreamy.");
 
 			ig::SeparatorText("Mouth");
-			Check("Yield mouth to oral actions", bYieldOralMouth);
-			Check("Yield mouth to dialogue", bDialogueMouthYield);
+			Check("Yield mouth to oral actions", bYieldOralMouth,
+				"During an oral action the mouth belongs to the act, so the grammar stops writing it and only the eyes and "
+				"brow keep going.");
+			Check("Yield mouth to dialogue", bDialogueMouthYield,
+				"While a dialogue menu is open or an actor is speaking lines, leave their mouth alone so the talking reads right.");
 			Check("Breathing clock", bBreathing, "Moan/breath mouth cycle between beats. Off by default: Lip-Sync drives the mouth from the real moans.");
-			Check("Mouth variety", bMouthVariety);
+			Check("Mouth variety", bMouthVariety,
+				"Varies the mouth shape from beat to beat above excitement 70, instead of holding one open mouth. Consensual "
+				"scenes only.");
 
 			ig::SeparatorText("Anime");
-			SliderF("Anime accent starts at excitement", fAnimeStart, 50.0f, 100.0f, "%.0f");
-			SliderF("Anime accent ends below", fAnimeEnd, 40.0f, 100.0f, "%.0f");
-			Check("Tongue at the peak (anime style)", bAnimeTongue);
-			Check("Full tongue mode", bAnimeTongueFull);
-			Check("Tongue life (rare small pulses)", bTongueLife);
+			SliderF("Anime accent starts at excitement", fAnimeStart, 50.0f, 100.0f, "%.0f",
+				"Where the anime accents begin. A climax starts them whatever this says. Needs Style above 1.5.");
+			SliderF("Anime accent ends below", fAnimeEnd, 40.0f, 100.0f, "%.0f",
+				"Once started they hold until excitement falls below this. Keep it under the start value, or the face flickers "
+				"on and off at the boundary.");
+			Check("Tongue at the peak (anime style)", bAnimeTongue,
+				"The tongue comes out at the peak of a consensual scene. Needs Style above 1.5, and nothing else holding the mouth.");
+			Check("Full tongue mode", bAnimeTongueFull,
+				"Out sooner and for longer: from excitement 90 rather than 95, held about twice as long, and able to happen "
+				"again after half the wait.");
+			Check("Tongue life (rare small pulses)", bTongueLife,
+				"Occasional small tongue flashes between the peaks, not only at them. Needs the peak tongue above, and runs "
+				"the face on a faster tick.");
 			Check("Leave faces to Ahegao Expressions if it is installed", bAhegaoAutoYield,
 				"On by default. Ahegao Expressions drives the whole face on its own schedule - its tongue can come out at half "
 				"arousal - so sharing a face with it only produces a fight. While it is installed this mod writes no faces at "
@@ -401,24 +420,37 @@ namespace
 			using namespace Settings::Face;
 			ig::TextWrapped("The Director's grammar layers. Defaults match the OSED 2.0 recommended preset.");
 			if (ig::CollapsingHeader("Emotion", ig::ImGuiTreeNodeFlags_DefaultOpen)) {
-				Check("Rich emotions (tender / lust / playful / surrender / detached)", bRichEmotions);
-				Check("Role aware (loving / rough tags)", bRoleAware);
-				Check("Act-type aware (oral / kissing / penetration)", bActTypeAware);
-				Check("Positional dominance flavor", bPositionalDomSub);
-				Check("Natural detail (asymmetry, micro-tics, relationship)", bNaturalDetail);
-				Check("Climax choreography", bClimaxChoreo);
-				Check("Cinematic afterglow", bCinematic);
-				Check("Exposure awareness (bashful when nude)", bExposureAware);
-				Check("Device awareness (gags, blindfolds)", bDeviceAware);
+				Check("Rich emotions (tender / lust / playful / surrender / detached)", bRichEmotions,
+					"Pleasure takes a colour of its own, chosen from personality, role and partner, and actors react to each "
+					"other's climax. Off: pleasure is one face.");
+				Check("Role aware (loving / rough tags)", bRoleAware, "The scene's loving and rough tags tint every expression in it.");
+				Check("Act-type aware (oral / kissing / penetration)", bActTypeAware,
+					"Oral, kissing and penetration each get their own mouth and timing. Needs scene metadata, under Head and gaze.");
+				Check("Positional dominance flavor", bPositionalDomSub,
+					"Who is over whom in this position shapes the face, not just the scene's tags.");
+				Check("Natural detail (asymmetry, micro-tics, relationship)", bNaturalDetail,
+					"Uneven sides, small tics, and a plateau the face can settle into, so repeated beats stop looking identical.");
+				Check("Climax choreography", bClimaxChoreo, "A built sequence through the orgasm instead of one held face.");
+				Check("Cinematic afterglow", bCinematic, "A held breath just before the climax, and a few beats of afterglow after it.");
+				Check("Exposure awareness (bashful when nude)", bExposureAware,
+					"A nude actor who is not yet worked up is bashful about it. Consensual scenes only.");
+				Check("Device awareness (gags, blindfolds)", bDeviceAware,
+					"A gag changes the mouth (closed, or held open by a ring) and a blindfold the eyes. Reads Devious Devices.");
 			}
 			if (ig::CollapsingHeader("Timing", ig::ImGuiTreeNodeFlags_DefaultOpen)) {
-				Check("Pace boost (stage changes + speed raise intensity)", bPaceBoost);
-				Check("Speed sync", bSpeedSync);
-				Check("Excitement gradient", bExcitementGradient);
-				Check("Phrase grammar (five-beat phrase envelope)", bPhraseGrammar);
-				Check("Scenario cycler", bScenarioCycler);
-				Check("Overwhelm face", bOverwhelmFace);
-				Check("Group conductor (3+ actors)", bGroupConductor);
+				Check("Pace boost (stage changes + speed raise intensity)", bPaceBoost,
+					"Changing scene and raising the animation speed push the face harder for a while.");
+				Check("Speed sync", bSpeedSync, "The animation speed shows in the face: a fast scene reads faster.");
+				Check("Excitement gradient", bExcitementGradient,
+					"The face follows how fast excitement is climbing, not only how high it has got.");
+				Check("Phrase grammar (five-beat phrase envelope)", bPhraseGrammar,
+					"Beats are grouped into a five-beat phrase that builds and releases, instead of each one standing alone.");
+				Check("Scenario cycler", bScenarioCycler, "Rotates through scene-long moods so a long scene does not settle into one.");
+				Check("Overwhelm face", bOverwhelmFace,
+					"Past a high excitement the face can be overwhelmed: slack mouth, eyes rolling up. Consensual scenes only, "
+					"and never while something else holds the mouth.");
+				Check("Group conductor (3+ actors)", bGroupConductor,
+					"With three or more actors their beats are spread apart, so the group does not change face in unison.");
 			}
 #if !OSIS_LITE
 			if (ig::CollapsingHeader("Consent")) {
@@ -443,9 +475,14 @@ namespace
 					"options that lead to one, and anything else that lands on a consensual scene is walked back. Pressing "
 					"OStim's auto-mode key still toggles auto mode.");
 				SliderF("Auto mode: seconds per scene", fNCAutoInterval, 5.0f, 90.0f, "%.0f", "On those threads. Varies 40% either way.");
-				Check("Consent guardrails", bConsentGuardrails);
-				Check("Hard exclusion gate (distress owns the face)", bHardExclusionGate);
-				Check("No overwhelm/ahegao in distress", bNoDistressOverwhelm);
+				Check("Consent guardrails", bConsentGuardrails,
+					"Holds the grammar inside what the scene allows: no pleasured face on a victim, and the anime accents, "
+					"tongue and overwhelm stay out of a forced scene.");
+				Check("Hard exclusion gate (distress owns the face)", bHardExclusionGate,
+					"In a non-consensual scene the victim's face is distress, full stop. Off: distress competes with the other "
+					"states beat by beat.");
+				Check("No overwhelm/ahegao in distress", bNoDistressOverwhelm,
+					"No gaping mouth or rolled-up eyes for anyone while a scene is distressed, the aggressor included.");
 				Check("Victim breaks after climaxing", bBrokenAfterClimax,
 					"When a victim climaxes, their mind checks out for the rest of the scene: the face goes empty (slack mouth, "
 					"lowered lids, a vacant downward stare) and stops reacting. Tears keep coming, the body keeps responding "
@@ -460,21 +497,28 @@ namespace
 			}
 #endif
 			if (ig::CollapsingHeader("Head and gaze")) {
-				Check("Gaze at partner", bGaze);
+				Check("Gaze at partner", bGaze, "Actors look at their partner rather than straight ahead.");
 #if !OSIS_LITE
-				Check("Only hold gaze when consensual", bGazeConsentOnly);
+				Check("Only hold gaze when consensual", bGazeConsentOnly, "A victim does not hold their aggressor's eyes.");
 #endif
-				Check("Headflow (throat arch, aversion, afterglow drop)", bHeadflow);
-				Check("Body demo (head tips back at climax)", bBodyDemo);
-				Check("Use OStim scene metadata for roles", bRoleMetadata);
+				Check("Headflow (throat arch, aversion, afterglow drop)", bHeadflow,
+					"The head moves with the scene: throat arched back, turned away, dropping in the afterglow.");
+				Check("Body demo (head tips back at climax)", bBodyDemo,
+					"A plain head-back tip at climax. Only used when Headflow above is off.");
+				Check("Use OStim scene metadata for roles", bRoleMetadata,
+					"Reads each actor's role and actions from OStim's own scene files. Off: roles are guessed from the scene "
+					"tags, and act-type awareness stops working.");
 			}
 			if (ig::CollapsingHeader("Pre-animation (normal state)")) {
-				Check("Normal state layer", bNormalState);
-				SliderF("Intensity", fNormalIntensity, 0.0f, 1.0f);
-				SliderF("Gaze frequency", fNormalGazeFrequency, 0.0f, 1.0f);
-				Check("Pre-warm from early excitement", bNormalPreWarm);
-				Check("NPCs glance at the player", bNormalGlancePlayer);
-				Check("Watcher trial (nearby NPC reacts)", bWatcher);
+				Check("Normal state layer", bNormalState,
+					"Faces before the animation starts, while OStim is still setting the scene up.");
+				SliderF("Intensity", fNormalIntensity, 0.0f, 1.0f, "%.2f", "Size of those pre-animation expressions.");
+				SliderF("Gaze frequency", fNormalGazeFrequency, 0.0f, 1.0f, "%.2f", "How often they look at someone while waiting.");
+				Check("Pre-warm from early excitement", bNormalPreWarm,
+					"Excitement already shows on the face before the animation starts. Consensual scenes only.");
+				Check("NPCs glance at the player", bNormalGlancePlayer, "An NPC in the scene looks the player over while waiting.");
+				Check("Watcher trial (nearby NPC reacts)", bWatcher,
+					"An NPC standing near the scene, not in it, reacts to what they are watching. Experimental: off by default.");
 			}
 		}
 		SaveBar();
@@ -492,8 +536,9 @@ namespace
 				g_dirty = true;
 			}
 			Check("SPID personality keywords", bSPIDPersonality, "OSED_Personality_DISTR.ini hands NPCs Bashful/Bold/Soft/Fierce keywords.");
-			Check("Voice set shapes personality", bVoiceArchetype);
-			Check("OBlush-aware shyness", bOBlushSync);
+			Check("Voice set shapes personality", bVoiceArchetype,
+				"An actor's voice type suggests a personality when nothing else has set one.");
+			Check("OBlush-aware shyness", bOBlushSync, "While OBlush has an actor blushing, the grammar treats them as shy.");
 		}
 		ig::SeparatorText("Crosshair NPC");
 		ig::TextWrapped("Aim at an NPC (or select one in the console), then pick a personality. Saved in your save game.");
@@ -525,16 +570,18 @@ namespace
 			std::scoped_lock l(Settings::lock);
 			using namespace Settings::Body;
 			ig::TextWrapped("Toe curl and hand grip at climax, applied to the bones after each animation update so the animation cannot overwrite it.");
-			Check("Enabled", bEnabled);
-			SliderF("Strength", fStrength, 0.0f, 1.0f);
-			Check("Toe curl", bToe);
+			Check("Enabled", bEnabled, "The same switch as Body on the General page.");
+			SliderF("Strength", fStrength, 0.0f, 1.0f, "%.2f", "How much of the angles below a full-strength climax reaches.");
+			Check("Toe curl", bToe, "Curl the toes at climax.");
 			SliderF("Toe degrees", fToeDegrees, 0.0f, 90.0f, "%.0f",
 				"How far the whole-foot toe bone bends at full strength. Past about 60 the toes start to pass through the sole on most foot meshes, so raise it and look before you keep it.");
 			SliderF("Per-toe curl", fPerToe, 0.0f, 3.0f, "%.2f",
 				"Extra bend at each toe's own two joints, on top of the whole-foot toe bone. Only shows on feet weighted to "
 				"XPMSSE's per-toe bones (Aerosmith TJ Feet, for example); other feet look as before. 0 = off.");
-			Check("Hand grip", bHand);
-			SliderF("Finger degrees", fFingerDegrees, 0.0f, 120.0f, "%.0f");
+			Check("Hand grip", bHand, "Curl the fingers at climax, and while a hand is working in a handjob.");
+			SliderF("Finger degrees", fFingerDegrees, 0.0f, 120.0f, "%.0f",
+				"How far each of a finger's three joints bends at full strength. Fingers have more travel than toes before "
+				"they pass through the palm.");
 			ig::SeparatorText("During foot actions");
 			Check("Toes work during foot actions", bFootFlex,
 				"Normally the toes only move at climax. With this on they hold a lower flex for as long as a footjob, "
@@ -565,16 +612,17 @@ namespace
 			                "saliva is a short climax beat. Tears are reserved for non-consensual scenes: the victim wells up when distress starts "
 			                "and at a forced climax. Without a tear texture, tears fall back to a welling-eyes expression.");
 #endif
-			Check("Enabled", bEnabled);
-			SliderF("Strength", fStrength, 0.0f, 1.5f);
-			Check("Blush", bBlush);
+			Check("Enabled", bEnabled, "The same switch as Living Skin on the General page.");
+			SliderF("Strength", fStrength, 0.0f, 1.5f, "%.2f", "Opacity of every face overlay at full effect.");
+			Check("Blush", bBlush, "The cheeks flush with excitement and the body's arousal level.");
 #if !OSIS_LITE
-			Check("Tears", bTears);
+			Check("Tears", bTears,
+				"On the victim of a non-consensual scene: welling up when distress starts, and again at a forced climax.");
 			Check("Emotional Tears Effect", bEmoTears, "If EmoTearsSpells.esp is installed, a crying victim also gets its streaming tears until the scene ends.");
 #endif
-			Check("Saliva", bSaliva);
-			Check("Scale with style", bStyleGated);
-			Check("Females only", bFemaleOnly);
+			Check("Saliva", bSaliva, "A short saliva beat at climax.");
+			Check("Scale with style", bStyleGated, "Overlay opacity by Style: realistic 45%, cinematic 75%, anime full.");
+			Check("Females only", bFemaleOnly, "Skip male actors. The stock textures are authored for female faces.");
 			Check("Matte overlays", bMatteOverlays,
 				"Zeroes the overlay's emissive and shine so it reads as colour in the skin rather than a sheen. If overlays show up "
 				"as solid black squares (reported with some Community Shaders setups), turn this off and see if they come right. "
@@ -582,9 +630,10 @@ namespace
 			SliderI("First face overlay slot", iFaceFirstSlot, 0, 15, "Slot 0 is often makeup; OSED uses one slot per effect from here.");
 			Path("Blush texture", sBlushPath, "Relative to Data\\textures, e.g. actors\\character\\Overlays\\FMS\\Blush\\Blush Cheeks 1.dds. Empty = auto.");
 #if !OSIS_LITE
-			Path("Tear texture", sTearPath);
+			Path("Tear texture", sTearPath,
+				"Relative to Data\\textures. Empty: no overlay, and tears fall back to a welling-eyes expression.");
 #endif
-			Path("Saliva texture", sSalivaPath);
+			Path("Saliva texture", sSalivaPath, "Relative to Data\\textures. Empty: no saliva overlay.");
 		}
 		const int slots = Skin::FaceOverlaySlots();
 		ig::TextDisabled("RaceMenu face overlay slots: %d (skee64.ini [Overlays/Face] iNumOverlays)", slots);
@@ -611,12 +660,13 @@ namespace
 			using namespace Settings::LipSync;
 			ig::TextWrapped("Moves the mouth with the moan OStim is actually playing: the moan files named by your OStim voice sets are "
 			                "decoded at startup and followed frame by frame. No bake step, no FaceFX, no second voice.");
-			Check("Enabled", bEnabled);
-			SliderF("Mouth gain", fGain, 0.2f, 2.0f);
-			SliderF("Max opening", fMaxOpen, 0.2f, 1.0f);
-			SliderF("Attack (s)", fAttack, 0.005f, 0.2f, "%.3f");
-			SliderF("Release (s)", fRelease, 0.02f, 0.5f, "%.3f");
-			Check("Eyes squeeze with the moan", bHoldEyes);
+			Check("Enabled", bEnabled, "The same switch as Lip-Sync on the General page.");
+			SliderF("Mouth gain", fGain, 0.2f, 2.0f, "%.2f", "How far the mouth opens per unit of loudness in the moan.");
+			SliderF("Max opening", fMaxOpen, 0.2f, 1.0f, "%.2f", "The widest the mouth goes, however loud the moan gets.");
+			SliderF("Attack (s)", fAttack, 0.005f, 0.2f, "%.3f", "How quickly the mouth follows a moan getting louder.");
+			SliderF("Release (s)", fRelease, 0.02f, 0.5f, "%.3f",
+				"How quickly it closes again. Longer than the attack, or the mouth chatters on every syllable.");
+			Check("Eyes squeeze with the moan", bHoldEyes, "The eyes tighten through the loud part of a moan, not just the mouth.");
 
 			ig::SeparatorText("While a tongue is out");
 			ig::TextWrapped("Ahegao mods stick the tongue out through OStim. A mouth that closes over it pushes the tongue through "
@@ -649,21 +699,28 @@ namespace
 			ig::TextWrapped("The victim of a non-consensual scene. OStim's moans and climax sounds are muted on them. Instead they cry for help "
 			                "as it starts, and guards or allies in range answer. Then they protest, curse or beg by personality, scream at the "
 			                "climax that breaks them, and after that only breathe hard. All lines are vanilla Skyrim dialogue in the actor's own voice.");
-			Check("Enabled", bEnabled);
-			Check("Mute OStim moans on the victim", bVictimNoMoans);
-			ComboI("Victim voice", iVictimVoice, kVoiceModes, 3);
+			Check("Enabled", bEnabled, "The same switch as Victim Voice on the General page.");
+			Check("Mute OStim moans on the victim", bVictimNoMoans,
+				"Silences OStim's moans and climax sounds on the victim, leaving room for the lines below. Off: both play "
+				"over each other.");
+			ComboI("Victim voice", iVictimVoice, kVoiceModes, 3,
+				"Silent: nothing at all. Breathing only: hard breathing, no words. Full: the cry for help, the personality "
+				"lines and the scream as well.");
 			SliderF("Seconds between lines", fInterval, 3.0f, 30.0f, "%.0f", "Varies 40% either way. Panicked victims speak more often, numb ones less.");
 			Check("Mute OStim dialogue on the victim", bMuteDialogue, "OStim's spoken scene comments (OActor.Mute), until the scene ends.");
 
 			ig::SeparatorText("Call for help");
-			Check("Cry for help as it starts", bCallForHelp);
+			Check("Cry for help as it starts", bCallForHelp,
+				"The victim calls out when the scene starts. This is what brings the responders below; without it nobody "
+				"knows to come.");
 			ComboI("Who answers", iResponders, kResponderModes, 3,
 				"Guards and allies in range attack the aggressor; the victim stays in the scene. When the aggressor is the player and a "
 				"guard answered, the assault also goes on the player's bounty in the victim's hold. Combat can end the OStim scene.");
-			SliderF("Answer range", fResponderRange, 256.0f, 8192.0f, "%.0f");
+			SliderF("Answer range", fResponderRange, 256.0f, 8192.0f, "%.0f",
+				"How far from the scene a guard or ally can be and still hear the cry. About 2000 is a city block.");
 
 			ig::SeparatorText("Breaking climax");
-			Check("Scream", bBreakScream);
+			Check("Scream", bBreakScream, "A scream at the climax that breaks the victim, before the shocked face below.");
 			SliderF("Shocked face (s)", fShockSeconds, 0.0f, 10.0f, "%.1f", "Before the vacant face of a broken victim. 0 = straight to vacant.");
 		}
 		ig::SeparatorText("Status");
@@ -686,25 +743,34 @@ namespace
 			std::scoped_lock l(Settings::lock);
 			using namespace Settings::Arousal;
 			ig::SeparatorText("Arousal");
-			Check("Enabled", bEnabled);
-			Check("Affect player", bAffectPlayer);
-			Check("Affect nearby NPCs", bAffectNPCs);
-			ComboI("Arousal source", iSource, kSources, 4);
+			Check("Enabled", bEnabled, "The same switch as Arousal on the General page.");
+			Check("Affect player", bAffectPlayer, "Drive the player's own morphs and body blush.");
+			Check("Affect nearby NPCs", bAffectNPCs, "Drive NPCs around the player too, within the limits below.");
+			ComboI("Arousal source", iSource, kSources, 4,
+				"Where the arousal number comes from. Auto takes OSL Aroused if it is installed, then SLO Aroused NG, then "
+				"OStim excitement on its own. The Status page says which was found.");
 			SliderF("Intensity", fIntensity, 0.0f, 2.0f, "%.2f", "Multiplier on every morph's change and the body blush.");
-			SliderI("Max NPCs", iMaxNPCs, 0, 20);
-			SliderF("NPC radius", fRadius, 500.0f, 8000.0f, "%.0f");
-			SliderF("Update interval (s)", fInterval, 0.25f, 10.0f);
+			SliderI("Max NPCs", iMaxNPCs, 0, 20, "At most this many NPCs are tracked at once. Each one costs morph work.");
+			SliderF("NPC radius", fRadius, 500.0f, 8000.0f, "%.0f", "NPCs farther from the player than this are left alone.");
+			SliderF("Update interval (s)", fInterval, 0.25f, 10.0f, "%.2f",
+				"Seconds between arousal recalculations. Lower reacts sooner and costs more; the morphs are smoothed in "
+				"between either way.");
 
 			ig::SeparatorText("Scene factors");
-			Check("OStim excitement is an arousal floor in scenes", bOStimExcitement);
+			Check("OStim excitement is an arousal floor in scenes", bOStimExcitement,
+				"During a scene the body never reads below OStim's excitement, however low the arousal mod has them. Off: "
+				"an actor with no tracked arousal stays flat through the whole scene.");
 			Check("Climax / edging / afterglow", bSceneFactors,
 				"An orgasm pushes to full engorgement for the hold time; edging holds high; afterwards the level eases back to the reported arousal, never to zero.");
-			SliderF("Climax hold (s)", fClimaxHold, 0.0f, 30.0f, "%.0f");
+			SliderF("Climax hold (s)", fClimaxHold, 0.0f, 30.0f, "%.0f",
+				"Seconds at full engorgement after an orgasm before it starts easing back.");
 			Check("Personality shapes the response", bPersonality, "Vocal/dominant engorge faster, stoic slower; shy flushes harder.");
 
 			ig::SeparatorText("Physiological response");
-			SliderF("Engorgement half-life (s)", fRiseHalfLife, 1.0f, 120.0f, "%.0f");
-			SliderF("Resolution half-life (s)", fFallHalfLife, 1.0f, 600.0f, "%.0f");
+			SliderF("Engorgement half-life (s)", fRiseHalfLife, 1.0f, 120.0f, "%.0f",
+				"Seconds to cover half the distance to the target while the level is rising.");
+			SliderF("Resolution half-life (s)", fFallHalfLife, 1.0f, 600.0f, "%.0f",
+				"The same while it falls. Longer than the rise on purpose: a body settles slower than it responds.");
 		}
 		ig::SeparatorText("Affected actors");
 		const auto rows = Arousal::Snapshot();
@@ -737,10 +803,11 @@ namespace
 				if (ig::Checkbox("##on", &m.enabled)) g_dirty = true;
 				ig::SameLine();
 				ig::SeparatorText(m.name.c_str());
-				SliderF("Start", m.start, 0.0f, 1.0f);
-				SliderF("Full", m.full, 0.0f, 1.0f);
-				SliderF("Rest", m.rest, -1.0f, 1.5f);
-				SliderF("Max", m.max, -1.0f, 1.5f);
+				SliderF("Start", m.start, 0.0f, 1.0f, "%.2f", "Response level where this slider starts to move.");
+				SliderF("Full", m.full, 0.0f, 1.0f, "%.2f", "Response level where it reaches Max.");
+				SliderF("Rest", m.rest, -1.0f, 1.5f, "%.2f", "Where the slider sits on an unaroused body.");
+				SliderF("Max", m.max, -1.0f, 1.5f, "%.2f", "Where it sits at full response. Negative is allowed: some sliders "
+					"read the other way round.");
 				ComboI("Body", m.sex, kBodySexes, 3, "CBBE/3BA slider names mean nothing on a male body, so the stock rows are female "
 					"only. Add rows set to Male if your male body has morphs worth driving.");
 				if (m.full <= m.start) m.full = std::min(1.0f, m.start + 0.01f);
@@ -775,9 +842,11 @@ namespace
 		{
 			std::scoped_lock l(Settings::lock);
 			using namespace Settings::Arousal;
-			Check("Enable body blushing", bBlush);
+			Check("Enable body blushing", bBlush,
+				"Needs Body Blushing (iAmChe) installed for the textures, unless every row below points at your own.");
 			SliderI("First slot", iOverlayFirstSlot, 0, 31, "Slots below this are left for other overlay mods.");
-			SliderI("Slots to use", iOverlaySlots, 0, 16);
+			SliderI("Slots to use", iOverlaySlots, 0, 16,
+				"How many regions can show at once. Each takes one body overlay slot, so this is also how many slots are claimed.");
 			const int needed = iOverlayFirstSlot + iOverlaySlots;
 			if (needed > have) {
 				ig::TextColored(kWarn, "RaceMenu has %d body overlay slots; this needs %d.", have, needed);
@@ -790,9 +859,9 @@ namespace
 				if (ig::Checkbox("##on", &b.enabled)) g_dirty = true;
 				ig::SameLine();
 				ig::SeparatorText(b.name.c_str());
-				SliderF("Start", b.start, 0.0f, 1.0f);
-				SliderF("Full", b.full, 0.0f, 1.0f);
-				SliderF("Max", b.max, 0.0f, 1.0f);
+				SliderF("Start", b.start, 0.0f, 1.0f, "%.2f", "Response level where this region starts to show.");
+				SliderF("Full", b.full, 0.0f, 1.0f, "%.2f", "Response level where it reaches Max.");
+				SliderF("Max", b.max, 0.0f, 1.0f, "%.2f", "Overlay opacity at full response, before the per-race multiplier.");
 				if (b.full <= b.start) b.full = std::min(1.0f, b.start + 0.01f);
 				{
 					char tex[200];
@@ -854,7 +923,7 @@ namespace
 			for (size_t i = 0; i < raceBlush.size(); ++i) {
 				auto& r = raceBlush[i];
 				ig::PushID(static_cast<int>(i) + 2000);
-				SliderF(r.race.c_str(), r.mult, 0.0f, 3.0f, "%.2fx");
+				SliderF(r.race.c_str(), r.mult, 0.0f, 3.0f, "%.2fx", "Multiplies the body blush opacity for this race.");
 				ig::SameLine();
 				if (ig::Button("Remove")) removeRace = static_cast<int>(i);
 				ig::PopID();

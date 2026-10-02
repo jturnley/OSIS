@@ -66,7 +66,6 @@ namespace Settings
 				{ "Face", "bExcitementGradient", &Face::bExcitementGradient },
 				{ "Face", "bSpeedSync", &Face::bSpeedSync },
 				{ "Face", "bRoleMetadata", &Face::bRoleMetadata },
-				{ "Face", "bEventBeats", &Face::bEventBeats },
 #if !OSIS_LITE
 				{ "Face", "bAggressorGrammar", &Face::bAggressorGrammar },
 				{ "Face", "bSpellNonConsent", &Face::bSpellNonConsent },
@@ -490,7 +489,6 @@ namespace Settings
 		bExcitementGradient = true;
 		bSpeedSync = true;
 		bRoleMetadata = true;
-		bEventBeats = true;
 		bAggressorGrammar = true;
 		bSpellNonConsent = true;
 		bNCSceneLock = true;
