@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.5
+
+### Changed
+- **A wider jaw clearance while a tongue is out.** Holding BigAah alone dropped the jaw without
+  parting the lips much, so the tongue still rested on the bottom lip. The clearance now uses the
+  same BigAah + Aah shape the lip-sync track uses to open a mouth, and gives way on the lip
+  shapes that purse or stretch the mouth shut again. The default hold is now 0.75 (was 0.45).
+
 ## 1.2.4
 
 ### Fixed

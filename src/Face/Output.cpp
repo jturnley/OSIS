@@ -287,9 +287,10 @@ namespace Face::Output
 				if (auto* sfg = a->GetFaceGenAnimationData()) {
 					RE::BSSpinLockGuard guard(sfg->lock);
 					auto& kf = sfg->phenomeKeyFrame;
-					const float live = kf.values && kBigAah < kf.count ? kf.values[kBigAah] : 0.0f;
-					if (live < st.mouthFloor) Write(kf, kBigAah, st.mouthFloor);
-					if (kf.values && kBMP < kf.count && kf.values[kBMP] > 0.0f) Write(kf, kBMP, 0.0f);
+					const auto live = [&](std::uint32_t i) { return kf.values && i < kf.count ? kf.values[i] : 1.0f; };
+					if (live(kBigAah) < st.mouthFloor) Write(kf, kBigAah, st.mouthFloor);
+					if (live(kAah) < st.mouthFloor * 0.35f) Write(kf, kAah, st.mouthFloor * 0.35f);
+					if (live(kBMP) > 0.0f) Write(kf, kBMP, 0.0f);
 				}
 			}
 			return;
@@ -367,12 +368,22 @@ namespace Face::Output
 			// A tongue is out. Whoever is driving the mouth, the jaw stays open and the lips stay
 			// apart, or the tongue is pushed straight through them.
 			if (st.mouthFloor > 0.0f) {
+				// The jaw drop is BigAah with a little Aah behind it, the same shape the lip-sync
+				// track uses to open a mouth; BigAah alone drops the jaw without parting the lips
+				// much, which is what left a tongue resting on the bottom lip.
 				if (i == kBigAah) {
 					v = std::max(v, st.mouthFloor);
+					write = true;
+				} else if (i == kAah) {
+					v = std::max(v, st.mouthFloor * 0.35f);
 					write = true;
 				} else if (i == kBMP) {
 					v = 0.0f;
 					write = true;
+				} else if (i == kOh || i == kEee) {
+					// Pursing or stretching the lips closes the gap again. Give way to the floor.
+					v = std::min(v, 1.0f - st.mouthFloor);
+					write = write || v > 0.0f;
 				}
 			}
 			if (write) Write(fg->phenomeKeyFrame, i, v);

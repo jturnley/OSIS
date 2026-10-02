@@ -151,7 +151,7 @@ namespace Settings
 		// "tongue" object). Closing lips over an out tongue makes it clip through.
 		enum Tongue : int { kTongueStop = 0, kTongueHold = 1, kTongueIgnore = 2 };
 		inline int iTongueMode = kTongueStop;
-		inline float fTongueMinOpen = 0.45f;  // how far the jaw is held open while a tongue is out
+		inline float fTongueMinOpen = 0.75f;  // how far the jaw is held open while a tongue is out
 		inline bool bYieldToDDF = true;       // stand down while Dynamic Dialogue Framework is installed (both drive the mouth)
 	}
 
