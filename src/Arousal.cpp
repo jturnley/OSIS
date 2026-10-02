@@ -7,6 +7,7 @@
 
 #include "Compat.h"
 #include "Face/Engine.h"
+#include "FsUtil.h"
 #include "Papyrus.h"
 #include "Scenes.h"
 #include "Settings.h"
@@ -52,6 +53,7 @@ namespace Arousal
 		bool g_hasSLO = false;
 		std::atomic_bool g_clearRequested = false;
 		std::uint32_t g_tick = 0;
+		std::unordered_set<std::string> g_missingBlush;  // texture paths already warned about
 		float g_lastTick = 0.0f;
 		float g_nextTick = 0.0f;
 		int g_bodyOverlays = 6;
@@ -154,6 +156,16 @@ namespace Arousal
 					if (active.size() < static_cast<size_t>(s.slots)) active.push_back(&b);
 				}
 			}
+			// A row whose texture is not installed is dropped rather than painted: the slot would
+			// render black over the body, which reads as a shader bug.
+			std::erase_if(active, [](const S::Blush* b) {
+				const auto path = BlushTexture(*b);
+				if (FsUtil::TextureExists(path)) return false;
+				if (g_missingBlush.insert(path).second) {
+					logger::warn("Arousal: body blush texture not found, that row is skipped: {}", path);
+				}
+				return true;
+			});
 			std::vector<std::string> textures;
 			for (const auto* b : active) textures.push_back(BlushTexture(*b));
 

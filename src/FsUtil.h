@@ -46,6 +46,20 @@ namespace FsUtil
 		return ext;
 	}
 
+	// A texture the engine can actually load, named the way the overlay functions want it:
+	// relative to Data\\textures. Goes through the resource system, so a file inside a BSA counts
+	// and a loose-file test would not. Worth checking before every overlay: NiOverride takes a
+	// missing path without complaint and the slot then renders as a black patch over the body,
+	// which looks like a shader bug rather than a missing file.
+	inline bool TextureExists(std::string_view a_relative)
+	{
+		if (a_relative.empty()) return false;
+		std::string path("textures\\");
+		path.append(a_relative);
+		RE::BSResourceNiBinaryStream stream(path);
+		return stream.good();
+	}
+
 	struct WalkStats
 	{
 		std::size_t files = 0;

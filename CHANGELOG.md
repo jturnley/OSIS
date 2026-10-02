@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.3.3
+
+### Fixed
+- **An overlay is never pointed at a texture that is not installed.** NiOverride accepts a
+  missing path without complaint and the slot then renders as a black patch over the body, which
+  looks like a shader bug rather than a missing file. Face overlays and body blush rows now check
+  the path through the resource system first, skip the ones that are not there, and name them in
+  the log once. This is a candidate cause of the black-squares reports; it is not the only one.
+- Female Makeup Suite's cheek blush is detected inside a BSA as well. The check was for a loose
+  file, so a BSA-packed install of it read as "not found".
+
 ## 1.3.2
 
 ### Added

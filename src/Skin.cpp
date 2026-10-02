@@ -10,6 +10,7 @@
 
 #include "Face/Engine.h"
 #include "Face/Output.h"
+#include "FsUtil.h"
 #include "Papyrus.h"
 #include "Scenes.h"
 #include "Scheduler.h"
@@ -44,6 +45,7 @@ namespace Skin
 		int g_faceSlots = 3;
 		bool g_autoBlush = false;
 		std::string g_status = "idle";
+		std::unordered_set<std::string> g_missing;  // texture paths already warned about
 		RE::SpellItem* g_emoTears = nullptr;     // EmoTearsSpells.esp zzTearsTestAbility
 		std::vector<RE::FormID> g_emoLeftovers;  // abilities a save made mid-scene left behind
 
@@ -107,6 +109,13 @@ namespace Skin
 			const int slot = SlotOf(effect);
 			if (path.empty()) {
 				g_status = std::format("no texture for effect {}", effect);
+				return;
+			}
+			if (!FsUtil::TextureExists(path)) {
+				if (g_missing.insert(path).second) {
+					logger::warn("Living Skin: texture not found, that overlay is skipped: {}", path);
+				}
+				g_status = std::format("texture not found: {}", path);
 				return;
 			}
 			if (slot < 0) {
@@ -251,8 +260,7 @@ namespace Skin
 			// skee64.ini has inline "; Default[3]" comments, which GetLongValue rejects.
 			g_faceSlots = std::atoi(skee.GetValue("Overlays/Face", "iNumOverlays", "3"));
 		}
-		std::error_code ec;
-		g_autoBlush = std::filesystem::exists(std::string("Data/textures/") + kAutoBlush, ec);
+		g_autoBlush = FsUtil::TextureExists(kAutoBlush);
 #if !OSIS_LITE
 		if (auto* dh = RE::TESDataHandler::GetSingleton()) g_emoTears = dh->LookupForm<RE::SpellItem>(0xD65, "EmoTearsSpells.esp");
 		logger::info("Living Skin: Emotional Tears Effect {}", g_emoTears ? "found" : "not installed");
