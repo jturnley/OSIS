@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.3.0
+
+### Changed
+- **Ahegao Expressions now gets the face to itself.** If `AhegaoExpressions.esp` is installed,
+  this mod writes no faces at all and keeps to the body: arousal, blush, tears, climax, toe curl.
+  Ahegao Expressions drives faces on its own schedule - its tongue can come out at half arousal,
+  with its own expression behind it - so sharing a face with it only produced a fight. New
+  setting `bAhegaoAutoYield` (on); untick "Leave faces to Ahegao Expressions if it is installed"
+  on the Faces page to drive faces anyway.
+- The per-actor hand-over no longer holds the jaw open around another mod's tongue. Their tongue,
+  their mouth; the clearance only ever arrived at the wrong moment.
+
+### Fixed
+- The custom blush texture tooltip printed its example path with the backslashes eaten.
+
 ## 1.2.5
 
 ### Changed

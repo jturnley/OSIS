@@ -354,10 +354,13 @@ namespace
 			Check("Tongue at the peak (anime style)", bAnimeTongue);
 			Check("Full tongue mode", bAnimeTongueFull);
 			Check("Tongue life (rare small pulses)", bTongueLife);
-			Check("Always yield to another ahegao mod", bAhegaoModYield,
-				"Not usually needed now. An ahegao mod that puts the tongue out through OStim is detected while it is actually "
-				"running, and this mod hands that actor's whole face over for as long as it lasts, then takes it back by itself. "
-				"Tick this only if yours drives faces some other way and the two still fight.");
+			Check("Leave faces to Ahegao Expressions if it is installed", bAhegaoAutoYield,
+				"On by default. Ahegao Expressions drives the whole face on its own schedule - its tongue can come out at half "
+				"arousal - so sharing a face with it only produces a fight. While it is installed this mod writes no faces at "
+				"all and keeps to the body: arousal, blush, tears, climax. Untick to drive faces anyway.");
+			Check("Always yield to an ahegao mod", bAhegaoModYield,
+				"The same stand-down, forced on whether or not Ahegao Expressions is detected. For any other mod that drives "
+				"faces and fights with this one.");
 		}
 		ig::Spacing();
 		// Equipping OStim's tongue by hand is exactly what an ahegao mod does, so this exercises

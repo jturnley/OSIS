@@ -87,7 +87,8 @@ namespace Settings
 		inline bool bNormalGlancePlayer = true;
 		inline bool bWatcher = false;
 
-		inline bool bAhegaoModYield = false;  // blanket fallback; a live tongue is detected per actor anyway
+		inline bool bAhegaoModYield = false;   // force the yield on, whatever is or is not installed
+		inline bool bAhegaoAutoYield = true;   // Ahegao Expressions installed: leave faces to it
 		inline bool bAnimeTongue = false;
 		inline bool bAnimeTongueFull = false;
 		inline bool bTongueLife = false;
@@ -151,7 +152,7 @@ namespace Settings
 		// "tongue" object). Closing lips over an out tongue makes it clip through.
 		enum Tongue : int { kTongueStop = 0, kTongueHold = 1, kTongueIgnore = 2 };
 		inline int iTongueMode = kTongueStop;
-		inline float fTongueMinOpen = 0.75f;  // how far the jaw is held open while a tongue is out
+		inline float fTongueMinOpen = 0.45f;  // how far the jaw is held open while a tongue is out
 		inline bool bYieldToDDF = true;       // stand down while Dynamic Dialogue Framework is installed (both drive the mouth)
 	}
 

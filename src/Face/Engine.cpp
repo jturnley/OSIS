@@ -324,12 +324,10 @@ namespace Face::Engine
 						Output::SetSuspended(a, true);
 						logger::debug("thread {}: {:08X} {} handed to an ahegao mod", t.id, a->GetFormID(), a->GetDisplayFullName());
 					}
-					// Their tongue, but the jaw clearance stays on: it only ever opens the mouth
-					// wider than they asked, and a mod that leaves the mouth shut around its own
-					// tongue clips without it.
-					Output::SetMouthFloor(a, Settings::LipSync::iTongueMode != Settings::LipSync::kTongueIgnore ?
-											  Settings::LipSync::fTongueMinOpen :
-											  0.0f);
+					// Their tongue, their mouth. We used to hold the jaw clear of it, but an ahegao
+					// mod puts the tongue out on its own schedule and opens the mouth in its own
+					// time, so the clearance only ever arrived at the wrong moment.
+					Output::SetMouthFloor(a, 0.0f);
 					SetOwners(s, "Ahegao mod", "Ahegao mod", "Ahegao mod", "Ahegao mod");
 					if (arc) {
 						const int enjEff = EffectiveIntensity(t, a);
@@ -766,7 +764,18 @@ namespace Face::Engine
 			return dom >= 0 && dom < static_cast<int>(names.size()) ? names[dom] : "Pleasure";
 		}
 
-		bool AhegaoYield() { return S::bAhegaoModYield; }
+		// Ahegao Expressions drives the whole face on its own schedule: its tongue can come out at
+		// half arousal with its own expression behind it, and it fades in and out as it likes.
+		// Sharing a face with that only produces a fight neither side wins, so when one is
+		// installed we leave faces to it and keep to the body. Looked up once; plugins do not come
+		// and go mid-session.
+		bool AhegaoModInstalled()
+		{
+			static const bool has = HasPlugin("AhegaoExpressions.esp");
+			return has;
+		}
+
+		bool AhegaoYield() { return S::bAhegaoModYield || (S::bAhegaoAutoYield && AhegaoModInstalled()); }
 
 		// Ahegao Expressions and friends put the tongue out with OActor.EquipObject(act, "tongue")
 		// and then write their own phonemes. A tongue that is out but not ours means one of them
