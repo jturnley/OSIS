@@ -278,7 +278,22 @@ namespace Face::Output
 		if (it == g_states.end()) return;
 		auto& st = it->second;
 
-		if (st.suspended) return;  // another mod owns this face
+		// Another mod owns this face: write nothing of our own, with one exception. While a tongue
+		// is out the jaw clearance still goes on, because it can only open the mouth wider than
+		// they asked for, never close it - and a mod that puts the tongue out without opening the
+		// mouth itself would otherwise leave it clipping straight through the lips.
+		if (st.suspended) {
+			if (st.mouthFloor > 0.0f) {
+				if (auto* sfg = a->GetFaceGenAnimationData()) {
+					RE::BSSpinLockGuard guard(sfg->lock);
+					auto& kf = sfg->phenomeKeyFrame;
+					const float live = kf.values && kBigAah < kf.count ? kf.values[kBigAah] : 0.0f;
+					if (live < st.mouthFloor) Write(kf, kBigAah, st.mouthFloor);
+					if (kf.values && kBMP < kf.count && kf.values[kBMP] > 0.0f) Write(kf, kBMP, 0.0f);
+				}
+			}
+			return;
+		}
 		auto* fg = a->GetFaceGenAnimationData();
 		if (!fg) return;
 		dt = std::clamp(dt, 0.0f, 0.1f);

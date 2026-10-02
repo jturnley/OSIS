@@ -321,10 +321,15 @@ namespace Face::Engine
 						s.animeActive = false;
 						s.animeVariant = -1;
 						s.tongueLifeUntil = s.tongueLifeNext = s.tonguePrimeUntil = s.tongueHoldUntil = s.tongueCooldownUntil = 0.0f;
-						Output::SetMouthFloor(a, 0.0f);
 						Output::SetSuspended(a, true);
 						logger::debug("thread {}: {:08X} {} handed to an ahegao mod", t.id, a->GetFormID(), a->GetDisplayFullName());
 					}
+					// Their tongue, but the jaw clearance stays on: it only ever opens the mouth
+					// wider than they asked, and a mod that leaves the mouth shut around its own
+					// tongue clips without it.
+					Output::SetMouthFloor(a, Settings::LipSync::iTongueMode != Settings::LipSync::kTongueIgnore ?
+											  Settings::LipSync::fTongueMinOpen :
+											  0.0f);
 					SetOwners(s, "Ahegao mod", "Ahegao mod", "Ahegao mod", "Ahegao mod");
 					if (arc) {
 						const int enjEff = EffectiveIntensity(t, a);

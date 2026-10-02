@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.2.4
+
+### Fixed
+- **The jaw clearance now survives the ahegao hand-over.** Handing an actor's face to an ahegao
+  mod also dropped the jaw floor, so a mod that puts the tongue out without opening the mouth
+  itself left the tongue clipping through closed lips. The clearance can only open the mouth
+  wider than the other mod asked for, never close it, so it is safe to keep on while they drive.
+
 ## 1.2.3
 
 ### Changed
