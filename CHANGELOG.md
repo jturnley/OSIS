@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.2.2
+
+### Added
+- A **"Test: tongue out for 8s"** button on the Faces page. It equips OStim's tongue on the
+  crosshair actor exactly the way an ahegao mod does, so the hand-over can be seen on demand
+  instead of waiting for one to trigger.
+
 ## 1.2.1
 
 ### Fixed

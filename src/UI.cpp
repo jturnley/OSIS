@@ -340,6 +340,22 @@ namespace
 				"Tick this only if yours drives faces some other way and the two still fight.");
 		}
 		ig::Spacing();
+		// Equipping OStim's tongue by hand is exactly what an ahegao mod does, so this exercises
+		// the hand-over without waiting for one to fire.
+		if (ig::Button("Test: tongue out for 8s (crosshair actor)")) OnGame([]() {
+			auto* a = CrosshairActor();
+			if (!a) {
+				Papyrus::Notify("OSIS: aim at an actor first");
+				return;
+			}
+			Papyrus::EquipObject(a, "tongue");
+			Papyrus::Notify("OSIS: tongue out for 8 s");
+			Scheduler::After(8.0f, [h = a->GetHandle()]() {
+				if (auto actor = h.get()) Papyrus::UnequipObject(actor.get(), "tongue");
+			});
+		});
+		ig::SetItemTooltip("Puts OStim's tongue on the actor the way an ahegao mod does. In a scene, watch the Status page: the "
+		                   "owner columns should switch to \"Ahegao mod\" while it is out, then switch back.");
 		if (ig::Button("Test face on crosshair actor")) OnGame([]() {
 			if (auto* a = CrosshairActor()) {
 				Face::Engine::TestOnActor(a);
