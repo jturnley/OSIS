@@ -314,7 +314,13 @@ namespace Skin
 		}
 		TrySaliva(b.actor, st, enjoy, false, false);
 		if (blush) {
-			if (Face::Engine::OBlushPresent()) {
+			if (Face::Engine::FaceYielded()) {
+				// Ahegao Expressions paints its own blush overlay and takes a face slot for it.
+				// RaceMenu ships three slots; two mods writing blush into that pool is how an
+				// overlay ends up black or missing. The face is theirs, and so are its overlays.
+				Clear(b.actor, st, kBlush);
+				g_status = "blush yielded to an ahegao mod";
+			} else if (Face::Engine::OBlushPresent()) {
 				// OBlush already blushes the face; two blush layers look like a rash.
 				Clear(b.actor, st, kBlush);
 				g_status = "blush yielded to OBlush";

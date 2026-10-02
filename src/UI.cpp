@@ -185,7 +185,7 @@ namespace
 			Row("SLO Aroused NG", Arousal::HasSLO());
 			Row("OBlush (face blush yields to it)", Face::Engine::OBlushPresent());
 			Row("Devious Devices (gag/blindfold faces)", Face::Engine::DevicesPresent());
-			Row("Ahegao Expressions (faces yield to it)", Face::Engine::AhegaoPresent());
+			Row("Ahegao Expressions (faces and face blush yield to it)", Face::Engine::AhegaoPresent());
 			Row("Overlay Distribution Framework", Compat::ODFActive(), "installed (shares overlay slots)", "not installed");
 			ig::EndTable();
 		}
@@ -377,8 +377,9 @@ namespace
 				"the face on a faster tick.");
 			Check("Leave faces to Ahegao Expressions if it is installed", bAhegaoAutoYield,
 				"On by default. Ahegao Expressions drives the whole face on its own schedule - its tongue can come out at half "
-				"arousal - so sharing a face with it only produces a fight. While it is installed this mod writes no faces at "
-				"all and keeps to the body: arousal, blush, tears, climax. Untick to drive faces anyway.");
+				"arousal - so sharing a face with it only produces a fight. It also paints its own face blush, which competes "
+				"for the same RaceMenu face overlay slots. While it is installed this mod writes no faces and no face blush, "
+				"and keeps to the body: arousal morphs, body blush, climax. Untick to drive faces anyway.");
 			Check("Always yield to an ahegao mod", bAhegaoModYield,
 				"The same stand-down, forced on whether or not Ahegao Expressions is detected. For any other mod that drives "
 				"faces and fights with this one.");

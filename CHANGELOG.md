@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.3.5
+
+### Fixed
+- **The face blush yields to Ahegao Expressions as well.** It paints a blush overlay of its own
+  and takes a RaceMenu face slot for it. RaceMenu ships three slots, so two mods writing blush
+  into that pool is how an overlay ends up black or missing - the cause of a black-overlay
+  report. The yield already handed it the face; the face's overlays go with it. The body blush,
+  arousal morphs and climax work are unaffected.
+
 ## 1.3.4
 
 ### Added
