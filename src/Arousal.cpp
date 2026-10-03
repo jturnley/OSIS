@@ -5,6 +5,7 @@
 
 #include "Arousal.h"
 
+#include "Body.h"
 #include "Compat.h"
 #include "Face/Engine.h"
 #include "FsUtil.h"
@@ -74,6 +75,7 @@ namespace Arousal
 			std::vector<S::Blush> blushes;
 			std::vector<S::RaceBlush> raceBlush;
 			bool matte;
+			bool genitals;
 		};
 
 		Snap CopySettings()
@@ -81,7 +83,8 @@ namespace Arousal
 			std::scoped_lock l(Settings::lock);
 			return { S::bEnabled && Settings::General::bEnabled, S::bAffectPlayer, S::bAffectNPCs, S::bOStimExcitement, S::bSceneFactors,
 				S::bPersonality, S::iSource, S::iMaxNPCs, S::fIntensity, S::fRadius, S::fRiseHalfLife, S::fFallHalfLife, S::fClimaxHold,
-				S::morphs, S::bBlush, S::iOverlayFirstSlot, S::iOverlaySlots, S::blushes, S::raceBlush, Settings::Skin::bMatteOverlays };
+				S::morphs, S::bBlush, S::iOverlayFirstSlot, S::iOverlaySlots, S::blushes, S::raceBlush, Settings::Skin::bMatteOverlays,
+				Settings::Body::bGenitals };
 		}
 
 		float Ease(float level, float start, float full)
@@ -449,6 +452,11 @@ namespace Arousal
 			if (std::abs(st.target - st.level) < 0.002f) st.level = st.target;
 
 			ApplyBlush(a, st, s);
+			// A male body has no softbody sliders worth driving, but it does have the genital
+			// chain. Same level, applied as bones in the Body module. The enable comes from the
+			// tick's settings snapshot: this runs under the state lock, and taking Settings::lock
+			// here would invert the project's Scenes -> Settings -> module lock order.
+			if (!st.female && s.genitals) Body::SetGenitalResponse(a, st.level * std::clamp(s.intensity, 0.0f, 1.0f));
 
 			bool changed = false;
 			for (size_t i = 0; i < s.morphs.size(); ++i) {

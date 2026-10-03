@@ -14,6 +14,10 @@ namespace Body
 {
 	void OnClimaxPeak(RE::Actor* a_actor, float a_magnitude);   // 0..1
 	void OnPaint(const Pulse::Beat& a_beat);                    // every arc: sustained foot flex
+	// How far along the genital chain should be on this actor, 0-1. Held until set again, eased
+	// in and out, applied every frame like the curl. Male bodies only; ignored without the bones.
+	void SetGenitalResponse(RE::Actor* a_actor, float a_level);
+	void TestGenitals(RE::Actor* a_actor);
 	void Test(RE::Actor* a_actor);                              // MCM crosshair / scene test
 	void ClearActor(RE::Actor* a_actor);
 	void ClearAll();

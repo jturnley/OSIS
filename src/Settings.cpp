@@ -114,6 +114,9 @@ namespace Settings
 				{ "Body", "bFootFlex", &Body::bFootFlex },
 				{ "Body", "fFootFlexScale", &Body::fFootFlexScale },
 				{ "Body", "iCurlAxis", &Body::iCurlAxis },
+				{ "Body", "bGenitals", &Body::bGenitals },
+				{ "Body", "fGenitalDegrees", &Body::fGenitalDegrees },
+				{ "Body", "iGenitalAxis", &Body::iGenitalAxis },
 
 				{ "Skin", "bEnabled", &Skin::bEnabled },
 				{ "Skin", "fStrength", &Skin::fStrength },
@@ -196,6 +199,8 @@ namespace Settings
 			Body::fFingerDegrees = std::clamp(Body::fFingerDegrees, 0.0f, 120.0f);
 			Body::fPerToe = std::clamp(Body::fPerToe, 0.0f, 3.0f);
 			Body::fFootFlexScale = std::clamp(Body::fFootFlexScale, 0.0f, 1.0f);
+			Body::fGenitalDegrees = std::clamp(Body::fGenitalDegrees, 0.0f, 120.0f);
+			Body::iGenitalAxis = std::clamp(Body::iGenitalAxis, 0, 2);
 			Skin::iFaceFirstSlot = std::clamp(Skin::iFaceFirstSlot, 0, 15);
 			Arousal::iSource = std::clamp(Arousal::iSource, 0, 3);
 			Arousal::fInterval = std::clamp(Arousal::fInterval, 0.25f, 30.0f);

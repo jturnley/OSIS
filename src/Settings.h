@@ -116,6 +116,12 @@ namespace Settings
 		inline bool bFootFlex = false;
 		inline float fFootFlexScale = 0.35f;
 		inline int iCurlAxis = 0;             // 0 X, 1 Y, 2 Z (bone-local)
+		// Arousal bends XPMSSE's genital chain (Gen01..Gen06) on a male body, the way the softbody
+		// morphs move a female one. Off by default: it needs a schlong weighted to those bones, and
+		// which way they bend depends on the rig, hence the axis.
+		inline bool bGenitals = false;
+		inline float fGenitalDegrees = 60.0f;  // total bend across the chain at full arousal
+		inline int iGenitalAxis = 0;
 	}
 
 	// ---------------------------------------------------------------- living skin (face overlays)

@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.5.0
+
+### Added
+- **Arousal shows on a male body.** XPMSSE gives male skeletons a six-bone genital chain
+  (Gen01..Gen06); the arousal level now bends it, the way the softbody morphs move a female body.
+  Bones rather than mesh morphs, so it needs no assets and works with any schlong weighted to the
+  standard chain. The bend is spread along the chain with the base taking most of it, eased over
+  a couple of seconds so it follows arousal rather than twitching, and written over the rest pose
+  every frame so the animation cannot flatten it.
+- Off by default, on the Body page: "Bend the genital bones with arousal", with total degrees, a
+  bone-local axis (which way the chain bends depends on the rig) and a six-second test button to
+  find the right axis.
+
+### Notes
+- BodySlide sliders on a genital mesh already worked: morph rows drive every morphable mesh on
+  the actor, armour included, so a row named after a slider in that mesh's .tri reaches it. This
+  is for rigs with no morphs of their own.
+
 ## 1.4.1
 
 ### Fixed

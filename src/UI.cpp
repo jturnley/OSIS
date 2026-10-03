@@ -613,7 +613,33 @@ namespace
 			if (bFootFlex) SliderF("Flex strength", fFootFlexScale, 0.0f, 1.0f, "%.2f", "A fraction of the climax curl angle.");
 
 			ComboI("Curl axis", iCurlAxis, kAxes, 3, "Bone-local axis. If toes/fingers bend sideways, try another axis with the test button.");
+
+			ig::SeparatorText("Arousal response (male bodies)");
+			Check("Bend the genital bones with arousal", bGenitals,
+				"XPMSSE gives male skeletons a six-bone genital chain. This bends it as arousal rises, the way the softbody "
+				"morphs move a female body - no mesh morphs and no assets needed, but the schlong has to be weighted to "
+				"those bones. Off by default: which way they bend depends on the rig, so set the axis below first.");
+			if (bGenitals) {
+				SliderF("Bend degrees", fGenitalDegrees, 0.0f, 120.0f, "%.0f",
+					"Total bend across the chain at full arousal, spread along it with the base taking most of it.");
+				ComboI("Bend axis", iGenitalAxis, kAxes, 3,
+					"Bone-local axis. Use the test button and try each one: the right axis depends on how the schlong is rigged.");
+			}
 			Check("Scale with style", bStyleGated, "Realistic 35%, cinematic 70%, anime 100%.");
+		}
+		{
+			std::scoped_lock l(Settings::lock);
+			if (Settings::Body::bGenitals) {
+				if (ig::Button("Test genital bend (6s)")) OnGame([]() {
+					const auto actors = TestTargets();
+					if (actors.empty()) {
+						Papyrus::Notify("OSIS: aim at an actor, select one in the console, or start a scene");
+						return;
+					}
+					for (auto* a : actors) Body::TestGenitals(a);
+				});
+				ig::SetItemTooltip("Holds the chain at full bend for six seconds, so you can see which axis is right.");
+			}
 		}
 		if (ig::Button("Test")) OnGame([]() {
 			const auto actors = TestTargets();

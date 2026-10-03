@@ -6,6 +6,7 @@
 #include "Body.h"
 
 #include "Compat.h"
+#include "Scheduler.h"
 
 #include "Scenes.h"
 #include "Settings.h"
@@ -33,6 +34,14 @@ namespace Body
 			"NPC R Finger30 [RF30]", "NPC R Finger31 [RF31]", "NPC R Finger40 [RF40]", "NPC R Finger41 [RF41]",
 		};
 
+		// XPMSSE's genital chain, base first. The bend is spread along it with the base taking
+		// most of it, which is how it actually works; an even spread curls it into a hoop.
+		constexpr std::array kGenitals{
+			"NPC Genitals01 [Gen01]", "NPC Genitals02 [Gen02]", "NPC Genitals03 [Gen03]",
+			"NPC Genitals04 [Gen04]", "NPC Genitals05 [Gen05]", "NPC Genitals06 [Gen06]",
+		};
+		constexpr std::array kGenitalWeights{ 0.30f, 0.25f, 0.18f, 0.12f, 0.09f, 0.06f };
+
 		struct State
 		{
 			float magnitude = 0.0f;
@@ -45,6 +54,8 @@ namespace Body
 			bool reported = false;  // logged the first application of this curl
 			std::vector<RE::NiAVObject*> toes;
 			std::vector<RE::NiAVObject*> fingers;
+			float genital = 0.0f;        // current bend, eased toward the target
+			float genitalTarget = 0.0f;  // arousal level, set from the Arousal tick
 
 			// A per-toe bone. No animation drives these, so nothing resets them each frame: the
 			// curl is written as rest * rotation, and the rest pose is put back when it ends.
@@ -56,6 +67,16 @@ namespace Body
 				bool base;    // the toe's base joint (its middle joint follows it in the list)
 			};
 			std::vector<ToeBone> toeBones;
+
+			// Same idea as a toe bone: nothing animates these, so the pose is written over the
+			// rest rotation and the rest pose is put back when arousal falls away.
+			struct GenBone
+			{
+				RE::NiAVObject* node;
+				RE::NiMatrix3 rest;
+				float weight;
+			};
+			std::vector<GenBone> genitals;
 		};
 
 		std::mutex g_lock;
@@ -138,6 +159,7 @@ namespace Body
 		void RestoreToes(State& st)
 		{
 			for (auto& b : st.toeBones) b.node->local.rotate = b.rest;
+			for (auto& b : st.genitals) b.node->local.rotate = b.rest;
 		}
 
 		void Resolve(State& st, RE::NiAVObject* root)
@@ -159,6 +181,10 @@ namespace Body
 			}
 			for (const char* n : kFingers) {
 				if (auto* o = root->GetObjectByName(n)) st.fingers.push_back(o);
+			}
+			st.genitals.clear();
+			for (size_t i = 0; i < kGenitals.size(); ++i) {
+				if (auto* o = root->GetObjectByName(kGenitals[i])) st.genitals.push_back({ o, o->local.rotate, kGenitalWeights[i] });
 			}
 		}
 	}
@@ -186,6 +212,35 @@ namespace Body
 		}
 		it->second.sustainTarget = std::clamp(want, 0.0f, 1.0f);
 		g_count = g_states.size();
+	}
+
+	void SetGenitalResponse(RE::Actor* a, float level)
+	{
+		if (!a) return;
+		// No Settings::lock here on purpose: the caller runs under its own module lock, and
+		// taking the settings lock below one inverts the project's lock order. Whether the
+		// feature is on is decided by the caller, which already holds a settings snapshot.
+		// Compat is read without a lock by design, as elsewhere.
+		if (Compat::Disabled(Compat::kBody)) level = 0.0f;
+		level = std::clamp(level, 0.0f, 1.0f);
+		std::scoped_lock l(g_lock);
+		auto it = g_states.find(a->GetFormID());
+		if (it == g_states.end()) {
+			if (level <= 0.0f) return;  // nothing to do and nothing to put back
+			if (!Animatable(a)) return;
+			it = g_states.emplace(a->GetFormID(), State{}).first;
+		}
+		it->second.genitalTarget = level;
+		g_count = g_states.size();
+	}
+
+	void TestGenitals(RE::Actor* a)
+	{
+		SetGenitalResponse(a, 1.0f);
+		if (!a) return;
+		Scheduler::After(6.0f, [h = a->GetHandle()]() {
+			if (auto actor = h.get()) SetGenitalResponse(actor.get(), 0.0f);
+		});
 	}
 
 	void OnClimaxPeak(RE::Actor* a, float value)
@@ -253,9 +308,9 @@ namespace Body
 			std::scoped_lock l(g_lock);
 			if (!g_states.contains(a->GetFormID())) return;
 		}
-		bool toe, hand;
-		float toeDeg, fingerDeg, perToe;
-		int axis;
+		bool toe, hand, genitals;
+		float toeDeg, fingerDeg, perToe, genitalDeg;
+		int axis, genitalAxis;
 		{
 			std::scoped_lock l(Settings::lock);
 			perToe = Settings::Body::fPerToe;
@@ -264,6 +319,9 @@ namespace Body
 			toeDeg = Settings::Body::fToeDegrees;
 			fingerDeg = Settings::Body::fFingerDegrees;
 			axis = Settings::Body::iCurlAxis;
+			genitals = Settings::Body::bGenitals;
+			genitalDeg = Settings::Body::fGenitalDegrees;
+			genitalAxis = Settings::Body::iGenitalAxis;
 		}
 		std::scoped_lock l(g_lock);
 		auto it = g_states.find(a->GetFormID());
@@ -282,9 +340,14 @@ namespace Body
 		st.lastUpdate = Scenes::Now();
 		st.sustain += (st.sustainTarget - st.sustain) * (1.0f - std::exp(-dtEase / kSustainEase));
 		if (std::abs(st.sustainTarget - st.sustain) < 0.005f) st.sustain = st.sustainTarget;
+		// Slower than the foot flex on purpose: this follows arousal, which is itself gradual,
+		// and a fast ease here reads as a twitch.
+		constexpr float kGenitalEase = 2.5f;
+		st.genital += (st.genitalTarget - st.genital) * (1.0f - std::exp(-dtEase / kGenitalEase));
+		if (std::abs(st.genitalTarget - st.genital) < 0.004f) st.genital = st.genitalTarget;
 
 		auto* root = a->Get3D1(false);
-		if (env <= 0.0f && st.sustain <= 0.0f) {
+		if (env <= 0.0f && st.sustain <= 0.0f && st.genital <= 0.0f) {
 			if (root && root == st.root) {
 				RestoreToes(st);
 				RE::NiUpdateData done{ 0.0f, RE::NiUpdateData::Flag::kNone };
@@ -326,6 +389,15 @@ namespace Body
 			const auto r = AxisRotation(axis, fingerDeg * k);  // fingers close
 			for (auto* n : st.fingers) n->local.rotate = n->local.rotate * r;
 		}
+		// The genital chain hangs off the pelvis and no animation touches it, so the bend is
+		// written over each bone's rest pose rather than multiplied into the animated one.
+		if (genitals && st.genital > 0.0f) {
+			for (auto& b : st.genitals) {
+				b.node->local.rotate = b.rest * AxisRotation(genitalAxis, genitalDeg * st.genital * b.weight);
+			}
+		} else {
+			for (auto& b : st.genitals) b.node->local.rotate = b.rest;
+		}
 		// Push the new local rotations to world space now, bone and children (the fingertip
 		// segments). If the engine already ran its world pass for this skeleton, a local-only
 		// change would be overwritten by the next animation pose before it was ever drawn.
@@ -337,5 +409,7 @@ namespace Body
 		if (hand) {
 			for (auto* n : st.fingers) n->UpdateDownwardPass(ctx, 0);
 		}
+		// Only the first bone needs the pass: the rest of the chain are its children.
+		if (!st.genitals.empty()) st.genitals.front().node->UpdateDownwardPass(ctx, 0);
 	}
 }
