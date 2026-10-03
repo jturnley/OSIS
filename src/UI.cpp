@@ -129,6 +129,25 @@ namespace
 		return first;
 	}
 
+	// Every actor a test should touch. With a crosshair or console pick, just that one. In a
+	// scene, everybody in it: the single-target version preferred the partner, so a test fired by
+	// a male player landed on the female every time and looked like it did not work on males.
+	std::vector<RE::Actor*> TestTargets()
+	{
+		std::vector<RE::Actor*> out;
+		if (auto* a = CrosshairActor()) {
+			out.push_back(a);
+			return out;
+		}
+		std::scoped_lock l(Scenes::Lock());
+		auto* t = Scenes::PlayerThread();
+		if (!t) return out;
+		for (auto& slot : t->slots) {
+			if (auto* a = slot.Get()) out.push_back(a);
+		}
+		return out;
+	}
+
 	void SaveBar()
 	{
 		ig::Separator();
@@ -246,9 +265,11 @@ namespace
 		ig::Spacing();
 		if (ig::Button("Release all faces now")) OnGame([]() {
 			Face::Output::ReleaseAll(0.3f);
+			Face::Engine::ClearStrayTongues();
 			Face::Engine::RestorePersistedTakeovers();
 		});
-		ig::SetItemTooltip("Emergency reset: neutral faces and OStim's own face writer back on for everyone.");
+		ig::SetItemTooltip("Emergency reset: neutral faces, any tongue we put out taken back, and OStim's own face writer "
+		                   "back on for everyone.");
 		ig::SameLine();
 		if (ig::Button("Clear body + skin effects")) OnGame([]() {
 			Body::ClearAll();
@@ -595,9 +616,15 @@ namespace
 			Check("Scale with style", bStyleGated, "Realistic 35%, cinematic 70%, anime 100%.");
 		}
 		if (ig::Button("Test")) OnGame([]() {
-			if (auto* a = TestTarget()) Body::Test(a);
-			else Papyrus::Notify("OSIS: aim at an actor, select one in the console, or start a scene");
+			const auto actors = TestTargets();
+			if (actors.empty()) {
+				Papyrus::Notify("OSIS: aim at an actor, select one in the console, or start a scene");
+				return;
+			}
+			for (auto* a : actors) Body::Test(a);
 		});
+		ig::SetItemTooltip("Curls the toes and fingers once, as a climax would. Acts on the actor you are aiming at or have "
+		                   "selected in the console; in a scene with neither, on everyone in it.");
 		SaveBar();
 	}
 

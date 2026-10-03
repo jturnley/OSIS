@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.4.1
+
+### Fixed
+- **A tongue could be left out for good.** The flag saying "we put this tongue out" lived on the
+  scene slot, and an animation change rebuilds the slot. The flag reset while the tongue object
+  stayed equipped, so nothing would ever take it back - and worse, the stray then looked like an
+  ahegao mod's tongue to the detector, which stood the face down and reported "Ahegao mod" on the
+  Status page to people who have no such mod installed. Whose tongue is whose is now recorded per
+  actor, outliving slots and save loads; strays are taken back on sight, on game load, and from
+  "Release all faces now". Reported with Halo's HDT Tongues, which is where it shows plainest.
+- **The toe and finger test acts on everyone in the scene** when you are not aiming at anyone.
+  It preferred the partner, so a test fired by a male player always landed on the female and
+  looked as though it did not work on male bodies.
+
+### Changed
+- **Skyrim VR no longer installs the animation hooks.** Their addresses are Special Edition ones:
+  the animation update is at a different vtable index in VR and the NPC job's call site has no VR
+  address at all, so hooking patched the wrong thing. VR now falls back to the 20 Hz main-thread
+  face path and logs it. Toe and finger curl need the per-frame hook and stay off in VR; the
+  moan-muting hook is skipped too, with the per-tick sweep covering it.
+
 ## 1.4.0
 
 ### Added

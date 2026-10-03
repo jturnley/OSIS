@@ -310,9 +310,16 @@ namespace Face::Engine
 				auto& s = t.slots[idx];
 				auto* a = s.Get();
 				if (!a || !s.painted || !a->Is3DLoaded()) continue;
+				// Our own tongue, left out by a slot rebuild: take it back before anything else
+				// looks at it. Tongue mods (Halo's HDT Tongues and the like) make this visible,
+				// because the equipped object is theirs and stays put until someone unequips it.
+				if (!s.tongueOn && s.tongueOut && OurTongue(a)) {
+					SetOSEDTongue(s, a, false);
+					logger::debug("thread {}: took back a stray tongue on {:08X}", t.id, a->GetFormID());
+				}
 				// An ahegao mod has this actor: hand the whole face over until it is done. It sets
 				// its own mouth, so our jaw floor would only fight it.
-				if (ExternalAhegao(s)) {
+				if (ExternalAhegao(s, a)) {
 					if (!Output::IsSuspended(a)) {
 						// Drop our own prototype claim without calling OStim's clear, which would
 						// take their expression override down with ours.
@@ -784,7 +791,13 @@ namespace Face::Engine
 		// Ahegao Expressions and friends put the tongue out with OActor.EquipObject(act, "tongue")
 		// and then write their own phonemes. A tongue that is out but not ours means one of them
 		// has this actor, so we stop writing its face until the tongue goes back in.
-		bool ExternalAhegao(const Slot& s) { return s.tongueOut && !s.tongueOn; }
+		bool ExternalAhegao(const Slot& s, RE::Actor* a)
+		{
+			// Never our own. A tongue we equipped can outlive the slot that recorded it - an
+			// animation change rebuilds the slot - and without this check that stray read as an
+			// ahegao mod, stood the face down, and left the tongue out with nothing to retract it.
+			return s.tongueOut && !s.tongueOn && !OurTongue(a);
+		}
 
 		void SetOwners(Slot& s, std::string face, std::string mouth, std::string eye, std::string head)
 		{
@@ -870,6 +883,8 @@ namespace Face::Engine
 	bool OStimPresent() { return g_ostim; }
 	bool OBlushPresent() { return g_oblush; }
 	bool DevicesPresent() { return g_kGag != nullptr; }
+
+	void ClearStrayTongues() { detail::ClearStrayTongues(); }
 
 	bool AhegaoPresent() { return detail::AhegaoModInstalled(); }
 

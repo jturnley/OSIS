@@ -383,6 +383,7 @@ namespace Scenes
 		++g_generation;
 		g_threads.clear();
 		Face::Output::ForgetAll();
+		Face::Engine::ClearStrayTongues();
 		Face::Engine::RestorePersistedTakeovers();
 	}
 

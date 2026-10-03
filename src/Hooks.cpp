@@ -87,6 +87,15 @@ namespace Hooks
 			std::scoped_lock l(Settings::lock);
 			animation = Settings::General::bAnimationHooks;
 		}
+		// VR is a different binary: the animation update sits at another vtable index, and the
+		// NPC job's call site has no VR address at all. Hooking either there would patch the
+		// wrong function. The 20 Hz main-thread path covers faces instead; toe and finger curl
+		// need the per-frame hook, so they stay off until someone maps the VR addresses.
+		if (animation && REL::Module::IsVR()) {
+			animation = false;
+			logger::warn("Skyrim VR: animation hooks not installed (no VR addresses for them). Faces are written at 20 Hz "
+						 "from the main thread; toe and finger curl are off");
+		}
 		if (animation) {
 			REL::Relocation<std::uintptr_t> vtbl{ RE::VTABLE_PlayerCharacter[0] };
 			PlayerUpdateAnimation::func = vtbl.write_vfunc(0x7D, PlayerUpdateAnimation::thunk);
@@ -102,7 +111,13 @@ namespace Hooks
 			std::scoped_lock l(Settings::lock);
 			voice = Settings::Voice::bEnabled;
 		}
-		if (voice) Voice::InstallHooks();  // otherwise the per-tick sweep alone mutes a victim's moans
+		// Same reasoning: the sound vtable index is a Special Edition one. The per-tick sweep
+		// mutes a victim's moans on its own, a little later than the hook would.
+		if (voice && REL::Module::IsVR()) {
+			logger::warn("Skyrim VR: the moan-muting hook is not installed; the per-tick sweep handles it instead");
+		} else if (voice) {
+			Voice::InstallHooks();
+		}
 #endif
 	}
 }

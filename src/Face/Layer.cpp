@@ -19,6 +19,9 @@ namespace Face::Engine::detail
 	namespace
 	{
 		RE::ActorHandle g_watcher;
+		// Actors whose tongue we equipped. Keyed by form so it outlives the slot it was set from.
+		std::mutex g_tongueLock;
+		std::unordered_set<RE::FormID> g_ourTongues;
 		float g_watcherNext = 0.0f;
 		std::string g_watcherStatus = "OFF";
 
@@ -356,12 +359,43 @@ namespace Face::Engine::detail
 		s.animeVariant = -1;
 	}
 
+	bool OurTongue(RE::Actor* a)
+	{
+		if (!a) return false;
+		std::scoped_lock l(g_tongueLock);
+		return g_ourTongues.contains(a->GetFormID());
+	}
+
 	void SetOSEDTongue(Slot& s, RE::Actor* a, bool on)
 	{
-		if (!a || s.tongueOn == on) return;
+		if (!a) return;
+		// Both have to agree before this is a no-op. After a slot rebuild the flag reads false
+		// while the tongue is still out, and that is exactly the case that has to reach the
+		// unequip.
+		const bool held = OurTongue(a);
+		if (s.tongueOn == on && held == on) return;
+		{
+			std::scoped_lock l(g_tongueLock);
+			if (on) g_ourTongues.insert(a->GetFormID());
+			else g_ourTongues.erase(a->GetFormID());
+		}
 		if (on) Papyrus::EquipObject(a, "tongue");
 		else Papyrus::UnequipObject(a, "tongue");
 		s.tongueOn = on;
+	}
+
+	void ClearStrayTongues()
+	{
+		std::vector<RE::FormID> ids;
+		{
+			std::scoped_lock l(g_tongueLock);
+			ids.assign(g_ourTongues.begin(), g_ourTongues.end());
+			g_ourTongues.clear();
+		}
+		for (const auto id : ids) {
+			if (auto* a = RE::TESForm::LookupByID<RE::Actor>(id)) Papyrus::UnequipObject(a, "tongue");
+		}
+		if (!ids.empty()) logger::info("Took back {} stray tongue(s)", ids.size());
 	}
 
 	void UpdateOSEDTongue(Thread& t, Slot& s, RE::Actor* a, bool yieldMouth)

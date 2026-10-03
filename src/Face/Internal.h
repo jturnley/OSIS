@@ -98,7 +98,7 @@ namespace Face::Engine::detail
 	// Ahegao Expressions is installed, whether or not the yield is acting on it.
 	[[nodiscard]] bool AhegaoModInstalled();
 	// An ahegao mod is driving this actor right now: a tongue is out that we did not equip.
-	[[nodiscard]] bool ExternalAhegao(const Slot& s);
+	[[nodiscard]] bool ExternalAhegao(const Slot& s, RE::Actor* a);
 
 	void SetOwners(Slot& s, std::string face, std::string mouth, std::string eye, std::string head);
 	void PulseActor(Thread& t, Slot& s, RE::Actor* a, int dom, int phrase, int enj);
@@ -124,6 +124,12 @@ namespace Face::Engine::detail
 	void ClearOSEDAnimeAccent(Slot& s, RE::Actor* a);
 	void UpdateOSEDTongue(Thread& t, Slot& s, RE::Actor* a, bool yieldMouth);
 	void SetOSEDTongue(Slot& s, RE::Actor* a, bool on);
+	// This actor's tongue is out because we equipped it. Survives the slot being rebuilt, which
+	// the per-slot flag does not, so a stray tongue can still be taken back and is never mistaken
+	// for an ahegao mod's.
+	[[nodiscard]] bool OurTongue(RE::Actor* a);
+	// Take back every tongue we put out, whatever state the slots are in.
+	void ClearStrayTongues();
 	void ClearOSEDPrototypeActor(Slot& s, RE::Actor* a);
 	void PlayOSEDExpressionEvent(Thread& t, Slot& s, RE::Actor* a, const std::string& ev, float minGap, bool force = false);
 	void ExpireOSEDExpressionEvent(Slot& s, RE::Actor* a);

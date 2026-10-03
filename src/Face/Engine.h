@@ -67,6 +67,9 @@ namespace Face::Engine
 	[[nodiscard]] bool DevicesPresent();
 	[[nodiscard]] std::string AhegaoStatus();
 	// Ahegao Expressions is installed. Separate from the yield, which can be forced on without it.
+	// Take back any tongue this mod put out. Safe at any time; a tongue someone else equipped
+	// is left alone.
+	void ClearStrayTongues();
 	[[nodiscard]] bool AhegaoPresent();
 	// No module may write a face: an ahegao mod owns them all for this session.
 	[[nodiscard]] bool FaceYielded();
