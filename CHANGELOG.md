@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.6.2
+
+### Fixed
+- **Moans no longer take the mouth away from the expression.** An active lip-sync clip counted
+  as the mouth being yielded, so the grammar wrote no mouth at all for its duration. That was
+  harmless while lip-sync silently failed on most files; once 1.5.2 made archived moans decode
+  and a dense voice pack was installed, a clip was playing on essentially every poll and the
+  mouth belonged to the moan for the whole scene - faces went flat. The moan now rides on top of
+  whatever face is being worn: it opens the mouth further than the pose, and leaves it alone
+  where the pose is already wider.
+
 ## 1.6.1
 
 ### Fixed

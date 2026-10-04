@@ -405,6 +405,10 @@ namespace Face::Engine
 					else if (director) Breathe(t, s, a, idx);
 					else ApplyOSEDLayerBreath(t, s, a, idx);
 				}
+				// A moan riding on the pose rather than owning the mouth. Only overwrite the
+				// label when one is actually playing, or this would clobber "OSED arc" with
+				// "OStim mouth" on every actor the grammar is in fact driving.
+				if (!ym && LipSyncMouthActive(s, a)) s.mouthOwner = "Face + Lip-Sync";
 				UpdateOSEDTongue(t, s, a, ym);
 			}
 		}
@@ -731,7 +735,7 @@ namespace Face::Engine
 
 		std::string MouthOwnerLabel(Thread& t, Slot& s, RE::Actor* a, bool yielded)
 		{
-			if (!yielded) return "OStim mouth";
+			if (!yielded) return LipSyncMouthActive(s, a) ? "Face + Lip-Sync" : "OStim mouth";
 			if (LipSyncMouthActive(s, a)) return "Lip-Sync";
 			if (AhegaoYield()) return "Ahegao mod";
 			if (DialogueMouthYielded(t, a)) return "Dialogue/lip-sync";
@@ -936,10 +940,13 @@ namespace Face::Engine
 		return std::max(0, static_cast<int>(a->GetFactionRank(g_climaxed, a->IsPlayerRef())));
 	}
 
+	// Whether something else owns the mouth outright, so the grammar must not write it. A moan
+	// is deliberately not on this list: it rides on top of whatever face is being worn (see
+	// Output::Update), because taking the mouth away for the length of every moan left the
+	// expression grammar with no mouth to write at all.
 	bool MouthYielded(Thread& t, Slot& s, RE::Actor* a)
 	{
 		if (!t.active || !a) return false;
-		if (LipSyncMouthActive(s, a)) return true;
 		if (S::bDialogueMouthYield && DialogueMouthYielded(t, a)) return true;
 		if (!S::bYieldOralMouth) return false;
 		if (s.exprOverride) return true;

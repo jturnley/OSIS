@@ -341,8 +341,15 @@ namespace Face::Output
 			bool write = true;
 			float v;
 			if (st.trackBlend > 0.0f) {
+				// Additive, not a cross-fade. The moan opens the mouth further than the face the
+				// grammar is wearing, and leaves it alone where the pose is already wider - so an
+				// open-mouthed cry keeps its shape through a quiet moment in the clip. Replacing
+				// the pose instead meant that once lip-sync had envelopes for nearly every moan,
+				// the mouth belonged to the moan the whole scene and the grammar never showed.
 				const float base = baseWrites ? c.cur : 0.0f;
-				v = base + (trackPh[i] - base) * st.trackBlend;
+				const float moan = trackPh[i] * st.trackBlend;
+				v = std::max(base, moan);
+				write = baseWrites || moan > 0.0f;
 			} else if (baseWrites) {
 				v = c.cur;
 			} else {
