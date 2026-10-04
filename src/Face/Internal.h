@@ -128,6 +128,8 @@ namespace Face::Engine::detail
 	// the per-slot flag does not, so a stray tongue can still be taken back and is never mistaken
 	// for an ahegao mod's.
 	[[nodiscard]] bool OurTongue(RE::Actor* a);
+	// Make OStim take back a tongue it equipped itself. Only for an actor whose face we took over.
+	void ClearOStimTongue(Slot& s, RE::Actor* a);
 	// Take back every tongue we put out, whatever state the slots are in.
 	void ClearStrayTongues();
 	void ClearOSEDPrototypeActor(Slot& s, RE::Actor* a);

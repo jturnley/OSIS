@@ -10,6 +10,7 @@
 #include "Face/Internal.h"
 
 #include "Papyrus.h"
+#include "Scheduler.h"
 #include "Pulse.h"
 
 namespace Face::Engine::detail
@@ -382,6 +383,29 @@ namespace Face::Engine::detail
 		if (on) Papyrus::EquipObject(a, "tongue");
 		else Papyrus::UnequipObject(a, "tongue");
 		s.tongueOn = on;
+	}
+
+	// OStim equips a tongue for a licking action's expression override, and takes it back when
+	// the override ends - through applyExpression on the *underlying* expression. Director mode
+	// switches that path off (SetExpressionsEnabled false flags NO_UNDERLYING_EXPRESSION), so the
+	// tongue is never taken back and hangs there for the rest of the scene.
+	//
+	// Unequipping it ourselves is not enough: OStim's own phonemeObjects list would still hold
+	// "tongue", and the next licking action skips the equip for anything already in that list, so
+	// the tongue would never come out again in that scene. Instead hand the face back for a
+	// moment and play an event expression that owns no phoneme objects. OStim's phoneme branch
+	// then unequips what is left and resets its list, which is exactly what it does for itself on
+	// every node change. Then take the face back.
+	void ClearOStimTongue(Slot& s, RE::Actor* a)
+	{
+		if (!a) return;
+		s.tongueClearUntil = Scenes::Now() + 3.0f;
+		Papyrus::SetExpressionsEnabled(a, true, true);
+		Papyrus::PlayExpression(a, "osis_tongue_clear");
+		Scheduler::After(0.3f, [h = a->GetHandle()]() {
+			if (auto actor = h.get()) Papyrus::SetExpressionsEnabled(actor.get(), false, true);
+		});
+		logger::info("Asked OStim to take back its own tongue on {:08X} {}", a->GetFormID(), a->GetDisplayFullName());
 	}
 
 	void ClearStrayTongues()

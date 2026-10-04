@@ -310,12 +310,21 @@ namespace Face::Engine
 				auto& s = t.slots[idx];
 				auto* a = s.Get();
 				if (!a || !s.painted || !a->Is3DLoaded()) continue;
+				// The mode was changed to Assist or Enhanced part way through a scene: give the
+				// face back now. It used to wait for the scene to end, which left an actor taken
+				// over - and any tongue OStim had out stranded with it - until then.
+				if (s.takenOver && !director && !S::bTakeOverFace) RestoreOStimFace(s, a);
 				// Our own tongue, left out by a slot rebuild: take it back before anything else
 				// looks at it. Tongue mods (Halo's HDT Tongues and the like) make this visible,
 				// because the equipped object is theirs and stays put until someone unequips it.
 				if (!s.tongueOn && s.tongueOut && OurTongue(a)) {
 					SetOSEDTongue(s, a, false);
 					logger::debug("thread {}: took back a stray tongue on {:08X}", t.id, a->GetFormID());
+				} else if (s.tongueOut && !s.tongueOn && s.takenOver && !s.exprOverride &&
+						   !AhegaoModInstalled() && Scenes::Now() > s.tongueClearUntil) {
+					// Not ours, no override driving it any more, and no ahegao mod installed to
+					// own it: this is OStim's own tongue, stranded by our takeover.
+					ClearOStimTongue(s, a);
 				}
 				// An ahegao mod has this actor: hand the whole face over until it is done. It sets
 				// its own mouth, so our jaw floor would only fight it.
@@ -335,7 +344,11 @@ namespace Face::Engine
 					// mod puts the tongue out on its own schedule and opens the mouth in its own
 					// time, so the clearance only ever arrived at the wrong moment.
 					Output::SetMouthFloor(a, 0.0f);
-					SetOwners(s, "Ahegao mod", "Ahegao mod", "Ahegao mod", "Ahegao mod");
+					// Only call it an ahegao mod when one is actually installed. Saying "Ahegao mod"
+					// to someone who has none sent at least one person hunting for a mod conflict
+					// that did not exist.
+					const char* owner = AhegaoModInstalled() ? "Ahegao mod" : "External tongue";
+					SetOwners(s, owner, owner, owner, owner);
 					if (arc) {
 						const int enjEff = EffectiveIntensity(t, a);
 						PulseActor(t, s, a, SelectDominant(t, enjEff, Raw(a)), PhrasePhase(t, idx, enjEff), enjEff);

@@ -1,0 +1,18 @@
+{
+  "comment": "Played to make OStim take back a tongue it equipped for an action's expression override. It owns no phonemeObjects, so OStim unequips whatever is still out and resets its own list. Nothing here is meant to be seen: the face is written over every animation update anyway.",
+  "events": [
+    "osis_tongue_clear"
+  ],
+  "female": {
+    "duration": 0.1,
+    "phonemes": [
+      { "type": 0, "baseValue": 0 }
+    ]
+  },
+  "male": {
+    "duration": 0.1,
+    "phonemes": [
+      { "type": 0, "baseValue": 0 }
+    ]
+  }
+}

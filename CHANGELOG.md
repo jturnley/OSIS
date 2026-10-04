@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.6.0
+
+### Fixed
+- **Director mode stranded OStim's own tongue** (reported by GSVJinx, with the diagnosis and the
+  fix). OStim equips a tongue for a licking action's expression override and takes it back when
+  the override ends - through the *underlying* expression path. Director mode switches that path
+  off, so the tongue was never taken back: it hung there for the rest of the scene, was then
+  mistaken for an ahegao mod's, and the mouth closed over it. Unequipping it directly would have
+  been worse, because OStim's own list would still hold "tongue" and the next licking action
+  would skip the equip for the rest of the scene. Instead the face is handed back for a moment
+  and an event expression owning no phoneme objects is played, which is how OStim cleans up after
+  itself; then the face is taken back. Needs the shipped `osis_tongue_clear` expression.
+- **The owner column says "External tongue"** rather than "Ahegao mod" when no ahegao mod is
+  installed. The old label sent at least one person hunting for a conflict that did not exist.
+- **Changing the face mode mid-scene gives the face back immediately.** An actor taken over in
+  Director mode stayed taken over until the scene ended, even after switching to Assist or
+  Enhanced - which also stranded any tongue OStim had out.
+
 ## 1.5.3
 
 ### Fixed

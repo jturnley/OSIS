@@ -53,6 +53,7 @@ namespace Scenes
 		bool animeActive = false;
 		int animeVariant = -1;
 		bool tongueOn = false;
+		float tongueClearUntil = 0.0f;  // asked OStim to take its own tongue back; wait before asking again
 		float tongueLifeUntil = 0.0f;
 		float tongueLifeNext = 0.0f;
 		float tonguePrimeUntil = 0.0f;
