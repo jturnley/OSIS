@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.6.1
+
+### Fixed
+- **A long scene could get stuck in afterglow, and the faces stopped changing.** Afterglow was
+  counted in beats with no time limit, and every climax event re-armed it to five. In a scene
+  with repeated climaxes it never drained - and because afterglow outranks every other state
+  except distress and climax, it pinned the whole thread: on a 125-second scene both actors were
+  showing the afterglow face, including one at excitement 9. It now also ends on the clock, 18
+  seconds after the climax that set it, whatever the beats are doing.
+
+### Changed
+- The build stamps its own version correctly again. The generated plugin-info file was not
+  regenerated after a version bump, so 1.6.0 reported itself as 1.5.3 in the log and in SKSE's
+  plugin list - which sent one piece of crash triage down the wrong path.
+
 ## 1.6.0
 
 ### Fixed

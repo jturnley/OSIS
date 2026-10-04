@@ -111,6 +111,7 @@ namespace Scenes
 		int orgTicks = 0;
 		int orgCount = 0;
 		int afterglow = 0;
+		float afterglowUntil = 0.0f;  // wall-clock end, so repeated climaxes cannot pin it
 		int plateau = 0;
 		bool toneForced = false;  // forced/rape/aggressive tags: non-consent when Aggressor grammar is on
 		bool toneRough = false;   // consensual rough play / BDSM (never set together with toneForced)

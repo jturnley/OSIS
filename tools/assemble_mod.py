@@ -121,8 +121,34 @@ def find_dll(build_dir):
                      % (DLL_NAME, build_dir.replace(os.sep, '/'), ','.join(BUILD_MODES)))
 
 
+def project_version():
+    """The version xmake.lua declares, as "1.2.3"."""
+    with open(os.path.join(ROOT, 'xmake.lua'), encoding='utf-8') as f:
+        m = re.search(r'set_version\("([0-9]+\.[0-9]+\.[0-9]+)"\)', f.read())
+    return m.group(1) if m else None
+
+
+def check_dll_version(dll):
+    """The version resource is UTF-16 in the PE, so the declared version shows up as plain
+    bytes. Missing means xmake reused a stale generated plugin-info file: the DLL would load,
+    report the previous version, and make every later log and crash report misleading."""
+    want = project_version()
+    if not want:
+        warnings.append('could not read set_version from xmake.lua; DLL version not checked')
+        return
+    with open(dll, 'rb') as f:
+        blob = f.read()
+    if ('%s.0' % want).encode('utf-16-le') in blob:
+        return
+    raise SystemExit(
+        '%s does not carry version %s: xmake kept a stale plugin-info file.\n'
+        '  Delete build/.gens/*/windows/x64/*/commonlibsse-ng-plugin.cpp and build again.'
+        % (os.path.relpath(dll, ROOT), want))
+
+
 def add_dll_route(origin, build_dir, data_dirs, without):
     dll = find_dll(build_dir)
+    check_dll_version(dll)
     sources = [p for d in ('src', 'include') for p in files_under(os.path.join(ROOT, d))
                if os.path.basename(p).lower() not in without]
     if newest(sources) > os.path.getmtime(dll):

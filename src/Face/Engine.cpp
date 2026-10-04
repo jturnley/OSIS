@@ -20,6 +20,9 @@ namespace Face::Engine
 
 	namespace
 	{
+		// How long an afterglow may last however many beats or climax events arrive.
+		constexpr float kAfterglowSeconds = 18.0f;
+
 		// forms resolved at data load; all optional
 		RE::TESFaction* g_excitement = nullptr;
 		RE::TESFaction* g_climaxed = nullptr;
@@ -1226,10 +1229,21 @@ namespace Face::Engine
 		UpdateExcitementRates(t);
 		++t.tick;
 		if (t.leadin && SceneTime(t) > 3.0f) t.leadin = false;
+		// Afterglow is counted in beats, and every orgasm event re-arms it. In a long scene with
+		// repeated climaxes that never drained, and because afterglow outranks everything but
+		// distress and climax it pinned the whole thread's faces - including actors who were
+		// barely excited. It ends on the clock as well now, whatever the beats are doing.
+		if (t.afterglow > 0 && Scenes::Now() > t.afterglowUntil) {
+			t.afterglow = 0;
+			logger::debug("thread {}: afterglow timed out after {:.0f}s", t.id, kAfterglowSeconds);
+		}
 		if (t.orgasm) {
 			if (++t.orgTicks > 4) {
 				t.orgasm = false;
-				if (S::bCinematic) t.afterglow = 5;
+				if (S::bCinematic) {
+					t.afterglow = 5;
+					t.afterglowUntil = Scenes::Now() + kAfterglowSeconds;
+				}
 				ClearGazeAll(t);
 			}
 		}
