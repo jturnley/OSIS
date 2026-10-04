@@ -1067,11 +1067,32 @@ namespace Face::Engine
 	}
 
 	// ---- OStim face writer ownership
+	// Switch OStim's own face writer off for this actor, and keep it off.
+	//
+	// OActor.SetExpressionsEnabled does nothing at all when OStim has not yet registered the
+	// actor in a thread (ActorScript.cpp: `if (!threadActor) return;`), and it says nothing
+	// when that happens. The first call can easily land in that window at scene start, and
+	// this used to mark the actor taken over regardless and never ask again - which left
+	// OStim's writer running for the whole scene: its expressions over ours, so no faces, and
+	// its moan expression opening the mouth on top of our lip-sync, so two mouth movements per
+	// moan. The call is idempotent on OStim's side, so it is simply repeated every couple of
+	// seconds while the actor is ours.
 	void ReleaseOStimFace(Slot& s, RE::Actor* a)
 	{
-		if (AhegaoYield() || !g_ostim || !a || s.takenOver) return;
+		if (AhegaoYield() || !g_ostim || !a) return;
+		constexpr float kRecheck = 2.0f;
+		const float now = Scenes::Now();
+		if (s.takenOver) {
+			// Not while ClearOStimTongue has deliberately handed the face back for a moment.
+			if (now < s.takeoverRecheck || now < s.tongueClearUntil - 2.5f) return;
+			Papyrus::SetExpressionsEnabled(a, false, true);
+			s.takeoverRecheck = now + kRecheck;
+			return;
+		}
 		Papyrus::SetExpressionsEnabled(a, false, true);
 		s.takenOver = true;
+		s.takeoverRecheck = now + kRecheck;
+		logger::info("Face: took over OStim's face writer for {:08X} {}", a->GetFormID(), a->GetDisplayFullName());
 		std::scoped_lock l(g_dataLock);
 		g_takenOver.insert(a->GetFormID());
 	}

@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.7.2
+
+### Fixed
+- **OStim's own face writer could stay on for a whole scene - no expressions, and two mouth
+  movements per moan.** Taking the face over is a single call to OActor.SetExpressionsEnabled,
+  and OStim silently ignores it when it has not registered the actor in a thread yet. The first
+  call can land in that window at scene start; the actor was marked taken over regardless and
+  the call was never repeated. OStim then kept writing its own expressions over ours, and kept
+  playing its moan expression, which opened the mouth on top of our lip-sync. The takeover is
+  now repeated every two seconds while the actor is ours (it is idempotent on OStim's side), and
+  the log says when it first happens.
+
+### Notes
+- The 1.5.3 "mouth moves twice" fix corrected a real flaw in clip anchoring, but this was almost
+  certainly the main cause of that report: while the takeover holds, OStim cannot play a moan's
+  expression at all, so the mouth can only move once.
+
 ## 1.7.1
 
 ### Added
