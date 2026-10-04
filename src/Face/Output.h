@@ -106,6 +106,14 @@ namespace Face::Output
 	[[nodiscard]] bool IsPainted(RE::Actor* a_actor);
 	[[nodiscard]] std::size_t PaintedCount();
 
+	// Diagnostics. For a_seconds of face writes (the clock starts at the next write, so time
+	// spent in a menu does not count), log once a second per actor: what we wrote, what the
+	// game finally rendered, what dialogue lip-sync contributed, and how often anything else
+	// changed the face between two of our writes. Separates "the engine asks for a flat face"
+	// from "something overwrites it" with numbers instead of guesses.
+	void ArmProbe(float a_seconds);
+	[[nodiscard]] bool Probing();
+
 	// Called from the per-frame animation hooks.
 	void Update(RE::Actor* a_actor, float a_delta);
 	// Fallback when the NPC animation hook couldn't be installed: every painted NPC, from

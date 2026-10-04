@@ -1,21 +1,30 @@
 # Changelog
 
-## 1.7.2
+## 1.7.3
+
+### Added
+- **Probe faces (30 s)** on the Status page. For 30 seconds after the menu closes, OSIS.log gets
+  a line per actor per second: the preset the Director chose, what OSIS wrote, what the game
+  actually rendered (its final expression, modifier and phoneme values), what the game's own
+  dialogue lip-sync contributed, how often anything else changed the face between two of our
+  writes, and every lip-sync clip start. It exists because flat faces since 1.6.x have now been
+  "fixed" four times on reasoning alone, and none of those fixes was the cause.
 
 ### Fixed
-- **OStim's own face writer could stay on for a whole scene - no expressions, and two mouth
-  movements per moan.** Taking the face over is a single call to OActor.SetExpressionsEnabled,
-  and OStim silently ignores it when it has not registered the actor in a thread yet. The first
-  call can land in that window at scene start; the actor was marked taken over regardless and
-  the call was never repeated. OStim then kept writing its own expressions over ours, and kept
-  playing its moan expression, which opened the mouth on top of our lip-sync. The takeover is
-  now repeated every two seconds while the actor is ours (it is idempotent on OStim's side), and
-  the log says when it first happens.
+- A setting tooltip showed its example texture path with the backslashes stripped out.
+
+## 1.7.2
+
+### Changed
+- The OStim face-writer takeover is repeated every two seconds while the actor is ours, instead
+  of being sent once. OActor.SetExpressionsEnabled silently does nothing when OStim has not yet
+  registered the actor, and the actor used to be marked taken over regardless. The log now says
+  when the takeover first happens.
 
 ### Notes
-- The 1.5.3 "mouth moves twice" fix corrected a real flaw in clip anchoring, but this was almost
-  certainly the main cause of that report: while the takeover holds, OStim cannot play a moan's
-  expression at all, so the mouth can only move once.
+- This was shipped as the fix for flat faces and two mouth movements per moan. It was not: with
+  1.7.2 the log confirms the takeover for every actor and both symptoms are unchanged. The retry
+  stays because the silent-drop window is real, but the cause of those reports is still open.
 
 ## 1.7.1
 

@@ -271,6 +271,11 @@ namespace
 		ig::SetItemTooltip("Emergency reset: neutral faces, any tongue we put out taken back, and OStim's own face writer "
 		                   "back on for everyone.");
 		ig::SameLine();
+		if (ig::Button("Probe faces (30 s)")) OnGame([]() { Face::Output::ArmProbe(30.0f); });
+		ig::SetItemTooltip("Diagnostics for a face that will not move. For 30 seconds after you close this menu, OSIS.log gets a "
+		                   "line per actor per second: what OSIS asked for, what the game actually rendered, and whether "
+		                   "anything else changed the face in between. Use it during a scene and send the log.");
+		ig::SameLine();
 		if (ig::Button("Clear body + skin effects")) OnGame([]() {
 			Body::ClearAll();
 			Skin::ClearAll();
@@ -937,7 +942,7 @@ namespace
 						g_dirty = true;
 					}
 					ig::SetItemTooltip("Empty: use Body Blushing's region of this name. Otherwise a path under Data\textures, "
-					                   "e.g. actors\character\overlays\MyBlush\chest.dds");
+					                   "e.g. actors\\character\\overlays\\MyBlush\\chest.dds");
 				}
 				ComboI("Body", b.sex, kBodySexes, 3, "Body Blushing's textures are painted on the female UV, so the stock rows are "
 					"female only. A male body needs its own textures: add rows, set this to Male and point them at your files.");

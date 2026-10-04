@@ -40,6 +40,28 @@ namespace Face::Output
 			}
 		};
 
+		// What one actor's face did between two probe lines. "Ours" is what we wrote last frame,
+		// compared at the start of the next frame against what is in the face data by then.
+		struct Probe
+		{
+			std::array<float, kPhonemes> ph{};
+			std::array<float, kModifiers> mod{};
+			std::array<float, kExpressions> expr{};
+			std::uint32_t phMask = 0;
+			std::uint32_t modMask = 0;
+			bool exprWritten = false;
+			bool valid = false;  // the arrays hold last frame's writes
+			int frames = 0;
+			int hitPh = 0, hitMod = 0, hitExpr = 0, overrideOff = 0;
+			float dPh = 0.0f, dMod = 0.0f, dExpr = 0.0f;
+			int chPh = -1, chMod = -1, chExpr = -1;
+			float foundPh = 0.0f, oursPh = 0.0f, foundMod = 0.0f, oursMod = 0.0f, foundExpr = 0.0f, oursExpr = 0.0f;
+			float dlgPh = 0.0f, dlgMod = 0.0f;  // dialogue lip-sync, the game's own second mouth
+			int trackStarts = 0;
+			float next = 0.0f;
+			bool countsLogged = false;
+		};
+
 		struct State
 		{
 			std::array<Channel, kPhonemes> ph{};
@@ -53,6 +75,7 @@ namespace Face::Output
 			bool releasing = false;
 			bool exprUsed = false;
 			bool reported = false;     // logged the first write
+			Probe probe;
 
 			// lip-sync track
 			std::shared_ptr<const Envelope> track;
@@ -68,6 +91,109 @@ namespace Face::Output
 		std::mutex g_lock;
 		std::unordered_map<RE::FormID, State> g_states;
 		std::atomic<std::size_t> g_count{ 0 };
+
+		std::atomic<float> g_probeArm{ 0.0f };    // seconds requested; the run starts at the next write
+		std::atomic<float> g_probeUntil{ 0.0f };
+		std::atomic<bool> g_probeDone{ true };
+
+		float Val(const RE::BSFaceGenKeyframeMultiple& kf, std::uint32_t i) { return kf.values && i < kf.count ? kf.values[i] : 0.0f; }
+
+		int Top(const RE::BSFaceGenKeyframeMultiple& kf, std::uint32_t n, float& v)
+		{
+			int best = -1;
+			v = 0.0f;
+			for (std::uint32_t i = 0; i < n; ++i) {
+				if (const float x = Val(kf, i); x > v) {
+					v = x;
+					best = static_cast<int>(i);
+				}
+			}
+			return best;
+		}
+
+		template <std::size_t N>
+		int Top(const std::array<float, N>& a, float& v)
+		{
+			int best = -1;
+			v = 0.0f;
+			for (std::size_t i = 0; i < N; ++i) {
+				if (a[i] > v) {
+					v = a[i];
+					best = static_cast<int>(i);
+				}
+			}
+			return best;
+		}
+
+		// Start of a frame: did anything change what we wrote last frame?
+		void ProbeEntry(Probe& p, const RE::BSFaceGenAnimationData& fg)
+		{
+			++p.frames;
+			if (p.exprWritten && !fg.exprOverride) ++p.overrideOff;
+			for (std::uint32_t i = 0; i < kPhonemes; ++i) p.dlgPh = std::max(p.dlgPh, Val(fg.phoneme1, i));
+			for (std::uint32_t i = kBrowDownL; i < kModifiers; ++i) p.dlgMod = std::max(p.dlgMod, Val(fg.modifier1, i));
+			if (!p.valid) return;
+			const auto check = [](const RE::BSFaceGenKeyframeMultiple& kf, const auto& ours, std::uint32_t mask, bool all,
+								   int& hits, float& d, int& ch, float& found, float& o) {
+				bool hit = false;
+				for (std::uint32_t i = 0; i < ours.size(); ++i) {
+					if (!all && !(mask & (1u << i))) continue;
+					const float f = Val(kf, i);
+					const float delta = std::abs(f - ours[i]);
+					if (delta <= 0.01f) continue;
+					hit = true;
+					if (delta > d) {
+						d = delta;
+						ch = static_cast<int>(i);
+						found = f;
+						o = ours[i];
+					}
+				}
+				if (hit) ++hits;
+			};
+			check(fg.phenomeKeyFrame, p.ph, p.phMask, false, p.hitPh, p.dPh, p.chPh, p.foundPh, p.oursPh);
+			check(fg.modifierKeyFrame, p.mod, p.modMask, false, p.hitMod, p.dMod, p.chMod, p.foundMod, p.oursMod);
+			if (p.exprWritten) check(fg.expressionKeyFrame, p.expr, 0, true, p.hitExpr, p.dExpr, p.chExpr, p.foundExpr, p.oursExpr);
+		}
+
+		// Once a second: our last writes against what the game rendered from them. The game's
+		// final values (expression3 / modifier3 / phoneme3) are what reaches the face mesh.
+		void ProbeLog(RE::Actor* a, Probe& p, const RE::BSFaceGenAnimationData& fg)
+		{
+			if (!p.countsLogged) {
+				p.countsLogged = true;
+				logger::info("Probe {:08X} {}: keyframe sizes expr {}/{} mod {}/{} mouth {}/{} (input/rendered), transition target {}",
+					a->GetFormID(), a->GetDisplayFullName(), fg.expressionKeyFrame.count, fg.expression3.count, fg.modifierKeyFrame.count,
+					fg.modifier3.count, fg.phenomeKeyFrame.count, fg.phoneme3.count, fg.transitionTargetKeyFrame ? "present" : "none");
+			}
+			float ov, rv, opv, rpv;
+			const int om = p.exprWritten ? Top(p.expr, ov) : -1;
+			const int rm = Top(fg.expression3, kExpressions, rv);
+			const int op = Top(p.ph, opv);
+			const int rp = Top(fg.phoneme3, kPhonemes, rpv);
+			const auto m = [&](int i) { return (p.modMask & (1u << i)) ? p.mod[i] : -1.0f; };
+			logger::info(
+				"Probe {:08X} {}: mood ours {}@{:.2f} rendered {}@{:.2f} | brows ours dn {:.2f} in {:.2f} up {:.2f} sq {:.2f}, rendered dn {:.2f} in {:.2f} up {:.2f} sq {:.2f} | "
+				"mouth ours {}@{:.2f} rendered {}@{:.2f}, dialogue lip-sync max {:.2f} | changed by something else between our writes: mood {}/{} brows {}/{} mouth {}/{} frames, "
+				"override found off {} | lip-sync clips started {}",
+				a->GetFormID(), a->GetDisplayFullName(), om, ov, rm, rv, m(kBrowDownL), m(kBrowInL), m(kBrowUpL), m(kSquintL),
+				Val(fg.modifier3, kBrowDownL), Val(fg.modifier3, kBrowInL), Val(fg.modifier3, kBrowUpL), Val(fg.modifier3, kSquintL),
+				op, opv, rp, rpv, p.dlgPh, p.hitExpr, p.frames, p.hitMod, p.frames, p.hitPh, p.frames, p.overrideOff, p.trackStarts);
+			if (p.chExpr >= 0 || p.chMod >= 0 || p.chPh >= 0) {
+				logger::info("Probe {:08X}: largest outside changes: mood #{} {:.2f} where we wrote {:.2f}; modifier #{} {:.2f} where we wrote {:.2f}; phoneme #{} {:.2f} where we wrote {:.2f}",
+					a->GetFormID(), p.chExpr, p.foundExpr, p.oursExpr, p.chMod, p.foundMod, p.oursMod, p.chPh, p.foundPh, p.oursPh);
+			}
+			const auto keep = p;
+			p = Probe{};
+			p.ph = keep.ph;
+			p.mod = keep.mod;
+			p.expr = keep.expr;
+			p.phMask = keep.phMask;
+			p.modMask = keep.modMask;
+			p.exprWritten = keep.exprWritten;
+			p.valid = keep.valid;
+			p.countsLogged = true;
+		}
 
 		State* Get(RE::Actor* a, bool create)
 		{
@@ -154,6 +280,12 @@ namespace Face::Output
 			for (int i = 0; i < kExpressions; ++i) st->expr[i].Set(i == mood ? e[31] * exprStr : 0.0f, speed);
 			st->exprUsed = true;
 		}
+		if (Scenes::Now() < g_probeUntil.load()) {
+			logger::info("Probe {:08X} {}: preset mood {}@{:.2f} brows dn {:.2f} in {:.2f} up {:.2f} squint {:.2f} look down {:.2f} up {:.2f}, mouth {} (strengths expr {:.2f} mod {:.2f})",
+				a->GetFormID(), a->GetDisplayFullName(), mood, e[31] * exprStr, e[16 + kBrowDownL] * modStr, e[16 + kBrowInL] * modStr,
+				e[16 + kBrowUpL] * modStr, e[16 + kSquintL] * modStr, e[16 + kLookDown] * modStr, e[16 + kLookUp] * modStr,
+				skipPhonemes ? "left alone" : "set", exprStr, modStr);
+		}
 	}
 
 	void SetSuspended(RE::Actor* a, bool suspended)
@@ -197,6 +329,15 @@ namespace Face::Output
 		auto* st = Get(a, true);
 		if (!st) return;
 		if (st->track != env || std::abs(st->trackStart - start) > 0.05f) {
+			if (Scenes::Now() < g_probeUntil.load()) {
+				++st->probe.trackStarts;
+				if (st->track == env) {
+					logger::info("Probe {:08X} {}: the same lip-sync clip restarted, start moved {:+.2f} s", a->GetFormID(), a->GetDisplayFullName(), start - st->trackStart);
+				} else {
+					logger::info("Probe {:08X} {}: lip-sync clip started ({:.2f} s long, {:.2f} s in){}", a->GetFormID(), a->GetDisplayFullName(),
+						env->Duration(), Scenes::Now() - start, st->TrackActive(Scenes::Now()) ? " while the previous clip was still playing" : "");
+				}
+			}
 			st->track = std::move(env);
 			st->trackStart = start;
 		}
@@ -269,6 +410,16 @@ namespace Face::Output
 
 	std::size_t PaintedCount() { return g_count.load(); }
 
+	void ArmProbe(float seconds)
+	{
+		g_probeUntil = 0.0f;
+		g_probeDone = false;
+		g_probeArm = std::max(1.0f, seconds);
+		logger::info("Face probe: armed for {:.0f} s; starts with the next face write ({} face(s) being written)", seconds, g_count.load());
+	}
+
+	bool Probing() { return Scenes::Now() < g_probeUntil.load() || g_probeArm.load() > 0.0f; }
+
 	void Update(RE::Actor* a, float dt)
 	{
 		if (g_count.load(std::memory_order_relaxed) == 0 || !a) return;
@@ -288,6 +439,28 @@ namespace Face::Output
 		}
 
 		RE::BSSpinLockGuard guard(fg->lock);
+		const float now = Scenes::Now();
+		if (const float arm = g_probeArm.exchange(0.0f); arm > 0.0f) {
+			g_probeUntil = now + arm;
+			logger::info("Face probe: running for {:.0f} s", arm);
+		}
+		const bool probing = now < g_probeUntil.load();
+		auto& pr = st.probe;
+		if (probing) {
+			ProbeEntry(pr, *fg);
+			if (pr.next <= 0.0f) {
+				pr.next = now + 1.0f;
+			} else if (now >= pr.next) {
+				ProbeLog(a, pr, *fg);
+				pr.next = now + 1.0f;
+			}
+			pr.phMask = pr.modMask = 0;
+			pr.exprWritten = false;
+		} else {
+			if (pr.valid || pr.frames) pr = Probe{};
+			if (!g_probeDone.exchange(true)) logger::info("Face probe: done");
+		}
+
 		if (st.reseedAll) {
 			Seed(fg->phenomeKeyFrame, st.ph);
 			Seed(fg->modifierKeyFrame, st.mod);
@@ -303,7 +476,6 @@ namespace Face::Output
 
 		// Lip-sync track: follow the moan's loudness envelope, blending in and out of the
 		// base mouth so the hand-over never pops.
-		const float now = Scenes::Now();
 		std::array<float, kPhonemes> trackPh{};
 		float squintBoost = 0.0f;
 		const bool trackOn = st.TrackActive(now);
@@ -377,7 +549,13 @@ namespace Face::Output
 					write = write || v > 0.0f;
 				}
 			}
-			if (write) Write(fg->phenomeKeyFrame, i, v);
+			if (write) {
+				Write(fg->phenomeKeyFrame, i, v);
+				if (probing) {
+					pr.ph[i] = v;
+					pr.phMask |= 1u << i;
+				}
+			}
 		}
 		settled &= st.trackBlend <= 0.0f && st.mouthFloor <= 0.0f;
 		for (int i = kBrowDownL; i < kModifiers; ++i) {
@@ -386,7 +564,12 @@ namespace Face::Output
 			c.Step(dt);
 			settled &= c.cur <= 0.005f;
 			const bool squint = i == kSquintL || i == kSquintR;
-			Write(fg->modifierKeyFrame, i, squint ? std::min(1.0f, c.cur + squintBoost * st.trackBlend) : c.cur);
+			const float mv = squint ? std::min(1.0f, c.cur + squintBoost * st.trackBlend) : c.cur;
+			Write(fg->modifierKeyFrame, i, mv);
+			if (probing) {
+				pr.mod[i] = mv;
+				pr.modMask |= 1u << i;
+			}
 			// Look modifiers stop eye blinking while non-zero; hand them back once at rest.
 			if (IsLook(i) && c.cur <= 0.0f && c.target <= 0.0f) c.used = false;
 		}
@@ -396,9 +579,12 @@ namespace Face::Output
 				c.Step(dt);
 				settled &= c.cur <= 0.005f;
 				Write(fg->expressionKeyFrame, i, c.cur);
+				if (probing) pr.expr[i] = c.cur;
 			}
 			fg->exprOverride = true;
+			if (probing) pr.exprWritten = true;
 		}
+		if (probing) pr.valid = true;
 
 		if (st.releasing && settled) {
 			for (int i = 0; i < kPhonemes; ++i) Write(fg->phenomeKeyFrame, i, 0.0f);

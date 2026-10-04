@@ -411,6 +411,15 @@ namespace Face::Engine
 				if (!ym && LipSyncMouthActive(s, a)) s.mouthOwner = "Face + Lip-Sync";
 				UpdateOSEDTongue(t, s, a, ym);
 			}
+			if (arc && Output::Probing()) {
+				for (auto& s : t.slots) {
+					auto* a = s.Get();
+					if (!a) continue;
+					logger::info("Probe {:08X} {}: beat {} - face '{}', mouth '{}', eyes '{}', head '{}', excitement {}{}{}{}{}", a->GetFormID(),
+						a->GetDisplayFullName(), t.tick, s.faceOwner, s.mouthOwner, s.eyeOwner, s.headOwner, Raw(a), t.normalActive ? ", normal state" : "",
+						t.afterglow > 0 ? ", afterglow" : "", s.takenOver ? ", OStim face off" : ", OStim face ON", s.painted ? "" : ", not painted");
+				}
+			}
 		}
 	}
 
