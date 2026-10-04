@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.5.2
+
+### Fixed
+- **Moan files inside a BSA are decoded now.** Lip-sync read them with a plain file handle, which
+  only ever sees loose files, so a voice pack shipped as an archive decoded almost nothing and
+  the mouth never moved for it. They are read through the game's own resource system instead, so
+  loose files and archives both work.
+- **The log says why a file was skipped**, instead of counting everything as "not loose": not
+  installed, not a WAV container, or an encoding that cannot be read. The last is xWMA, which is
+  what a .wav from a compressed voice pack usually contains - those moans play, the mouth just
+  cannot follow them, and there is no fix short of decoding WMA.
+
 ## 1.5.1
 
 ### Changed

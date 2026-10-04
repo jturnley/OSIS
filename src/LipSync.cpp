@@ -101,12 +101,40 @@ namespace LipSync
 		}
 
 		// ------------------------------------------------------------ wav decoding
-		std::shared_ptr<const Envelope> Decode(const std::filesystem::path& path)
+		// Why a file produced no envelope, for the log.
+		enum class Skip
 		{
-			std::ifstream f(path, std::ios::binary);
-			if (!f) return nullptr;
-			std::vector<char> data((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
-			if (data.size() < 44 || std::memcmp(data.data(), "RIFF", 4) != 0 || std::memcmp(data.data() + 8, "WAVE", 4) != 0) return nullptr;
+			kNone,
+			kNotFound,   // neither loose nor in any archive
+			kNotRiff,    // not a RIFF/WAVE container at all (a .fuz, usually)
+			kEncoding,   // RIFF/WAVE but not PCM: xWMA from a compressed voice pack
+		};
+
+		// Whole file through the engine's resource system: a loose file wins, otherwise it comes
+		// out of whichever BSA holds it. std::ifstream only ever saw loose files, which is why a
+		// packed voice set decoded almost nothing.
+		bool ReadResource(const std::string& a_relative, std::vector<char>& a_out)
+		{
+			RE::BSResourceNiBinaryStream stream(a_relative);
+			if (!stream.good()) return false;
+			const auto size = stream.stream ? stream.stream->totalSize : 0;
+			if (size == 0 || size > 64u * 1024u * 1024u) return false;  // a moan is never 64 MB
+			a_out.assign(size, 0);
+			return stream.read(a_out.data(), size);
+		}
+
+		std::shared_ptr<const Envelope> Decode(const std::string& a_relative, Skip& a_why)
+		{
+			a_why = Skip::kNone;
+			std::vector<char> data;
+			if (!ReadResource(a_relative, data)) {
+				a_why = Skip::kNotFound;
+				return nullptr;
+			}
+			if (data.size() < 44 || std::memcmp(data.data(), "RIFF", 4) != 0 || std::memcmp(data.data() + 8, "WAVE", 4) != 0) {
+				a_why = Skip::kNotRiff;
+				return nullptr;
+			}
 
 			std::uint16_t format = 0, channels = 0, bits = 0;
 			std::uint32_t rate = 0;
@@ -130,7 +158,11 @@ namespace LipSync
 			}
 			const bool pcm = format == 1 && (bits == 16 || bits == 24 || bits == 8);
 			const bool flt = format == 3 && bits == 32;
-			if (!samples || !channels || !rate || (!pcm && !flt)) return nullptr;
+			if (!samples || !channels || !rate || (!pcm && !flt)) {
+				// 0x0161 is xWMA: the usual contents of a .wav shipped by a compressed voice pack.
+				a_why = Skip::kEncoding;
+				return nullptr;
+			}
 
 			const std::size_t frameBytes = (bits / 8) * channels;
 			const std::size_t count = sampleBytes / frameBytes;
@@ -194,7 +226,7 @@ namespace LipSync
 		struct Match
 		{
 			Key key;
-			std::filesystem::path path;
+			std::string path;  // relative to Data, for the resource system
 		};
 
 		// ------------------------------------------------------------ descriptor file lists
@@ -299,12 +331,14 @@ namespace LipSync
 
 		// ANAM paths are relative to the game folder ("data\sound\..."), to Data ("sound\..."),
 		// or to Data\Sound ("fx\..."). The game's working directory is the game folder.
-		std::filesystem::path ResolveSoundPath(const std::string& a_anam)
+		// Relative to Data, which is what the resource system wants: it looks in the loose files
+		// and in every mounted BSA. A leading Data\\ would make it look for Data\\Data\\...
+		std::string ResolveSoundPath(const std::string& a_anam)
 		{
-			const std::string lower = LowerStr(a_anam);
-			if (lower.starts_with("data\\") || lower.starts_with("data/")) return std::filesystem::path(a_anam);
-			if (lower.starts_with("sound\\") || lower.starts_with("sound/")) return std::filesystem::path("Data") / a_anam;
-			return std::filesystem::path("Data") / "Sound" / a_anam;
+			std::string lower = LowerStr(a_anam);
+			if (lower.starts_with("data\\") || lower.starts_with("data/")) return a_anam.substr(5);
+			if (lower.starts_with("sound\\") || lower.starts_with("sound/")) return a_anam;
+			return "Sound\\" + a_anam;
 		}
 
 		struct Descriptor
@@ -334,45 +368,62 @@ namespace LipSync
 					continue;
 				}
 				for (std::size_t i = 0; i < rec->second.size(); ++i) {
-					auto path = ResolveSoundPath(rec->second[i]);
-					std::error_code ec;
-					if (!std::filesystem::is_regular_file(path, ec)) {
-						++missing;  // packed in a BSA, or shipped as .xwm/.fuz: not decodable here
-						continue;
-					}
-					out.push_back({ ToKey(d.def->soundFiles[i]), std::move(path) });
+					// Whether the file exists is the decoder's business now: it reads through the
+					// resource system, so a file inside a BSA is as good as a loose one.
+					out.push_back({ ToKey(d.def->soundFiles[i]), ResolveSoundPath(rec->second[i]) });
 					++a_paired;
 				}
 			}
-			if (mismatched || missing || compressed || unreadable) {
-				logger::warn("Lip-sync: {} descriptor(s) without a matching file list, {} file(s) not loose, {} compressed record(s), {} unreadable plugin(s)",
-					mismatched, missing, compressed, unreadable);
+			if (mismatched || compressed || unreadable) {
+				logger::warn("Lip-sync: {} descriptor(s) without a matching file list, {} compressed record(s), {} unreadable plugin(s)",
+					mismatched, compressed, unreadable);
 			}
+			(void)missing;
 			return out;
 		}
 
 		// Runs on its own thread: an exception escaping it would terminate the game.
 		void DecodeAll(std::vector<Match> files, std::size_t paired, std::chrono::steady_clock::time_point t0)
 		{
-			std::size_t decoded = 0;
+			std::size_t decoded = 0, notFound = 0, notRiff = 0, encoding = 0;
+			std::string firstEncoding;
 			for (auto& m : files) {
 				try {
-					if (auto env = Decode(m.path)) {
+					Skip why = Skip::kNone;
+					if (auto env = Decode(m.path, why)) {
 						std::scoped_lock l(g_lock);
 						g_envelopes[m.key] = std::move(env);
 						++decoded;
+						continue;
+					}
+					switch (why) {
+					case Skip::kNotFound: ++notFound; break;
+					case Skip::kNotRiff: ++notRiff; break;
+					case Skip::kEncoding:
+						++encoding;
+						if (firstEncoding.empty()) firstEncoding = m.path;
+						break;
+					default: break;
 					}
 				} catch (const std::exception& e) {
-					logger::warn("Lip-sync: could not decode {}: {}", FsUtil::Printable(m.path), e.what());
+					logger::warn("Lip-sync: could not decode {}: {}", m.path, e.what());
 				}
+			}
+			if (notFound || notRiff || encoding) {
+				logger::warn("Lip-sync: {} file(s) not installed, {} not a WAV container, {} in an encoding this cannot read "
+							 "(xWMA - a compressed voice pack). Those moans play, the mouth just does not follow them.",
+					notFound, notRiff, encoding);
+				if (!firstEncoding.empty()) logger::warn("Lip-sync: for example {}", firstEncoding);
 			}
 			const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
 			{
 				std::scoped_lock l(g_lock);
-				g_status = std::format("{} moan files decoded ({} voice-set sounds, {} found on disk, {} ms)", decoded, g_wanted.size(), paired, ms);
+				g_status = std::format("{} of {} moan files decoded ({} unreadable encoding, {} not installed, {} ms)",
+					decoded, g_wanted.size(), encoding, notFound, ms);
 			}
 			g_ready = true;
-			logger::info("Lip-sync: {} of {} voice-set sound files decoded ({} found on disk) in {} ms", decoded, g_wanted.size(), paired, ms);
+			logger::info("Lip-sync: {} of {} voice-set sound files decoded in {} ms", decoded, g_wanted.size(), ms);
+			(void)paired;
 		}
 
 		// ------------------------------------------------------------ audio polling
