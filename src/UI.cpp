@@ -276,6 +276,10 @@ namespace
 		                   "line per actor per second: what OSIS asked for, what the game actually rendered, and whether "
 		                   "anything else changed the face in between. Use it during a scene and send the log.");
 		ig::SameLine();
+		if (ig::Button("Probe faces (3 min)")) OnGame([]() { Face::Output::ArmProbe(180.0f); });
+		ig::SetItemTooltip("The same, for three minutes - long enough to take in a climax. Click it, close the menu, and "
+		                   "play the scene through.");
+		ig::SameLine();
 		if (ig::Button("Clear body + skin effects")) OnGame([]() {
 			Body::ClearAll();
 			Skin::ClearAll();

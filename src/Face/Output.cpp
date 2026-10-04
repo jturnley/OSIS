@@ -74,6 +74,7 @@ namespace Face::Output
 			bool reseedAll = true;
 			bool releasing = false;
 			bool exprUsed = false;
+			bool exprRelease = false;  // easing the mood back to zero, then stop writing it
 			bool reported = false;     // logged the first write
 			Probe probe;
 
@@ -244,6 +245,7 @@ namespace Face::Output
 		if (!st) return;
 		for (int i = 0; i < kExpressions; ++i) st->expr[i].Set(i == mood ? strength : 0.0f, speed);
 		st->exprUsed = true;
+		st->exprRelease = false;
 	}
 
 	void ResetPhonemes(RE::Actor* a, float speed)
@@ -279,6 +281,7 @@ namespace Face::Output
 		if (mood >= 0 && mood < kExpressions) {
 			for (int i = 0; i < kExpressions; ++i) st->expr[i].Set(i == mood ? e[31] * exprStr : 0.0f, speed);
 			st->exprUsed = true;
+			st->exprRelease = false;
 		}
 		if (Scenes::Now() < g_probeUntil.load()) {
 			logger::info("Probe {:08X} {}: preset mood {}@{:.2f} brows dn {:.2f} in {:.2f} up {:.2f} squint {:.2f} look down {:.2f} up {:.2f}, mouth {} (strengths expr {:.2f} mod {:.2f})",
@@ -286,6 +289,15 @@ namespace Face::Output
 				e[16 + kBrowUpL] * modStr, e[16 + kSquintL] * modStr, e[16 + kLookDown] * modStr, e[16 + kLookUp] * modStr,
 				skipPhonemes ? "left alone" : "set", exprStr, modStr);
 		}
+	}
+
+	void ReleaseMood(RE::Actor* a, float speed)
+	{
+		std::scoped_lock l(g_lock);
+		auto* st = Get(a, false);
+		if (!st || !st->exprUsed || st->exprRelease) return;
+		for (auto& c : st->expr) c.Set(0.0f, speed);
+		st->exprRelease = true;
 	}
 
 	void SetSuspended(RE::Actor* a, bool suspended)
@@ -583,6 +595,16 @@ namespace Face::Output
 			}
 			fg->exprOverride = true;
 			if (probing) pr.exprWritten = true;
+			// Eased out: stop writing the mood altogether. Writing zeros for the rest of the scene
+			// would still overwrite whatever mood OStim sets, which is what this release is for.
+			if (st.exprRelease) {
+				bool zero = true;
+				for (const auto& c : st.expr) zero &= c.cur <= 0.005f;
+				if (zero) {
+					st.exprUsed = false;
+					st.exprRelease = false;
+				}
+			}
 		}
 		if (probing) pr.valid = true;
 

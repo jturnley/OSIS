@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.7.5
+
+### Fixed
+- **A mood set by OSIS kept overwriting OStim's own for the rest of the scene.** Once any mood
+  channel had been used, every animation update wrote all 17 of them. Switching from Director to
+  Enhanced or Assist part way through a scene, or a non-consensual shock or break outside
+  Director mode, left the last Director mood being rewritten over OStim's expression every frame.
+  Found in the face probe's output: a Neutral mood OSIS never chose, held at 0.25-0.43, in a scene
+  running in Enhanced mode. The mood is now eased out and left alone whenever the Director is not
+  the one driving the face.
+
+### Added
+- **Probe faces (3 min)** next to the 30-second one, long enough to take in a climax; the 30 s
+  window missed the peak both times. The beat line now says which face mode is running.
+
 ## 1.7.4
 
 ### Fixed

@@ -55,6 +55,10 @@ namespace Face::Output
 	void SetMood(RE::Actor* a_actor, int a_mood, float a_strength, float a_speed);
 	void ResetPhonemes(RE::Actor* a_actor, float a_speed);
 	void ResetModifiers(RE::Actor* a_actor, float a_speed);
+	// Ease the mood (expression) channels out and then stop writing them, so a mood we set earlier
+	// - the Director's, or a shock - does not keep overwriting OStim's own for the rest of the
+	// scene. Without it, every frame writes all 17 expression channels once any of them was used.
+	void ReleaseMood(RE::Actor* a_actor, float a_speed);
 
 	// Mfg preset layout: [0..15] phonemes, [16..29] modifiers, [30] mood, [31] strength.
 	// Blink (16/17) is never written so natural blinking keeps working.

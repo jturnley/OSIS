@@ -395,6 +395,10 @@ namespace Face::Engine
 					continue;
 				}
 				if (director) Output::SetMouthOwned(a, !ym);
+				// Outside Director mode nothing here owns the mood. One left behind by the Director
+				// (a mid-scene mode change) or by a shock would otherwise be rewritten every frame
+				// over OStim's own expression.
+				else Output::ReleaseMood(a, 0.6f);
 				if (arc) {
 					if (t.normalActive) ApplyNormalState(t, s, a, idx, ym);
 					else if (director) ApplyArc(t, s, a, idx, ym);
@@ -415,8 +419,9 @@ namespace Face::Engine
 				for (auto& s : t.slots) {
 					auto* a = s.Get();
 					if (!a) continue;
-					logger::info("Probe {:08X} {}: beat {} - face '{}', mouth '{}', eyes '{}', head '{}', excitement {}{}{}{}{}", a->GetFormID(),
-						a->GetDisplayFullName(), t.tick, s.faceOwner, s.mouthOwner, s.eyeOwner, s.headOwner, Raw(a), t.normalActive ? ", normal state" : "",
+					logger::info("Probe {:08X} {}: beat {} - mode {}, face '{}', mouth '{}', eyes '{}', head '{}', excitement {}{}{}{}{}", a->GetFormID(),
+						a->GetDisplayFullName(), t.tick, S::iMode == S::kDirector ? "Director" : (S::iMode == S::kEnhanced ? "Enhanced" : "Assist"),
+						s.faceOwner, s.mouthOwner, s.eyeOwner, s.headOwner, Raw(a), t.normalActive ? ", normal state" : "",
 						t.afterglow > 0 ? ", afterglow" : "", s.takenOver ? ", OStim face off" : ", OStim face ON", s.painted ? "" : ", not painted");
 				}
 			}
