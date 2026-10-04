@@ -59,6 +59,7 @@ namespace Arousal
 		bool g_warnedSlots = false;
 		float g_lastTick = 0.0f;
 		float g_nextTick = 0.0f;
+		constexpr float kLoadGrace = 6.0f;  // seconds after a load before the first overlay work
 		int g_bodyOverlays = 6;
 
 		std::mutex g_stateLock;  // main thread + VM callbacks + UI
@@ -359,7 +360,10 @@ namespace Arousal
 		std::scoped_lock l(g_stateLock);
 		g_states.clear();
 		g_lastTick = 0.0f;
-		g_nextTick = 0.0f;
+		// Loading a save is when the engine installs 3D for a cell full of actors and every
+		// overlay mod piles work onto RaceMenu at once. Nothing of ours is urgent in that window,
+		// so stay out of it: the first tick waits, rather than adding to the queue.
+		g_nextTick = Scenes::Now() + kLoadGrace;
 	}
 
 	void RequestClearAll() { g_clearRequested = true; }

@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.5.1
+
+### Changed
+- **Arousal waits six seconds after a save loads before touching overlays.** Loading is when the
+  engine installs 3D for a whole cell of actors and every overlay mod queues work onto RaceMenu
+  at once. Nothing here is urgent in that window, so it stays out of it. Precautionary: a crash
+  inside RaceMenu's own overlay install task was seen seconds after a load, with nothing of ours
+  on the stack, and adding to that queue is the one thing we were doing at the time.
+
 ## 1.5.0
 
 ### Added
