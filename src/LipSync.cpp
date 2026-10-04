@@ -629,14 +629,25 @@ namespace LipSync
 			// Anchor the clip once. A new sound re-anchors; the same one keeps the start it was
 			// given, so the envelope runs through exactly once however the reported position
 			// behaves. A forward jump of more than a third of a second is a real desync (a stall,
-			// or a long frame) and is worth following; a backward jump never is.
-			const float reported = now - static_cast<float>(p.positionMS) / 1000.0f;
+			// or a long frame) and is worth following - but only while the sound is genuinely
+			// partway through. A moan that has just finished reports its position back near zero
+			// before the audio manager drops it, and following that as a "jump" restarted the
+			// envelope from the top: the mouth played nearly every moan twice, back to back
+			// (measured with the face probe: 17 of 27 clips, each restarted at its own length).
+			const float pos = static_cast<float>(p.positionMS) / 1000.0f;
+			const float reported = now - pos;
 			float start;
 			{
 				std::scoped_lock l(g_lock);
 				auto& clip = g_clips[owner->GetFormID()];
 				const bool fresh = clip.soundID != p.soundID;
-				if (fresh || reported - clip.start > 0.35f) {
+				const bool jumped = !fresh && reported - clip.start > 0.35f;
+				const bool midClip = pos >= 0.10f && pos < env->Duration();
+				if (jumped && Face::Output::Probing()) {
+					logger::info("Probe {:08X} {}: lip-sync position read {:.2f} s, {:.2f} s after the clip began - {}", owner->GetFormID(),
+						owner->GetDisplayFullName(), pos, now - clip.start, midClip ? "following it" : "ignored, the clip has finished");
+				}
+				if (fresh || (jumped && midClip)) {
 					clip.soundID = p.soundID;
 					clip.start = reported;
 				}

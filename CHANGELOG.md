@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.7.4
+
+### Fixed
+- **The mouth moved twice for nearly every moan.** Measured with the face probe: 17 of 27 moans
+  restarted the same lip-sync clip at almost exactly its own length. A moan that has just
+  finished reports its play position back near zero before the audio manager drops it, and
+  lip-sync read that as "the audio has fallen behind" and started the envelope again from the
+  top. A position jump is now only followed while the sound is genuinely partway through.
+  Introduced by the 1.5.3 resync rule; before that, re-deriving the start every tick did the
+  same thing.
+- **The Director's climax mouth was never shown with default settings.** The preset leaves the
+  mouth alone when the breath clock is holding it, but the test was inverted (`!bBreathing`), so
+  it left the mouth alone exactly when nothing else was holding it. Its own open mouth at climax,
+  and a ring gag's, were thrown away. Present since the first release.
+
+### Notes
+- What the probe settled about flat faces: OSIS's writes do reach the rendered face, nothing
+  overwrites them, and OStim's face writer is off. The Director's own faces are mild - Happy at
+  about 0.4, brows 0.2-0.4, little mouth. The expressive faces from the original release match
+  OStim's own climax expression (climax1.json: jaw wide open, squint zero, eyes rolled up,
+  partial blinks), which OSIS cannot produce: OStim's writer was running alongside OSIS then. Why
+  the takeover did not hold in that build is not established.
+
 ## 1.7.3
 
 ### Added

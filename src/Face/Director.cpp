@@ -810,9 +810,13 @@ namespace Face::Engine::detail
 		const float jit = RandFloat(0.92f, 1.08f);
 		const float eStr = ClampF(S::fGlobalStrength * prof * jit, 0.0f, 2.0f);
 		const float mStr = ClampF(S::fGlobalStrength * prof * PersonalityMod(seed), 0.0f, 2.0f);
+		// The breath clock holds the mouth itself at climax (ClimaxMouth) and on a ring gag, so the
+		// preset leaves the mouth to it then. This used to read !bBreathing - true exactly when the
+		// breath clock is off and nothing else holds the mouth - so with default settings the
+		// climax preset's own open mouth, and a ring gag's, were thrown away and never shown.
 		const bool clenched = dom == kClimax && (arch == 1 || arch == 3);
-		const bool openMouth = !yieldMouth && !S::bBreathing && ((dom == kClimax && !gagC && !clenched) || gagR);
-		Output::ApplyPreset(a, e, openMouth || yieldMouth, eStr, mStr, S::fGlobalStrength, S::fTransition);
+		const bool breathHoldsMouth = !yieldMouth && S::bBreathing && ((dom == kClimax && !gagC && !clenched) || gagR);
+		Output::ApplyPreset(a, e, breathHoldsMouth || yieldMouth, eStr, mStr, S::fGlobalStrength, S::fTransition);
 		SetOwners(s, std::string(DomName(dom)) + "/" + ScenarioName(scenario), yieldMouth ? MouthOwnerLabel(t, s, a, true) : "OSED arc",
 			"Phrase " + std::to_string(phrase), "Pending gaze");
 		PulseActor(t, s, a, dom, phrase, enjEff);
