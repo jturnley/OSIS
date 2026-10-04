@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.7.1
+
+### Added
+- Two more afterglow faces: **relief smiling into it** (brows letting go and the mouth going
+  with them) and **too tired to do much with it, but still smiling** (heavy lids, a small
+  smile). Seven in the pool now, still equally weighted.
+
 ## 1.7.0
 
 ### Added

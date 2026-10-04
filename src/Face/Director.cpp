@@ -124,6 +124,20 @@ namespace Face::Engine::detail
 				e[24] = 0.45f;
 				return e;
 			}
+			case 5:  // relief smiling into it: brows let go and the mouth goes with them
+			{
+				auto e = Build(10, 0.60f, 0.16f * m, 0.0f, 0.40f, 0.32f, 0.0f, 0.0f);
+				e[5] = 0.28f * m;  // Eee
+				e[24] = 0.08f;
+				return e;
+			}
+			case 6:  // too tired to do much with it, but still smiling
+			{
+				auto e = Build(10, 0.50f, 0.20f * m, 0.0f, 0.72f, 0.05f, 0.08f, 0.10f);
+				e[5] = 0.22f * m;
+				e[24] = 0.28f;
+				return e;
+			}
 			default:  // the settled half-smile this always was
 				return Build(10, 0.35f, 0.10f * m, 0.0f, 0.45f, 0.20f, 0.0f, 0.0f);
 			}
@@ -165,7 +179,7 @@ namespace Face::Engine::detail
 				}
 				return e;
 			}
-			if (dom == kAfterglow) return AfterglowPreset((t.tick / 2 + seed) % 5, m);
+			if (dom == kAfterglow) return AfterglowPreset((t.tick / 2 + seed) % 7, m);
 			if (dom == kDistress) return DistressPreset(enj, victim, VictimReaction(arch), m);
 			if (dom == kPlateau) return Build(8, 0.40f, 0.20f * m, 0.0f, 0.55f, 0.45f, 0.30f, 0.20f);
 			if (dom == kAnticipation) return Build(7, 0.30f, 0.10f * m, 0.0f, 0.15f, 0.10f, 0.0f, 0.0f);
