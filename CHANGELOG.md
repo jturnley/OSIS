@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.7.0
+
+### Added
+- **Afterglow has a pool of faces instead of one.** The settled half-smile it always had, a
+  broader smile, relief (brows letting go, a long breath out), tired (heavy lids, gaze down) and
+  spent (barely holding the eyes open, no expression left). One per beat and per actor, with
+  equal weight.
+- **An eye-roll beat in the pleasure arc**: the eyes drift up, lids follow, brows lift with
+  them. An ordinary beat, no more likely than its neighbours, held back below excitement 55 so
+  it reads as pleasure rather than boredom.
+- **Wide eyes at the climax peak**, as if caught out by it: squint released, brows up hard and
+  the surprise mood in place of the usual climax mood. Shy actors get this often, everyone else
+  now and then.
+
+### Notes
+- Skyrim's FaceGen has no eyelid morph: Blink closes the lids and Squint narrows them, and
+  nothing opens them past neutral. "Wide" is therefore squint at zero, brows up and the surprise
+  mood, whose own morph lifts the lids. Blink is deliberately never written, so actors keep
+  blinking naturally through all of this.
+
 ## 1.6.2
 
 ### Fixed

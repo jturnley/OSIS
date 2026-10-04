@@ -93,6 +93,42 @@ namespace Face::Engine::detail
 			}
 		}
 
+		// Afterglow used to be one face for the whole scene. These share it, one per beat and
+		// per actor, with equal weight - nothing here is rarer than its neighbours. Mood 10 is
+		// Happy, 7 Neutral; squint is the main tiredness lever, since Skyrim has no eyelid
+		// morph of its own and Blink is left alone so natural blinking keeps working.
+		Preset AfterglowPreset(int which, float m)
+		{
+			switch (which) {
+			case 1:  // a broader smile: the mouth spreads, the eyes crease with it
+			{
+				auto e = Build(10, 0.70f, 0.05f * m, 0.0f, 0.50f, 0.15f, 0.0f, 0.0f);
+				e[5] = 0.35f * m;  // Eee spreads the lips
+				return e;
+			}
+			case 2:  // relief: brows let go, a long breath out, eyes soft
+			{
+				auto e = Build(10, 0.45f, 0.22f * m, 0.0f, 0.35f, 0.30f, 0.0f, 0.0f);
+				e[24] = 0.10f;  // LookDown: the gaze settles
+				return e;
+			}
+			case 3:  // tired: heavy lids, head-down gaze, mouth slightly open
+			{
+				auto e = Build(10, 0.25f, 0.18f * m, 0.0f, 0.70f, 0.0f, 0.10f, 0.15f);
+				e[24] = 0.30f;
+				return e;
+			}
+			case 4:  // spent: barely holding the eyes open, no expression left to give
+			{
+				auto e = Build(7, 0.30f, 0.26f * m, 0.0f, 0.85f, 0.0f, 0.15f, 0.25f);
+				e[24] = 0.45f;
+				return e;
+			}
+			default:  // the settled half-smile this always was
+				return Build(10, 0.35f, 0.10f * m, 0.0f, 0.45f, 0.20f, 0.0f, 0.0f);
+			}
+		}
+
 		Preset BasePreset(Thread& t, int dom, int enj, bool victim, int arch, int seed, int role, int tone)
 		{
 			const float m = MouthGate();
@@ -104,6 +140,18 @@ namespace Face::Engine::detail
 					} else if (t.orgTicks == 1) {
 						e[27] = 0.6f;  // eyes roll up at the peak
 						e[22] = e[23] = 0.8f;
+					}
+					// Caught out by it: eyes wide, brows up hard, surprise instead of the usual
+					// climax mood. Shy actors read this way often, everyone else now and then.
+					// Skyrim has no widen-the-eye morph, so "wide" is squint at zero, brows up
+					// and the surprise mood, whose own morph lifts the lids. Blink is left
+					// alone on purpose - ApplyPreset never writes it, so the actor keeps
+					// blinking naturally through the beat.
+					if ((seed + t.tick) % (arch == 3 ? 3 : 9) == 0) {
+						e[28] = e[29] = 0.0f;
+						e[22] = e[23] = 1.0f;
+						e[30] = 12.0f;  // surprise
+						e[31] = 1.0f;
 					}
 					if (t.orgCount >= 2) {  // oversensitive: each climax hits harder
 						const float over = ClampF(static_cast<float>(t.orgCount - 1) * 0.12f, 0.0f, 0.35f);
@@ -117,7 +165,7 @@ namespace Face::Engine::detail
 				}
 				return e;
 			}
-			if (dom == kAfterglow) return Build(10, 0.35f, 0.10f * m, 0.0f, 0.45f, 0.20f, 0.0f, 0.0f);
+			if (dom == kAfterglow) return AfterglowPreset((t.tick / 2 + seed) % 5, m);
 			if (dom == kDistress) return DistressPreset(enj, victim, VictimReaction(arch), m);
 			if (dom == kPlateau) return Build(8, 0.40f, 0.20f * m, 0.0f, 0.55f, 0.45f, 0.30f, 0.20f);
 			if (dom == kAnticipation) return Build(7, 0.30f, 0.10f * m, 0.0f, 0.15f, 0.10f, 0.0f, 0.0f);
@@ -705,6 +753,14 @@ namespace Face::Engine::detail
 			if (S::bPositionalDomSub) PositionalFlavor(e, posRole);
 			if (S::bRichEmotions && t.orgasm) PartnerReact(e);
 			if (S::bExposureAware && t.consent && IsNude(a)) ExposureFlavor(e, ExposureStrength(t, enjEff, arch));
+		}
+		// An eye-roll beat in the pleasure arc: the eyes drift up and the lids lower with them.
+		// One of the ordinary beats, no more likely than its neighbours, and held back until
+		// there is enough excitement for it to read as pleasure rather than boredom.
+		if (dom == kPleasure && t.consent && enjPhase >= 55 && (seed + t.tick) % 5 == 0) {
+			Add(e, 27, 0.55f);        // LookUp
+			Add2(e, 28, 0.20f);       // lids follow
+			Add2(e, 22, 0.15f);       // brows lift a little with them
 		}
 		if (S::bNaturalDetail) {
 			// Welling eyes: near the peak in consensual scenes; in distress only for a victim who isn't defiant.
