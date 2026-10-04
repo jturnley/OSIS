@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.5.3
+
+### Fixed
+- **The mouth played some moans twice.** The clip was re-anchored every tick from the sound's
+  reported playback position, so a single wobble in that position - notably it reading near zero
+  as a sound finishes - restarted the envelope and ran the whole mouth movement again in
+  silence. A clip is now anchored once when the sound first appears and left alone: a new sound
+  re-anchors, a large forward jump still resyncs, and a clip that has played through never
+  drives the mouth again. The ten-second poll summary counts those.
+
 ## 1.5.2
 
 ### Fixed

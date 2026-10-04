@@ -480,11 +480,23 @@ namespace LipSync
 		// match per actor, so a log shows which stage fails if lip-sync stays silent.
 		struct PollStats
 		{
-			std::size_t clips = 0, matched = 0, notInScene = 0, noOwner = 0, mouthBusy = 0, tongueOut = 0;
+			std::size_t clips = 0, matched = 0, notInScene = 0, noOwner = 0, mouthBusy = 0, tongueOut = 0, spent = 0;
 			float windowStart = 0.0f;
 		};
 		PollStats g_stats;
 		std::unordered_set<RE::FormID> g_reported;
+
+		// The clip each actor's mouth is currently following. The start time is decided once, when
+		// a sound first appears, and then left alone: re-deriving it from the sound's reported
+		// position every tick let a single wobble in that position restart the envelope, which is
+		// a second mouth movement with no sound behind it.
+		struct ActiveClip
+		{
+			std::uint32_t soundID = 0;
+			float start = 0.0f;   // when the clip began, in scene time
+			float seen = 0.0f;    // last tick it was still playing, for pruning
+		};
+		std::unordered_map<RE::FormID, ActiveClip> g_clips;
 	}
 
 	void OnDataLoaded()
@@ -558,6 +570,13 @@ namespace LipSync
 
 		std::array<Playing, 64> playing{};
 		const int n = CollectPlaying(am, playing.data(), static_cast<int>(playing.size()));
+		{
+			// Actors whose clip finished a while ago are forgotten, so the map stays the size of
+			// the cast rather than the save.
+			const float cutoff = Scenes::Now() - 30.0f;
+			std::scoped_lock l(g_lock);
+			std::erase_if(g_clips, [cutoff](const auto& kv) { return kv.second.seen < cutoff; });
+		}
 		if (n == 0) return;
 
 		const float now = Scenes::Now();
@@ -607,7 +626,29 @@ namespace LipSync
 				}
 				params.minOpen = tongueMinOpen;  // Hold open: keep the lips clear of it
 			}
-			const float start = now - static_cast<float>(p.positionMS) / 1000.0f;
+			// Anchor the clip once. A new sound re-anchors; the same one keeps the start it was
+			// given, so the envelope runs through exactly once however the reported position
+			// behaves. A forward jump of more than a third of a second is a real desync (a stall,
+			// or a long frame) and is worth following; a backward jump never is.
+			const float reported = now - static_cast<float>(p.positionMS) / 1000.0f;
+			float start;
+			{
+				std::scoped_lock l(g_lock);
+				auto& clip = g_clips[owner->GetFormID()];
+				const bool fresh = clip.soundID != p.soundID;
+				if (fresh || reported - clip.start > 0.35f) {
+					clip.soundID = p.soundID;
+					clip.start = reported;
+				}
+				clip.seen = now;
+				start = clip.start;
+				// This clip has already played through: do not drive the mouth from it again,
+				// whatever the audio manager still says about it.
+				if (!fresh && now - start > env->Duration() + 0.05f) {
+					++g_stats.spent;
+					continue;
+				}
+			}
 			auto track = params;
 			if (s && s->broken) track.holdEyes = false;  // a broken victim's eyes don't squeeze
 			Face::Output::SetMouthTrack(owner, env, start, track);
@@ -619,8 +660,8 @@ namespace LipSync
 			g_lastMatch = std::format("{} ({:.1f} s clip)", owner->GetDisplayFullName(), env->Duration());
 		}
 		if (g_stats.clips && now - g_stats.windowStart >= 10.0f) {
-			logger::info("Lip-sync: {} moan-clip polls in the last 10 s: {} lip-synced, {} mouth busy (oral/dialogue/override), {} tongue out, {} not in a scene, {} with no owning actor",
-				g_stats.clips, g_stats.matched, g_stats.mouthBusy, g_stats.tongueOut, g_stats.notInScene, g_stats.noOwner);
+			logger::info("Lip-sync: {} moan-clip polls in the last 10 s: {} lip-synced, {} mouth busy (oral/dialogue/override), {} tongue out, {} not in a scene, {} with no owning actor, {} already played out",
+				g_stats.clips, g_stats.matched, g_stats.mouthBusy, g_stats.tongueOut, g_stats.notInScene, g_stats.noOwner, g_stats.spent);
 			g_stats = PollStats{};
 			g_stats.windowStart = now;
 		} else if (!g_stats.clips) {
