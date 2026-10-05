@@ -838,8 +838,8 @@ namespace Face::Engine::detail
 	// as in OStim - and the tongue is put out when the pick says so. Returns true while one is playing.
 	bool UpdateOralOverride(Thread& t, Slot& s, RE::Actor* a, int raw)
 	{
-		if (!a || !OverridesAreOurs() || !t.meta || s.pos < 0) {
-			EndOralOverride(s, a);
+		if (!a || !OverridesAreOurs() || !t.meta || s.pos < 0 || s.ppaYield) {
+			EndOralOverride(s, a);  // PPA's mouth preset opens the mouth for a blowjob; this would only compete
 			return false;
 		}
 		const auto resolved = Library::Resolve(*t.meta, s.pos);

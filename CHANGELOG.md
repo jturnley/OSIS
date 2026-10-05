@@ -1,5 +1,41 @@
 # Changelog
 
+## 1.9.5
+
+### Added
+- **A blowjob's mouth is handed to PPA while PPA is playing its mouth preset** (Procedural Penis
+  Animations / Penetration Physics). With a penis in an actor's mouth PPA plays its own facial preset on
+  them - in the default config the phonemes that open the mouth (0, 1, 5, 6, 7, 9), with every other
+  phoneme zeroed (`OverridePhonemes = true`, priority 99999). Since 1.9.0 the Director played OStim's
+  open-mouth pool on that same mouth and, with the mouth no longer counted as "yielded", turned the head
+  and aimed the gaze as well, so two writers shared the mouth and something was moving the head the
+  animation had placed. For whoever is giving a blowjob or deepthroat, in Director mode with the
+  expression library on, the Director now stops writing the phonemes, stops playing the open-mouth
+  override, stops the look-at and the head flow, and leaves the mouth to PPA. Eyes, brows and mood are
+  still ours. New setting `bYieldMouthToPPA` (default on), with a checkbox and a PPA status line under
+  Face > Mouth.
+- **It checks that PPA is really doing it.** PPA does not say which actors it is working on, so it is
+  seen from the face: when the mouth is handed over the phonemes stop moving, and a change in them
+  (0.6 summed over the 16) is PPA at work. If nothing changes in 6 seconds, PPA is not driving this
+  mouth (a scene it does not recognise, or the penis out of its range) and the Director takes the mouth
+  back and plays the open-mouth pool as before, offering it to PPA again after 15 seconds and at every
+  new scene node. One of our own moan clips finishing is not mistaken for PPA. The log says which:
+  `PPA: X gives a blowjob; the mouth is PPA's ...`, then either `PPA: is driving X's mouth (...)` or
+  `PPA: nothing moved X's mouth in 6 s; it is not driving it here ...`.
+- PPA is found by its module name and its `accurate-penetration.toml` is read as text (reread when it
+  changes, at each scene start): the hand-over only happens when PPA's expression system is on and a
+  `[[FacialPreset]]` targets the Mouth. If you delete that preset PPA stops opening mouths and OSIS keeps
+  the mouth. The startup log line `PPA: ...` says what was found.
+
+### Notes
+- This hands over what PPA writes to the face and where the head points. It cannot align a scene PPA
+  does not know: `AccuratePenetration.log` says `Scene for X (OStim) has no tags/context. Waiting...` for
+  those, and PPA does nothing on them (no alignment, no mouth). If a blowjob is still misaligned with
+  this version, that log from the same run shows whether PPA recognised the scene.
+- Only the phonemes are handed over. If a PPA preset also writes expressions or modifiers (a custom
+  deep-throat preset), the startup line says so and OSIS still writes those channels.
+- Assist and Enhanced modes are unchanged: they already left oral mouths to OStim.
+
 ## 1.9.4
 
 ### Fixed

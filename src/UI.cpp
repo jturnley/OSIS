@@ -9,6 +9,7 @@
 #include "Body.h"
 #include "Compat.h"
 #include "Face/Engine.h"
+#include "Face/PPA.h"
 #include "Face/Output.h"
 #include "LipSync.h"
 #include "OStimData.h"
@@ -394,6 +395,12 @@ namespace
 			Check("Yield mouth to oral actions", bYieldOralMouth,
 				"During an oral action the mouth belongs to the act, so the grammar stops writing it and only the eyes and "
 				"brow keep going.");
+			Check("Yield mouth to PPA in blowjobs", bYieldMouthToPPA,
+				"While PPA (Procedural Penis Animations) is playing its mouth preset on whoever is giving a blowjob, leave their mouth "
+				"and where they look to it: the Director stops writing the phonemes and stops turning the head, so nothing moves the "
+				"mouth away from the penis. If PPA turns out not to be driving the mouth, OSIS takes it back after a few seconds. "
+				"Director mode with the expression library on; the other modes already leave oral mouths to OStim.");
+			ig::TextDisabled("PPA: %s", Face::PPA::Status().c_str());
 			Check("Yield mouth to dialogue", bDialogueMouthYield,
 				"While a dialogue menu is open or an actor is speaking lines, leave their mouth alone so the talking reads right.");
 			Check("Breathing clock", bBreathing, "Moan/breath mouth cycle between beats. Off by default: Lip-Sync drives the mouth from the real moans.");

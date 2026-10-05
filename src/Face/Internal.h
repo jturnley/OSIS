@@ -34,6 +34,8 @@ namespace Face::Engine::detail
 
 	// Director.cpp: play the actor's override pool and overlay it on a finished preset.
 	bool UpdateOralOverride(Thread& t, Slot& s, RE::Actor* a, int raw);
+	// Engine.cpp: hand a blowjob's mouth to PPA while it is playing its preset, take it back if it is not.
+	void UpdatePPAMouth(Thread& t, Slot& s, RE::Actor* a);
 	void EndOralOverride(Slot& s, RE::Actor* a);
 	void OverlayOralOverride(const Slot& s, std::array<float, 32>& e);
 	[[nodiscard]] int RandInt(int lo, int hi);          // inclusive, like Utility.RandomInt
@@ -44,6 +46,7 @@ namespace Face::Engine::detail
 	{
 		TagList actionOral, actionKiss, actionVaginal, actionAnal, actionPenetration, actionAnySignal;
 		TagList actionFootActor, actionFootTarget;  // whose feet: footjob's actor, everything else's target
+		TagList actionMouthPenetrated;                // the actor's mouth has a penis in it
 		TagList tagOralAction, tagForced, tagRough, tagLoving, tagSub, tagDom;
 		TagList deepthroat;
 	};

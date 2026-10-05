@@ -6,6 +6,7 @@
 #include "Face/Internal.h"
 
 #include "Compat.h"
+#include "Face/PPA.h"
 
 #include "Papyrus.h"
 #include "Pulse.h"
@@ -390,6 +391,7 @@ namespace Face::Engine
 				Output::SetLayered(a, !s.takenOver);
 				s.faced = true;
 				RequestVoiceName(a);
+				UpdatePPAMouth(t, s, a);
 				const bool ym = MouthYielded(t, s, a);
 				if (Scenes::Now() < s.shockUntil) {
 					Output::SetMouthOwned(a, !ym);
@@ -466,6 +468,7 @@ namespace Face::Engine
 				for (auto* l : { &x.actionKiss, &x.actionVaginal, &x.actionAnal }) x.actionAnySignal.insert(x.actionAnySignal.end(), l->begin(), l->end());
 				// OStim puts the feet on different roles: footjob's actor "has the feet", while
 				// grinding/holding/kissing/tickling put them on the target.
+				x.actionMouthPenetrated = SplitCSV("blowjob,deepthroat");
 				x.actionFootActor = SplitCSV("footjob");
 				x.actionFootTarget = SplitCSV("grindingfoot,holdingfoot,kissingfoot,ticklingfoot");
 				x.tagOralAction = SplitCSV("oral,blowjob,deepthroat,cunnilingus,anilingus,rimjob,facefuck,fellatio,mouth");
@@ -484,7 +487,7 @@ namespace Face::Engine
 				// written with the older names, so for those acts no lookup ever matched, and the oral fallbacks
 				// below were quietly covering for it. Each list now carries both names.
 				for (auto* list : { &x.actionOral, &x.actionKiss, &x.actionVaginal, &x.actionAnal, &x.actionPenetration, &x.actionAnySignal,
-						&x.actionFootActor, &x.actionFootTarget }) {
+						&x.actionFootActor, &x.actionFootTarget, &x.actionMouthPenetrated }) {
 					const auto original = *list;
 					for (const auto& name : original) {
 						const auto canonical = OStimData::CanonicalAction(name);
@@ -501,6 +504,65 @@ namespace Face::Engine
 				return x;
 			}();
 			return tags;
+		}
+
+		// PPA plays its own facial preset on whoever has a penis in their mouth: by default the phonemes that open it, and
+		// every other phoneme zeroed. That is the mouth the Director would be writing for a blowjob, and the head it would
+		// be aiming at the partner, so while PPA has the mouth the Director stops writing the phonemes and stops turning the
+		// head - nothing of ours pulls the mouth off the penis PPA is aligning to it.
+		//
+		// Whether PPA is actually playing a preset on this actor is not told to us, so it is seen: when the mouth is handed
+		// over the phonemes stop moving, and a change in them from what they were is PPA at work. If nothing changes in
+		// kProbe seconds PPA is not driving this mouth (the scene is not one it recognises, or the penis is not in range),
+		// and the mouth is taken back, to be offered again after kRetry seconds.
+		void UpdatePPAMouth(Thread& t, Slot& s, RE::Actor* a)
+		{
+			constexpr float kProbe = 6.0f;
+			constexpr float kRetry = 15.0f;
+			constexpr float kChange = 0.6f;  // summed change in the 16 phonemes that counts as someone else moving the mouth
+			const bool candidate = a && S::bYieldMouthToPPA && OverridesAreOurs() && PPA::DrivesMouth() && t.meta && s.pos >= 0 &&
+				OStimData::FindAnyActionForActor(*t.meta, s.pos, T().actionMouthPenetrated) >= 0;
+			if (!candidate) {
+				s.ppaYield = false;
+				s.ppaGaveUp = false;
+				s.ppaSeen = false;
+				return;
+			}
+			const float now = Scenes::Now();
+			if (s.ppaGaveUp) {
+				if (now < s.ppaRetryAt) return;
+				s.ppaGaveUp = false;
+			}
+			if (!s.ppaYield) {
+				s.ppaYield = true;
+				s.ppaSeen = false;
+				s.ppaSince = now;
+				s.ppaBaseSet = Output::ReadPhonemes(a, s.ppaBase);
+				logger::info("PPA: {} gives a blowjob; the mouth is PPA's while it plays its preset", a->GetDisplayFullName());
+				return;
+			}
+			if (s.ppaSeen) return;
+			// One of our own moan clips finishing moves the phonemes too: not PPA, so measure from after it.
+			if (Output::HasMouthOverride(a)) {
+				s.ppaBaseSet = Output::ReadPhonemes(a, s.ppaBase);
+				return;
+			}
+			std::array<float, Output::kPhonemes> cur{};
+			if (s.ppaBaseSet && Output::ReadPhonemes(a, cur)) {
+				float change = 0.0f;
+				for (std::size_t i = 0; i < cur.size(); ++i) change += std::abs(cur[i] - s.ppaBase[i]);
+				if (change >= kChange) {
+					s.ppaSeen = true;
+					logger::info("PPA: is driving {}'s mouth ({:.2f} phoneme change, {:.1f} s after the hand-over)", a->GetDisplayFullName(), change, now - s.ppaSince);
+					return;
+				}
+			}
+			if (now - s.ppaSince >= kProbe) {
+				s.ppaYield = false;
+				s.ppaGaveUp = true;
+				s.ppaRetryAt = now + kRetry;
+				logger::info("PPA: nothing moved {}'s mouth in {:.0f} s; it is not driving it here, so the Director has it back", a->GetDisplayFullName(), kProbe);
+			}
 		}
 
 		float StyleValue() { return ClampF(S::fStyle, 0.0f, 2.0f); }
@@ -784,6 +846,7 @@ namespace Face::Engine
 			if (LipSyncMouthActive(s, a)) return "Lip-Sync";
 			if (AhegaoYield()) return "Ahegao mod";
 			if (DialogueMouthYielded(t, a)) return "Dialogue/lip-sync";
+			if (s.ppaYield) return "PPA";
 			if (s.exprOverride) return "OStim override";
 			return "Oral action";
 		}
@@ -910,6 +973,7 @@ namespace Face::Engine
 	void OnDataLoaded()
 	{
 		g_ostim = HasPlugin("OStim.esp");
+		PPA::Init();
 		g_excitement = Lookup<RE::TESFaction>(0xD93, "OStim.esp");
 		g_climaxed = Lookup<RE::TESFaction>(0xE49, "OStim.esp");
 		g_kHuman = Lookup<RE::BGSKeyword>(0x13794, "Skyrim.esm");
@@ -993,6 +1057,7 @@ namespace Face::Engine
 	{
 		if (!t.active || !a) return false;
 		if (S::bDialogueMouthYield && DialogueMouthYielded(t, a)) return true;
+		if (s.ppaYield) return true;  // PPA is playing its mouth preset on this actor
 		if (!S::bYieldOralMouth) return false;
 		// The Director plays the override pool (open mouth, tongue) itself, so the mouth is not handed away.
 		if (detail::OverridesAreOurs()) return false;
@@ -1287,6 +1352,7 @@ namespace Face::Engine
 	void OnThreadReady(Thread& t)
 	{
 		std::scoped_lock l(Settings::lock);
+		PPA::Refresh();  // it reloads its config on a hotkey; follow it
 		for (auto& s : t.slots) {
 			if (auto* a = s.Get()) RequestVoiceName(a);
 		}
@@ -1318,6 +1384,7 @@ namespace Face::Engine
 	{
 		std::scoped_lock l(Settings::lock);
 		RefreshDerived(t, true);
+		for (auto& sl : t.slots) sl.ppaGaveUp = false;  // a new node, a new look at whether PPA is driving the mouth
 #if !OSIS_LITE
 		Voice::Sync(t);
 		SceneLock::OnSceneChanged(t);

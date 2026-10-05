@@ -462,6 +462,14 @@ namespace Face::Output
 		if (auto* st = Get(a, false)) st->track.reset();
 	}
 
+	bool ReadPhonemes(RE::Actor* a, std::array<float, kPhonemes>& out)
+	{
+		auto* fg = a ? a->GetFaceGenAnimationData() : nullptr;
+		if (!fg) return false;
+		for (std::uint32_t i = 0; i < kPhonemes; ++i) out[i] = Val(fg->phoneme3, i);
+		return true;
+	}
+
 	bool HasMouthOverride(RE::Actor* a)
 	{
 		std::scoped_lock l(g_lock);

@@ -63,6 +63,7 @@ namespace Settings
 		inline bool bDeviceAware = true;
 		inline bool bExposureAware = true;
 		inline bool bYieldOralMouth = true;
+		inline bool bYieldMouthToPPA = true;  // a blowjob's mouth is PPA's while it is playing its mouth preset
 		inline bool bDialogueMouthYield = true;
 		inline bool bBodyDemo = false;
 		inline bool bExcitementGradient = true;

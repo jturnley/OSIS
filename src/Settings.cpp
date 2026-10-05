@@ -63,6 +63,7 @@ namespace Settings
 				{ "Face", "bDeviceAware", &Face::bDeviceAware },
 				{ "Face", "bExposureAware", &Face::bExposureAware },
 				{ "Face", "bYieldOralMouth", &Face::bYieldOralMouth },
+				{ "Face", "bYieldMouthToPPA", &Face::bYieldMouthToPPA },
 				{ "Face", "bDialogueMouthYield", &Face::bDialogueMouthYield },
 				{ "Face", "bBodyDemo", &Face::bBodyDemo },
 				{ "Face", "bExcitementGradient", &Face::bExcitementGradient },
@@ -567,6 +568,7 @@ namespace Settings
 		bMouthVariety = full;
 		bExposureAware = full;
 		bYieldOralMouth = true;
+		bYieldMouthToPPA = true;
 		bDialogueMouthYield = true;
 		bBodyDemo = false;
 		bExcitementGradient = true;

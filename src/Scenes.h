@@ -94,6 +94,17 @@ namespace Scenes
 		bool libTongue = false;
 		bool noOverride = false;  // OStim's override expressions were switched off for this actor as well
 
+		// A blowjob's mouth handed to PPA: whether it is handed over now, whether PPA has been seen driving it, what
+		// the phonemes looked like when it was handed over (a change from that is PPA at work), when the hand-over
+		// began, and, after one that came to nothing, when to try again.
+		bool ppaYield = false;
+		bool ppaSeen = false;
+		bool ppaGaveUp = false;
+		bool ppaBaseSet = false;
+		float ppaSince = 0.0f;
+		float ppaRetryAt = 0.0f;
+		std::array<float, 16> ppaBase{};
+
 		// normal (pre-animation) layer
 		std::string normalMood = "Idle";
 		std::string hintKind;
