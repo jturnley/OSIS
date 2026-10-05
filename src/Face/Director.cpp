@@ -143,13 +143,64 @@ namespace Face::Engine::detail
 			}
 		}
 
+		// How well a mood suits a personality, as a weight on picking an expression that has it. Moods are Skyrim's
+		// expression ids: 0-6 the dialogue set (angry, fear, happy, sad, surprise, puzzled, disgust), 7 neutral,
+		// 8-14 the same seven as moods. The pools are OStim's and say nothing about who is wearing them, so a pick was
+		// random: in the 1.9.2 test a bold actor spent 59% of a scene on Puzzled and 40% on dSad, and a fierce one 56%
+		// on dFear and 37% on dSad. Personalities: 0 none (everything equally likely), 1 stoic, 2 bold, 3 shy, 4 fierce.
+		float MoodAffinity(int arch, int mood)
+		{
+			if (mood == 7) return arch == 1 ? 1.5f : 1.0f;
+			const int kind = mood >= 8 ? mood - 8 : mood;  // 0 angry 1 fear 2 happy 3 sad 4 surprise 5 puzzled 6 disgust (mood ids 8-14 are the dialogue ids 0-6 plus 8)
+			//                            angry fear  happy sad   surprise puzzled disgust
+			static constexpr float kStoic[7]  = { 0.8f, 0.4f, 1.0f, 0.6f, 0.6f, 1.0f, 0.4f };
+			static constexpr float kBold[7]   = { 1.0f, 0.3f, 2.0f, 0.3f, 1.6f, 0.5f, 0.3f };
+			static constexpr float kShy[7]    = { 0.15f, 1.3f, 1.5f, 1.2f, 1.2f, 1.5f, 0.15f };
+			static constexpr float kFierce[7] = { 2.0f, 0.15f, 1.2f, 0.15f, 1.2f, 0.3f, 0.6f };
+			if (kind < 0 || kind > 6) return 1.0f;
+			switch (arch) {
+			case 1: return kStoic[kind];
+			case 2: return kBold[kind];
+			case 3: return kShy[kind];
+			case 4: return kFierce[kind];
+			default: return 1.0f;
+			}
+		}
+
+		// A random member of the pool, other than the one picked last when there is a choice, weighted by how well its mood
+		// suits the personality. An expression with no mood of its own (brows only, mouth only) is weighted 1: it leaves the
+		// mood as it was, so it neither fits nor clashes.
+		const Library::Expression* PickWeighted(const Library::Pool& pool, bool female, const void* last, int arch)
+		{
+			std::vector<float> weight(pool.size(), 0.0f);
+			float total = 0.0f;
+			for (std::size_t i = 0; i < pool.size(); ++i) {
+				const auto& v = pool[i]->For(female);
+				if (!v.defined || v.parts == 0) continue;  // OStim plays nothing for this gender
+				if (pool[i] == last && pool.size() > 1) continue;
+				weight[i] = (v.parts & Library::kMood) ? MoodAffinity(arch, v.mood.type) : 1.0f;
+				total += weight[i];
+			}
+			if (total <= 0.0f) return nullptr;
+			float draw = RandFloat(0.0f, total);
+			for (std::size_t i = 0; i < pool.size(); ++i) {
+				if (weight[i] <= 0.0f) continue;
+				draw -= weight[i];
+				if (draw <= 0.0f) return pool[i];
+			}
+			for (std::size_t i = pool.size(); i-- > 0;) {
+				if (weight[i] > 0.0f) return pool[i];  // rounding at the very end of the range
+			}
+			return nullptr;
+		}
+
 		// OStim's own expression pool for what this actor is doing, played as the Director's base pose. A
 		// pick is made when the pool changes (a new act) and then every few seconds; it is applied part by
 		// part to the face built up so far (see Library::ApplyTo), so what shows is the accumulation of recent
 		// picks, as in OStim itself. The output eases to each new target from wherever the face is, which is what
 		// keeps the transitions seamless. Returns false when there is nothing to play, and the caller falls back
 		// to the built-in templates.
-		bool LibraryPose(Thread& t, Slot& s, RE::Actor* a, int raw, Preset& out)
+		bool LibraryPose(Thread& t, Slot& s, RE::Actor* a, int raw, int arch, Preset& out)
 		{
 			if (!a || !t.meta || s.pos < 0) return false;
 			const auto resolved = Library::Resolve(*t.meta, s.pos);
@@ -175,13 +226,7 @@ namespace Face::Engine::detail
 			}
 			const float now = Scenes::Now();
 			if (s.libPool != pool || now >= s.libNextPick) {
-				const Library::Expression* pick = nullptr;
-				for (int attempt = 0; attempt < 8 && !pick; ++attempt) {
-					const auto* c = (*pool)[static_cast<std::size_t>(RandInt(0, static_cast<int>(pool->size()) - 1))];
-					if (!c->For(female).defined || c->For(female).parts == 0) continue;  // OStim plays nothing for this gender
-					if (c == s.libLast && pool->size() > 1) continue;                    // a change, when there is a choice
-					pick = c;
-				}
+				const Library::Expression* pick = PickWeighted(*pool, female, s.libLast, arch);
 				s.libPool = pool;
 				s.libNextPick = now + RandFloat(2.5f, 5.0f);
 				if (pick) {
@@ -887,7 +932,7 @@ namespace Face::Engine::detail
 		const bool overriding = UpdateOralOverride(t, s, a, rawEnj);
 		Preset e{};
 		const bool usingLib = S::bDirectorLibrary && t.consent && (dom == kPleasure || dom == kAnticipation || dom == kPlateau) &&
-				LibraryPose(t, s, a, rawEnj, e);
+				LibraryPose(t, s, a, rawEnj, arch, e);
 		if (!usingLib) e = BasePreset(t, dom, enjPhase, victim, arch, seed, role, tone);
 		// The edge of the climax is played from the pool like the rest of the build-up, with the tension on top: eyes
 		// squeezed, brows drawn together. The template this phase used (Anger mood 0.4, mouth 0.2) rendered at about a

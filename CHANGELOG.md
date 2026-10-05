@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.9.3
+
+### Changed
+- **Which expression an actor plays now depends on their personality.** In the 1.9.2 test four women
+  had different personalities (read from the face strength multipliers and head behaviour: two bold,
+  one fierce, one shy), and it showed in how *strong* their faces were - mid-excitement mood 0.88 and
+  0.80 for the bold, 0.66 for the shy - but not in *which* faces they played. The pick from the act's
+  pool was random: a bold actor spent 59% of her scene on Puzzled and 40% on dSad, a fierce one 56% on
+  dFear and 37% on dSad. A pick is now weighted by how well its mood suits the actor's personality:
+  bold and fierce actors lean to Happy and Surprise (and Anger, where a pool has it) and away from
+  Sad, Fear and Puzzled; a stoic actor leans to Neutral, Happy and Puzzled and away from the
+  extremes; a shy actor keeps close to the pool's own mix and favours the vulnerable ones (Happy,
+  Puzzled, Fear, Sad, Surprise) over Anger and Disgust. An expression with no mood (brows only,
+  mouth only) is weighted 1. It is still OStim's pool - nothing outside it is played - only the
+  odds change. On a penetration pool, simulated: Sad 33% for no personality, 11% bold, 8% fierce,
+  32% shy; Surprise 34%, 51%, 57%, 32%.
+- No personality (the default when nothing is known about the actor) is unchanged: equal odds.
+
+### Notes
+- The weights are a first pass and live in `MoodAffinity` in `Face/Director.cpp`.
+- The same pick still avoids repeating the last expression.
+
 ## 1.9.2
 
 ### Fixed
