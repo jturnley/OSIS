@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.8.2
+
+### Changed
+- **Director plays OStim's own expression pool for what each actor is doing** in the pleasure and
+  anticipation phases of consensual scenes (setting `bDirectorLibrary`, on by default; the Face
+  page has a checkbox). The pool is the one OStim's rules give the actor (1.8.0): for the receiver of
+  `vulvaleating`, its ten expressions. A pick is made when the pool changes and then every 2.5-5 s.
+  Each pick is applied the way OStim applies it - every part it has (mood, lids, brows, eyeballs,
+  mouth) is set in full and a part it lacks is left as it was - to a face kept per actor, so what
+  shows is the accumulation of recent picks. The output eases to each new target from wherever the
+  face is (0.9 s or the Transition setting, whichever is longer). Climax, plateau, afterglow and
+  distress keep the built-in grammar, and the act-, relationship- and scenario-specific flavours
+  (which the pool makes redundant) are skipped for pool faces. Strength is relative to its default,
+  so the default plays the pool at OStim's authored size.
+- The beat line and Status page name the pick (`Library/stimulated6`).
+
+### Fixed
+- **A lover's face never escalated.** `PleasureTone` returned "tender" for anyone whose partner was a
+  lover or ally (rank 3 or more), for the whole scene, and "tender" is a fixed template that does
+  not depend on excitement: Happy 0.5, squint 0.3, brow 0.3 at excitement 5 or 95. Camilla, the
+  player's partner, sat on it for the entire 1.8.1 test. The same is true of the lust, playful,
+  surrender and detached tones. The pool path does not use them; the built-in templates still do
+  for the phases that keep them, and need the same rework (a relationship should colour the face,
+  not replace it).
+
+### Notes
+- Not yet: OStim's override pools (`openmouth`, `tongue`) and OStim's own overrides being switched
+  off for Director, the personality and circumstance inputs, and the seamless event envelopes.
+- Pools include Fear, Puzzled and the dialogue moods alongside Happy, as OStim's do.
+
 ## 1.8.1
 
 ### Fixed

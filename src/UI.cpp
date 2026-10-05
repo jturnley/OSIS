@@ -371,6 +371,9 @@ namespace
 
 			SliderF("Strength", fGlobalStrength, 0.0f, 2.0f, "%.2f", "How large every expression comes out. 1.00 is the authored size.");
 			if (iMode == kDirector) {
+				Check("Play OStim's expression pools (Director)", bDirectorLibrary,
+					"Director only. In the pleasure and anticipation phases the face is built from the expression pool OStim itself has for what "
+					"the actor is doing (the same files, so installed expression packs apply), not from the built-in templates. Off: the old templates.");
 				SliderF("Pleasure intensity (Director)", fDirectorGain, 0.0f, 2.0f, "%.2f",
 					"Director only. The expression grammar was tuned as an overlay on OStim's own face, which makes it about half as strong "
 					"when it is the whole face: mood, brows and mouth during the pleasure phase come out smaller than OStim's would. 0 leaves them "

@@ -37,6 +37,7 @@ namespace Settings
 				{ "Face", "iMode", &Face::iMode },
 				{ "Face", "fGlobalStrength", &Face::fGlobalStrength },
 				{ "Face", "fDirectorGain", &Face::fDirectorGain },
+				{ "Face", "bDirectorLibrary", &Face::bDirectorLibrary },
 				{ "Face", "fBaseInterval", &Face::fBaseInterval },
 				{ "Face", "fIntervalJitter", &Face::fIntervalJitter },
 				{ "Face", "fTransition", &Face::fTransition },
@@ -596,6 +597,7 @@ namespace Settings
 		fEyeStrength = 0.45f;
 		iMode = kDirector;
 		fDirectorGain = 1.0f;
+		bDirectorLibrary = true;
 		bTakeOverFace = false;
 		bAnimeTongue = false;
 		bAnimeTongueFull = false;

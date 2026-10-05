@@ -143,6 +143,43 @@ namespace Face::Engine::detail
 			}
 		}
 
+		// OStim's own expression pool for what this actor is doing, played as the Director's base pose. A
+		// pick is made when the pool changes (a new act) and then every few seconds; it is applied part by
+		// part to the face built up so far (see Library::ApplyTo), so what shows is the accumulation of recent
+		// picks, as in OStim itself. The output eases to each new target from wherever the face is, which is what
+		// keeps the transitions seamless. Returns false when there is nothing to play, and the caller falls back
+		// to the built-in templates.
+		bool LibraryPose(Thread& t, Slot& s, RE::Actor* a, int raw, Preset& out)
+		{
+			if (!a || !t.meta || s.pos < 0) return false;
+			const auto resolved = Library::Resolve(*t.meta, s.pos);
+			const Library::Pool* pool = resolved.underlying;
+			if (!pool || pool->empty()) return false;
+			const bool female = ActorSex(a) == 1;
+			const float now = Scenes::Now();
+			if (s.libPool != pool || now >= s.libNextPick) {
+				const Library::Expression* pick = nullptr;
+				for (int attempt = 0; attempt < 8 && !pick; ++attempt) {
+					const auto* c = (*pool)[static_cast<std::size_t>(RandInt(0, static_cast<int>(pool->size()) - 1))];
+					if (!c->For(female).defined || c->For(female).parts == 0) continue;  // OStim plays nothing for this gender
+					if (c == s.libLast && pool->size() > 1) continue;                    // a change, when there is a choice
+					pick = c;
+				}
+				s.libPool = pool;
+				s.libNextPick = now + RandFloat(2.5f, 5.0f);
+				if (pick) {
+					const float rel = t.maxSpeed >= 0 ? static_cast<float>(t.speed) / static_cast<float>(t.maxSpeed + 1) : 0.0f;
+					Library::ApplyTo(s.libState, pick->For(female), static_cast<float>(ClampI(raw, 0, 100)), rel, [] { return RandFloat(0.0f, 1.0f); });
+					s.libLast = pick;
+					s.libLastName = pick->file;
+					s.libHave = true;
+				}
+			}
+			if (!s.libHave) return false;
+			out = s.libState;
+			return true;
+		}
+
 		Preset BasePreset(Thread& t, int dom, int enj, bool victim, int arch, int seed, int role, int tone)
 		{
 			const float m = MouthGate();
@@ -755,12 +792,18 @@ namespace Face::Engine::detail
 		const int phrase = PhrasePhase(t, idx, enjEff);
 		const int scenario = ScenarioCode(t, dom, enjEff, role, tone, posRole);
 		const float overwhelm = UpdateOverwhelmMeter(t, s, a, dom, rawEnj, arch, posRole, yieldMouth);
-		Preset e = BasePreset(t, dom, enjPhase, victim, arch, seed, role, tone);
+		// In the phases where OStim's own faces are the thing to copy, the base pose is the pool OStim has for
+		// what this actor is doing. Consensual scenes only for now; everything else keeps the built-in grammar.
+		Preset e{};
+		const bool usingLib = S::bDirectorLibrary && t.consent && (dom == kPleasure || dom == kAnticipation) && LibraryPose(t, s, a, rawEnj, e);
+		if (!usingLib) e = BasePreset(t, dom, enjPhase, victim, arch, seed, role, tone);
 		if (dom == kClimax) ClimaxType(e, arch);
 
 		// 2) FLAVORS
 		const bool pleasant = dom == kPleasure || dom == kAnticipation;
-		if (pleasant) {
+		// The act and relationship flavors are for the built-in templates: the pool is already specific to the
+		// act, and a relationship should colour the face, not replace it (it used to: see 1.8.1's notes).
+		if (pleasant && !usingLib) {
 			ColorByRelationship(e, a, partner);
 			if (S::bRoleAware) ToneColor(t, e);
 			if (S::bActTypeAware) ActFlavor(t, s, e);
@@ -781,7 +824,7 @@ namespace Face::Engine::detail
 			const bool welling = dom == kDistress ? (victim && react != Reaction::kDefiance) : enjEff >= 88;
 			if (dom != kClimax && dom != kAfterglow && welling) WellingEyes(e);
 			Asymmetry(e, seed);
-			if (!yieldMouth) MicroTic(t, e, pleasant);
+			if (!yieldMouth && !usingLib) MicroTic(t, e, pleasant);  // it can swap the mood, which the pool has chosen
 			GenderColor(e, ActorSex(a));
 			ExhaustionLids(t, e);
 			if (t.gasp && dom != kClimax && dom != kAfterglow) GaspBeat(e);
@@ -800,10 +843,11 @@ namespace Face::Engine::detail
 		if (gagC) Gag(e);
 		else if (gagR) GagRing(e);
 		if (blind) Blindfold(e);
-		ApplyScenarioCycler(e, scenario, phrase, seed);
+		if (!usingLib) ApplyScenarioCycler(e, scenario, phrase, seed);
 		ApplyOverwhelmFace(t, e, overwhelm, phrase, yieldMouth);
-		ApplyGroupConductor(t, e, idx, role, posRole, sub);
-		ApplyV2Controls(t, e, phrase, dom, yieldMouth, victim, react);
+		if (!usingLib) ApplyGroupConductor(t, e, idx, role, posRole, sub);
+		if (usingLib) ApplyEyeScalar(e);
+		else ApplyV2Controls(t, e, phrase, dom, yieldMouth, victim, react);
 
 		// Director owns the whole face, but its pleasure presets were tuned as an overlay on OStim's
 		// own face, not as one: OStim's expression files run mood 0.7-1.0, brows 0.4-1.0 and mouth
@@ -812,7 +856,7 @@ namespace Face::Engine::detail
 		// to OStim's level at fDirectorGain 1; the eyelids already match, so squint is not scaled. The
 		// climax is above OStim's already, and plateau, afterglow and distress are deliberate low or
 		// extreme poses of their own.
-		if (dom == kPleasure && S::fDirectorGain > 0.0f) {
+		if (dom == kPleasure && S::fDirectorGain > 0.0f && !usingLib) {
 			const float g = S::fDirectorGain;
 			const float mood = 1.0f + 0.4f * g;
 			const float mouth = 1.0f + 0.6f * g;
@@ -825,16 +869,25 @@ namespace Face::Engine::detail
 		// 5) EMIT + gaze
 		const float prof = ProfileScale() * ArchStrength(arch);
 		const float jit = RandFloat(0.92f, 1.08f);
-		const float eStr = ClampF(S::fGlobalStrength * prof * jit, 0.0f, 2.0f);
-		const float mStr = ClampF(S::fGlobalStrength * prof * PersonalityMod(seed), 0.0f, 2.0f);
+		// A pool's values are OStim's own, so Strength is taken relative to its default (0.85): the default
+		// plays them at their authored size, and the slider still scales them.
+		const float strength = usingLib ? S::fGlobalStrength / 0.85f : S::fGlobalStrength;
+		if (usingLib && S::bBreathing) {
+			for (int i = 0; i < 16; ++i) e[i] = 0.0f;  // the breath clock holds the mouth
+		}
+		const float eStr = ClampF(strength * prof * jit, 0.0f, 2.0f);
+		const float mStr = ClampF(strength * prof * PersonalityMod(seed), 0.0f, 2.0f);
 		// The breath clock holds the mouth itself at climax (ClimaxMouth) and on a ring gag, so the
 		// preset leaves the mouth to it then. This used to read !bBreathing - true exactly when the
 		// breath clock is off and nothing else holds the mouth - so with default settings the
 		// climax preset's own open mouth, and a ring gag's, were thrown away and never shown.
 		const bool clenched = dom == kClimax && (arch == 1 || arch == 3);
 		const bool breathHoldsMouth = !yieldMouth && S::bBreathing && ((dom == kClimax && !gagC && !clenched) || gagR);
-		Output::ApplyPreset(a, e, breathHoldsMouth || yieldMouth, eStr, mStr, S::fGlobalStrength, S::fTransition);
-		SetOwners(s, std::string(DomName(dom)) + "/" + ScenarioName(scenario), yieldMouth ? MouthOwnerLabel(t, s, a, true) : "OSED arc",
+		// A pool changes slowly, so it also moves slowly: a longer ease than the templates need.
+		const float ease = usingLib ? std::max(S::fTransition, 0.9f) : S::fTransition;
+		Output::ApplyPreset(a, e, breathHoldsMouth || yieldMouth, eStr, mStr, strength, ease);
+		SetOwners(s, usingLib ? "Library/" + s.libLastName : std::string(DomName(dom)) + "/" + ScenarioName(scenario),
+				yieldMouth ? MouthOwnerLabel(t, s, a, true) : "OSED arc",
 			"Phrase " + std::to_string(phrase), "Pending gaze");
 		PulseActor(t, s, a, dom, phrase, enjEff);
 		Pulse::Emit("SLED_Overwhelm", t.id, a, overwhelm);

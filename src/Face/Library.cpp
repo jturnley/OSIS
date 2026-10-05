@@ -170,6 +170,38 @@ namespace Face::Library
 			s.actionActors, s.actionTargets);
 	}
 
+	State EmptyState()
+	{
+		State s{};
+		s[30] = -1.0f;
+		return s;
+	}
+
+	void ApplyTo(State& st, const Variant& v, float excitement, float relSpeed, const std::function<float()>& roll)
+	{
+		const auto value = [&](const Channel& c) { return c.Value(excitement, relSpeed, roll()); };
+		if (v.parts & kMood) {
+			st[30] = static_cast<float>(v.mood.type);
+			st[31] = value(v.mood);
+		}
+		// Blink (0/1) is never written, so natural blinking keeps working; the other lid channels are.
+		const auto setPart = [&](const std::vector<Channel>& list, std::initializer_list<int> ids) {
+			for (const int id : ids) st[16 + id] = 0.0f;
+			for (const auto& c : list) {
+				if (std::ranges::find(ids, c.type) != ids.end()) st[16 + c.type] = value(c);
+			}
+		};
+		if (v.parts & kLid) setPart(v.lids, { 12, 13 });
+		if (v.parts & kBrow) setPart(v.brows, { 2, 3, 4, 5, 6, 7 });
+		if (v.parts & kBall) setPart(v.balls, { 8, 9, 10, 11 });
+		if (v.parts & kPhoneme) {
+			for (int i = 0; i < 14; ++i) st[i] = 0.0f;
+			for (const auto& c : v.phonemes) {
+				if (c.type >= 0 && c.type < 14) st[c.type] = value(c);
+			}
+		}
+	}
+
 	const Pool* Set(std::string_view a_name) { return Find(g_sets, a_name); }
 	const Pool* Event(std::string_view a_name) { return Find(g_events, a_name); }
 	const Pool* ActionActor(std::string_view a_action) { return Find(g_actors, OStimData::CanonicalAction(Lower(a_action))); }

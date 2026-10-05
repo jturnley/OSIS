@@ -36,6 +36,9 @@ namespace Settings
 		// Director only: how far the pleasure phase is brought up toward OStim's own face amplitude.
 		// 0 leaves the presets as authored, 1 matches OStim at the same excitement, 2 goes well beyond.
 		inline float fDirectorGain = 1.0f;
+		// Director only: in the pleasure and anticipation phases, play OStim's own expression pool for what the
+		// actor is doing (the same files OStim reads) instead of the built-in templates.
+		inline bool bDirectorLibrary = true;
 		inline float fBaseInterval = 3.0f;
 		inline float fIntervalJitter = 1.0f;
 		inline float fTransition = 0.5f;

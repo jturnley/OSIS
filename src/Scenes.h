@@ -64,6 +64,19 @@ namespace Scenes
 		std::string jsonEvent;
 		float jsonUntil = 0.0f;
 
+		// The Director playing OStim's expression pools: the face built up from the picks so far, which
+		// pool it came from, and when the next pick is due.
+		std::array<float, 32> libState = [] {
+			std::array<float, 32> st{};
+			st[30] = -1.0f;
+			return st;
+		}();
+		bool libHave = false;
+		const void* libPool = nullptr;
+		const void* libLast = nullptr;
+		std::string libLastName;
+		float libNextPick = 0.0f;
+
 		// normal (pre-animation) layer
 		std::string normalMood = "Idle";
 		std::string hintKind;

@@ -77,6 +77,17 @@ namespace Face::Library
 
 	using Pool = std::vector<const Expression*>;
 
+	// A face as the Director builds it: [0..15] phonemes, [16 + id] modifiers, [30] mood id (-1: none yet), [31] mood strength.
+	using State = std::array<float, 32>;
+	[[nodiscard]] State EmptyState();
+
+	// Apply one expression to a retained face the way OStim's applyExpression does. Each part the
+	// expression has is set in full - a channel it does not list goes to zero - and a part it lacks is
+	// left as it was, so the face is the accumulation of recent picks. `a_roll` supplies the 0..1 draw
+	// for each channel's variance; excitement is 0..100 and a_relSpeed 0..1 (the node's speed index
+	// over its count of speeds), as OStim passes them.
+	void ApplyTo(State& a_state, const Variant& a_variant, float a_excitement, float a_relSpeed, const std::function<float()>& a_roll);
+
 	// kDataLoaded, after OStimData::Init (action aliases are needed to read the action keys).
 	void Load();
 
