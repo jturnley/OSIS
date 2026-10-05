@@ -1,5 +1,51 @@
 # Changelog
 
+## 2.0 beta 1 (plugin version 2.0.0)
+
+The 1.9.7 code level, released as a beta. Everything in the 1.x entries below is in it; this is what the beta
+is about.
+
+### What it is
+- **A face Director that plays OStim's own expressions.** OStim's expression files are read at startup (every
+  installed pack applies), and the Director picks from the pool OStim would use for what each actor is doing -
+  including the oral and kiss override pools and the stimulation pool for scenes that name no act - and blends
+  from pick to pick instead of snapping. Build-up, plateau, climax and afterglow all come from the pools. OStim's
+  own face writer is switched off for the actors OSIS paints (1.8.0-1.9.3).
+- **Personalities that stay put.** Each actor's personality is worked out the first time a scene needs it and
+  kept in the save, and it weights which expression is picked (1.9.3, 1.9.4). Settable per NPC and for the
+  player on the Personality page.
+- **PPA integration.** The mouth, and where the head points, are handed to PPA while it plays its preset on a
+  blowjob, with a check that it really is doing so; OSIS reads PPA's override configs and, where PPA's preset
+  would zero the eyes and brows, can write and remove an override of its own from the menu (1.9.5-1.9.7).
+- **A face that does not flicker or fight.** The double mouth, inverted climax mouth, mood leaks, OStim/OSIS
+  write fights and mid-run resets of 1.7.x are fixed, found with the face probe (1.7.1-1.7.11).
+- **Nothing to reset.** `OSIS.ini` and `morphs.json` are created by the plugin on first run and completed on
+  update, so installing a new version keeps what you chose (1.7.10).
+
+### Known issues
+- Orgasms in quick succession keep the climax face on until they stop (Auri's face stayed on the climax pose for
+  two minutes at an orgasm every 7-14 s). Planned for beta 2: a timed per-actor climax, recovery faces between
+  orgasms, and faces shaped by orgasm count and the time since the last one.
+- A one-frame blink of eyes, brows and mood can show when a scene moves to a new animation node. Not caused by
+  PPA (it also zeroes the mood, which PPA's preset does not touch); the source has not been identified.
+- PPA logs `Actor X isn't managed by havok?` and stops moving that penis for a few seconds now and then (about
+  40 s, 0 s and 12 s in three test runs). Nothing in the OSIS or OStim logs lines up with it; the cause is not
+  known.
+- An actor at 90+ excitement can show the climax face a few seconds early while a partner's orgasm is still in
+  progress.
+
+### Not yet in
+- Faces shaped by circumstances: first time, exhibition, relationship level, experience, time since last sex
+  (the Director's goals 3 and the OVirginity first-time face).
+- Handling for repeated orgasms (above).
+
+### Testing it
+- Install over a previous OSIS build or fresh; start a new save for testing. Send
+  `Documents/My Games/Skyrim Special Edition/SKSE/OSIS.log` with a report. For a face problem press "Probe faces"
+  on the Face page first and play for a minute: the log then says what OSIS wrote against what the game rendered,
+  second by second.
+- With PPA installed, add `AccuratePenetration.log` from the same session.
+
 ## 1.9.7
 
 ### Added

@@ -12,6 +12,7 @@
 #include "Hooks.h"
 #include "LipSync.h"
 #include "OStimData.h"
+#include "Release.h"
 #include "Scenes.h"
 #include "Scheduler.h"
 #include "Serialization.h"
@@ -166,7 +167,8 @@ SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 	SKSE::Init(a_skse, { .trampoline = true, .trampolineSize = 64 });
 	Settings::Load();
 	Settings::EnsureFiles();
-	logger::info("OSIS v{}{} loading", SKSE::PluginDeclaration::GetSingleton()->GetVersion().string("."), OSIS_LITE ? "" : " (LoversLab edition)");
+	logger::info("OSIS v{}{}{} loading", SKSE::PluginDeclaration::GetSingleton()->GetVersion().string("."),
+		Release::kLabel.empty() ? std::string() : " " + std::string(Release::kLabel), OSIS_LITE ? "" : " (LoversLab edition)");
 
 	SKSE::GetMessagingInterface()->RegisterListener(OnMessage);
 	Serialization::Install();
