@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.7.8
+
+### Fixed
+- **The jaw and eyelids flickering about 20 times a second while OStim's face is on.** Found
+  with the 1.7.7 probe's frame-by-frame detector: a channel OSIS holds above OStim's value (the
+  jaw during a moan, the squint under it) dropped to OStim's much lower value about every 50 ms,
+  for one frame, and came back. OStim's updater runs on its own thread at that rate and
+  overwrites the face data; OSIS wrote only *after* the game's animation update, so the game read
+  the face for the next frame with a whole frame in which OStim could write over it. OSIS now
+  also puts its last values back **immediately before** the animation update, over whatever OStim
+  wrote in between, so the window is the gap between that write and the game's read.
+  Measured before the fix (v1.7.7, Enhanced): Camilla's eyes and brows made 3.8 large jumps and
+  2.7 direction reversals per second, her mouth 1.1 and 0.5; the player and Serana were nearly
+  still. Only applies while OStim's writer is on; Director mode owns the face and does not need it.
+
+### Added
+- The face probe reports how often the game's final face values change *inside* its animation
+  update. That is the assumption this fix rests on: if it reads close to zero, the game reads the
+  face somewhere else and the fix will not help, and the log says so.
+
 ## 1.7.7
 
 ### Added

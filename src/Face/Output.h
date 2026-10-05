@@ -124,6 +124,10 @@ namespace Face::Output
 
 	// Called from the per-frame animation hooks.
 	void Update(RE::Actor* a_actor, float a_delta);
+	// Called just before the game's own animation update for this actor, which is where it reads the
+	// face. With OStim's writer on (layered) it puts our last values back over anything OStim wrote
+	// since, so they are what the game reads. Does no easing and writes only what Update last did.
+	void Reassert(RE::Actor* a_actor);
 	// Fallback when the NPC animation hook couldn't be installed: every painted NPC, from
 	// the main-thread heartbeat.
 	void UpdateNPCs(float a_delta);

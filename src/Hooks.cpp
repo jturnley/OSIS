@@ -35,6 +35,7 @@ namespace Hooks
 		{
 			static void thunk(RE::PlayerCharacter* a_this, float a_delta)
 			{
+				if (!g_playerViaJob.load(std::memory_order_relaxed)) Face::Output::Reassert(a_this);
 				func(a_this, a_delta);
 				if (!g_playerViaJob.load(std::memory_order_relaxed)) AfterAnimation(a_this, a_delta);
 			}
@@ -48,6 +49,7 @@ namespace Hooks
 		{
 			static void thunk(RE::Actor* a_this, float a_delta)
 			{
+				if (a_this && !(a_this->IsPlayerRef() && !g_playerViaJob.load(std::memory_order_relaxed))) Face::Output::Reassert(a_this);
 				func(a_this, a_delta);
 				if (!a_this) return;
 				if (a_this->IsPlayerRef() && !g_playerViaJob.exchange(true)) {
