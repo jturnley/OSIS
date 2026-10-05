@@ -229,7 +229,7 @@ namespace Face::Engine
 		{
 			if (!S::bBreathing && !S::bTongueLife && !OSEDNeedsFastTick(t)) return 1;
 			int n = static_cast<int>(S::fBaseInterval / 0.8f + 0.5f);
-			if (t.sceneOral && S::bYieldOralMouth) n *= 2;
+			if (t.sceneOral && S::bYieldOralMouth && !OverridesAreOurs()) n *= 2;
 			return std::max(1, n);
 		}
 
@@ -990,6 +990,8 @@ namespace Face::Engine
 		if (!t.active || !a) return false;
 		if (S::bDialogueMouthYield && DialogueMouthYielded(t, a)) return true;
 		if (!S::bYieldOralMouth) return false;
+		// The Director plays the override pool (open mouth, tongue) itself, so the mouth is not handed away.
+		if (detail::OverridesAreOurs()) return false;
 		if (s.exprOverride) return true;
 		if (!t.meta || !S::bRoleMetadata || s.pos < 0) return false;
 		const auto& m = *t.meta;
@@ -1124,14 +1126,21 @@ namespace Face::Engine
 		if (AhegaoYield() || !g_ostim || !a) return;
 		constexpr float kRecheck = 2.0f;
 		const float now = Scenes::Now();
+		// With the Director playing the pools itself, OStim's override expressions go off too: it has nothing left to
+		// write. Otherwise they stay on, as they always did, and the mouth is handed to them for oral acts.
+		const bool noOverride = detail::OverridesAreOurs();
 		if (s.takenOver) {
 			// Not while ClearOStimTongue has deliberately handed the face back for a moment.
 			if (now < s.takeoverRecheck || now < s.tongueClearUntil - 2.5f) return;
-			Papyrus::SetExpressionsEnabled(a, false, true);
+			// SetExpressionsEnabled(false, ...) never lifts the override flag, so a change of setting needs both undone first.
+			if (s.noOverride && !noOverride) Papyrus::SetExpressionsEnabled(a, true, true);
+			Papyrus::SetExpressionsEnabled(a, false, !noOverride);
+			s.noOverride = noOverride;
 			s.takeoverRecheck = now + kRecheck;
 			return;
 		}
-		Papyrus::SetExpressionsEnabled(a, false, true);
+		Papyrus::SetExpressionsEnabled(a, false, !noOverride);
+		s.noOverride = noOverride;
 		s.takenOver = true;
 		s.takeoverRecheck = now + kRecheck;
 		logger::info("Face: took over OStim's face writer for {:08X} {}", a->GetFormID(), a->GetDisplayFullName());
@@ -1224,7 +1233,7 @@ namespace Face::Engine
 		std::scoped_lock l(Settings::lock);
 		if (S::bBreathing || S::bTongueLife || OSEDNeedsFastTick(t)) return 0.8f;
 		float base = S::fBaseInterval;
-		if (t.sceneOral && S::bYieldOralMouth) base *= 1.75f;
+		if (t.sceneOral && S::bYieldOralMouth && !detail::OverridesAreOurs()) base *= 1.75f;
 		return ClampF(base + RandFloat(-S::fIntervalJitter, S::fIntervalJitter), 1.0f, 12.0f);
 	}
 

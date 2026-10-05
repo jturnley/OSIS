@@ -351,7 +351,8 @@ namespace Face::Engine::detail
 
 	void ClearOSEDAnimeAccent(Slot& s, RE::Actor* a)
 	{
-		if (!s.animeActive && !s.tongueOn) return;
+		// A tongue that belongs to the override pool is that pool's to take back, not this accent's.
+		if (!s.animeActive && (!s.tongueOn || s.libTongue)) return;
 		SetOSEDTongue(s, a, false);
 		ClearOSEDExpressionEvent(s, a, true);
 		for (int i : { 27, 28, 29, 20, 21, 22, 23 }) SetMod(a, i, 0, 0.25f);
@@ -383,6 +384,9 @@ namespace Face::Engine::detail
 		if (on) Papyrus::EquipObject(a, "tongue");
 		else Papyrus::UnequipObject(a, "tongue");
 		s.tongueOn = on;
+		// What we just did, without waiting for the next poll: until it catches up, a tongue that is out but no
+		// longer registered as ours reads as an ahegao mod's and the whole face is stood down.
+		s.tongueOut = on;
 	}
 
 	// OStim equips a tongue for a licking action's expression override, and takes it back when
@@ -402,8 +406,8 @@ namespace Face::Engine::detail
 		s.tongueClearUntil = Scenes::Now() + 3.0f;
 		Papyrus::SetExpressionsEnabled(a, true, true);
 		Papyrus::PlayExpression(a, "osis_tongue_clear");
-		Scheduler::After(0.3f, [h = a->GetHandle()]() {
-			if (auto actor = h.get()) Papyrus::SetExpressionsEnabled(actor.get(), false, true);
+		Scheduler::After(0.3f, [h = a->GetHandle(), allow = !s.noOverride]() {
+			if (auto actor = h.get()) Papyrus::SetExpressionsEnabled(actor.get(), false, allow);
 		});
 		logger::info("Asked OStim to take back its own tongue on {:08X} {}", a->GetFormID(), a->GetDisplayFullName());
 	}
@@ -425,6 +429,7 @@ namespace Face::Engine::detail
 	void UpdateOSEDTongue(Thread& t, Slot& s, RE::Actor* a, bool yieldMouth)
 	{
 		if (!a) return;
+		if (s.libTongue) return;  // the override pool has it out; nothing here may take it back
 		if (AhegaoYield()) {
 			SetOwners(s, "Ahegao mod yield", "Ahegao mod yield", "Ahegao mod yield", s.headOwner);
 			return;

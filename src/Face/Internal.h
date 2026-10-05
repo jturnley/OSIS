@@ -26,6 +26,16 @@ namespace Face::Engine::detail
 	// ---- numbers
 	[[nodiscard]] inline float ClampF(float v, float lo, float hi) { return v < lo ? lo : (v > hi ? hi : v); }
 	[[nodiscard]] inline int ClampI(int v, int lo, int hi) { return v < lo ? lo : (v > hi ? hi : v); }
+
+	// Director mode with the library on: OStim's own expressions, underlying and override alike, are switched
+	// off for the actors we paint, and the Director plays the pools itself - including the oral and kiss
+	// sets (`openmouth`, `tongue`). Nothing about the mouth is handed to OStim then.
+	[[nodiscard]] inline bool OverridesAreOurs() { return S::iMode == S::kDirector && S::bDirectorLibrary; }
+
+	// Director.cpp: play the actor's override pool and overlay it on a finished preset.
+	bool UpdateOralOverride(Thread& t, Slot& s, RE::Actor* a, int raw);
+	void EndOralOverride(Slot& s, RE::Actor* a);
+	void OverlayOralOverride(const Slot& s, std::array<float, 32>& e);
 	[[nodiscard]] int RandInt(int lo, int hi);          // inclusive, like Utility.RandomInt
 	[[nodiscard]] float RandFloat(float lo, float hi);
 

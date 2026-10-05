@@ -169,7 +169,8 @@ namespace Face::Engine::detail
 				s.libNextPick = now + RandFloat(2.5f, 5.0f);
 				if (pick) {
 					const float rel = t.maxSpeed >= 0 ? static_cast<float>(t.speed) / static_cast<float>(t.maxSpeed + 1) : 0.0f;
-					Library::ApplyTo(s.libState, pick->For(female), static_cast<float>(ClampI(raw, 0, 100)), rel, [] { return RandFloat(0.0f, 1.0f); });
+					Library::ApplyTo(s.libState, pick->For(female), static_cast<float>(ClampI(raw, 0, 100)), rel, [] { return RandFloat(0.0f, 1.0f); },
+						s.libOvrMask);  // what an override owns is not the underlying pool's to set
 					s.libLast = pick;
 					s.libLastName = pick->file;
 					s.libHave = true;
@@ -768,6 +769,76 @@ namespace Face::Engine::detail
 	// ------------------------------------------------------------------ ApplyArc
 	// Composes one coherent face via 5-stage arbitration: one dominant state owns the mood,
 	// flavors layer on top (capped), mouth arbiter, v2 controls, then emit + gaze.
+	// OStim plays an override pool for whoever is doing an oral or kiss action (the action definition names it:
+	// `openmouth` for a blowjob or cunnilingus, `tongue` for licking and French kissing). With OStim's overrides
+	// off for us, the Director plays it: a pick every few seconds, applied part by part to its own face. The parts
+	// the current pick has are the override's for as long as it lasts - the underlying pool leaves them alone,
+	// as in OStim - and the tongue is put out when the pick says so. Returns true while one is playing.
+	bool UpdateOralOverride(Thread& t, Slot& s, RE::Actor* a, int raw)
+	{
+		if (!a || !OverridesAreOurs() || !t.meta || s.pos < 0) {
+			EndOralOverride(s, a);
+			return false;
+		}
+		const auto resolved = Library::Resolve(*t.meta, s.pos);
+		const Library::Pool* pool = resolved.override;
+		if (!pool || pool->empty()) {
+			EndOralOverride(s, a);
+			return false;
+		}
+		const bool female = ActorSex(a) == 1;
+		const float now = Scenes::Now();
+		if (s.libOvrPool != pool || now >= s.libOvrNext) {
+			const Library::Expression* pick = nullptr;
+			for (int attempt = 0; attempt < 8 && !pick; ++attempt) {
+				const auto* c = (*pool)[static_cast<std::size_t>(RandInt(0, static_cast<int>(pool->size()) - 1))];
+				if (!c->For(female).defined || c->For(female).parts == 0) continue;
+				if (c == s.libOvrLast && pool->size() > 1) continue;
+				pick = c;
+			}
+			s.libOvrPool = pool;
+			s.libOvrNext = now + RandFloat(2.5f, 5.0f);
+			if (pick) {
+				const auto& v = pick->For(female);
+				const float excitement = static_cast<float>(ClampI(raw, 0, 100));
+				const float rel = t.maxSpeed >= 0 ? static_cast<float>(t.speed) / static_cast<float>(t.maxSpeed + 1) : 0.0f;
+				Library::ApplyTo(s.libOvr, v, excitement, rel, [] { return RandFloat(0.0f, 1.0f); });
+				s.libOvrMask = v.parts;
+				s.libOvrLast = pick;
+				s.libOvrName = pick->file;
+				// Objects it equips (the tongue) go on while the excitement is at or above its threshold, and come
+				// off when a pick has none - as OStim's phoneme objects do.
+				const bool wantTongue = std::ranges::find(v.objects, std::string("tongue")) != v.objects.end() && excitement >= v.objectThreshold;
+				if (wantTongue != s.libTongue) {
+					s.libTongue = wantTongue;
+					SetOSEDTongue(s, a, wantTongue);
+				}
+			}
+		}
+		return s.libOvrMask != 0;
+	}
+
+	// Whoever was doing the oral act has stopped: the parts it owned go back to the underlying pool, whose
+	// state was kept while it held them, and the tongue is taken back.
+	void EndOralOverride(Slot& s, RE::Actor* a)
+	{
+		if (!s.libOvrPool && !s.libOvrMask && !s.libTongue) return;
+		s.libOvrPool = nullptr;
+		s.libOvrLast = nullptr;
+		s.libOvrMask = 0;
+		s.libOvrName.clear();
+		s.libNextPick = 0.0f;  // a fresh underlying pick straight away
+		if (s.libTongue) {
+			s.libTongue = false;
+			SetOSEDTongue(s, a, false);
+		}
+	}
+
+	void OverlayOralOverride(const Slot& s, std::array<float, 32>& e)
+	{
+		if (s.libOvrMask) Library::CopyParts(e, s.libOvr, s.libOvrMask);
+	}
+
 	void ApplyArc(Thread& t, Slot& s, RE::Actor* a, int idx, bool yieldMouth)
 	{
 		ReleaseOStimFace(s, a);
@@ -794,6 +865,9 @@ namespace Face::Engine::detail
 		const float overwhelm = UpdateOverwhelmMeter(t, s, a, dom, rawEnj, arch, posRole, yieldMouth);
 		// In the phases where OStim's own faces are the thing to copy, the base pose is the pool OStim has for
 		// what this actor is doing. Consensual scenes only for now; everything else keeps the built-in grammar.
+		// OStim's override pool (open mouth, tongue) for whoever is doing the oral act, played by us. Updated first:
+		// the parts it owns are not the underlying pool's to set.
+		const bool overriding = UpdateOralOverride(t, s, a, rawEnj);
 		Preset e{};
 		const bool usingLib = S::bDirectorLibrary && t.consent && (dom == kPleasure || dom == kAnticipation) && LibraryPose(t, s, a, rawEnj, e);
 		if (!usingLib) e = BasePreset(t, dom, enjPhase, victim, arch, seed, role, tone);
@@ -875,6 +949,8 @@ namespace Face::Engine::detail
 		if (usingLib && S::bBreathing) {
 			for (int i = 0; i < 16; ++i) e[i] = 0.0f;  // the breath clock holds the mouth
 		}
+		// The open mouth and the tongue belong to the override pool for as long as it plays, whatever phase this is.
+		if (overriding) OverlayOralOverride(s, e);
 		const float eStr = ClampF(strength * prof * jit, 0.0f, 2.0f);
 		const float mStr = ClampF(strength * prof * PersonalityMod(seed), 0.0f, 2.0f);
 		// The breath clock holds the mouth itself at climax (ClimaxMouth) and on a ring gag, so the
@@ -887,7 +963,7 @@ namespace Face::Engine::detail
 		const float ease = usingLib ? std::max(S::fTransition, 0.9f) : S::fTransition;
 		Output::ApplyPreset(a, e, breathHoldsMouth || yieldMouth, eStr, mStr, strength, ease);
 		SetOwners(s, usingLib ? "Library/" + s.libLastName : std::string(DomName(dom)) + "/" + ScenarioName(scenario),
-				yieldMouth ? MouthOwnerLabel(t, s, a, true) : "OSED arc",
+				yieldMouth ? MouthOwnerLabel(t, s, a, true) : (overriding ? "Library override/" + s.libOvrName : std::string("OSED arc")),
 			"Phrase " + std::to_string(phrase), "Pending gaze");
 		PulseActor(t, s, a, dom, phrase, enjEff);
 		Pulse::Emit("SLED_Overwhelm", t.id, a, overwhelm);

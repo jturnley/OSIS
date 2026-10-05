@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.9.0
+
+### Changed
+- **In Director, OStim no longer overrides anything.** Until now Director switched OStim's
+  underlying expressions off but left its override expressions on, so for an oral or kiss action
+  OStim still wrote the mouth (and sometimes the eyes, mood and tongue) over the Director's face and
+  the Director stepped aside for the mouth. With the library on, OStim's override expressions are
+  switched off as well, and the Director plays them itself:
+  - The override pool is the one OStim's own rules give an actor in an oral or kiss action
+    (`openmouth` for a blowjob or cunnilingus, `tongue` for licking and French kissing - the receiver
+    of cunnilingus has none). A pick is made every 2.5-5 s and applied part by part to a face kept for
+    the override, and overlaid on the Director's face for whatever it owns, in any phase. The parts
+    the override has are not set by the underlying pool, as in OStim.
+  - The tongue: a pick with a `tongue` object (OStim's `phonemeObjects`) puts the tongue out through
+    OSIS's own tongue handling, and a pick without one takes it back, so the jaw clearance and the
+    lip-sync pause follow it. The anime-tongue and stranded-tongue clean-up leave a tongue that
+    belongs to the override alone.
+  - The mouth is no longer handed to the animation for an oral act, so lip-sync and the slower oral
+    tick no longer step aside either. The probe's mouth label reads `Library override/<file>`.
+  - Switching the setting off mid-scene undoes both of OStim's flags (`SetExpressionsEnabled` never
+    lifts the override one on its own).
+- Our tongue state now follows our own equip and unequip at once, instead of waiting for the next
+  poll, which could read as an ahegao mod's tongue for a second and stand the whole face down.
+
+### Notes
+- The first second or two of an oral scene starts with a closed mouth until the Director's first
+  beat; OStim used to open it at the node change.
+- Needs OStim's `tongue` equip object (Halo's HDT Tongues provides one) for the tongue itself.
+- Unchanged with the library off: OStim's overrides stay on and the mouth is yielded as before.
+
 ## 1.8.3
 
 ### Fixed

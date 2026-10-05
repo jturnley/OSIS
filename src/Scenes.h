@@ -77,6 +77,21 @@ namespace Scenes
 		std::string libLastName;
 		float libNextPick = 0.0f;
 
+		// The override pool (OStim's oral and kiss sets) the Director plays for this actor: the face it has built up,
+		// which parts of the face it owns while it lasts, and whether it has put the tongue out.
+		std::array<float, 32> libOvr = [] {
+			std::array<float, 32> st{};
+			st[30] = -1.0f;
+			return st;
+		}();
+		int libOvrMask = 0;
+		const void* libOvrPool = nullptr;
+		const void* libOvrLast = nullptr;
+		std::string libOvrName;
+		float libOvrNext = 0.0f;
+		bool libTongue = false;
+		bool noOverride = false;  // OStim's override expressions were switched off for this actor as well
+
 		// normal (pre-animation) layer
 		std::string normalMood = "Idle";
 		std::string hintKind;

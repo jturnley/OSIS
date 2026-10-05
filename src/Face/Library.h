@@ -86,7 +86,12 @@ namespace Face::Library
 	// left as it was, so the face is the accumulation of recent picks. `a_roll` supplies the 0..1 draw
 	// for each channel's variance; excitement is 0..100 and a_relSpeed 0..1 (the node's speed index
 	// over its count of speeds), as OStim passes them.
-	void ApplyTo(State& a_state, const Variant& a_variant, float a_excitement, float a_relSpeed, const std::function<float()>& a_roll);
+	// `a_skipParts` (Part bits) are left alone even when the expression has them: the parts an override owns.
+	void ApplyTo(State& a_state, const Variant& a_variant, float a_excitement, float a_relSpeed, const std::function<float()>& a_roll,
+		int a_skipParts = 0);
+	// Set the channels of the given parts to rest (the mood to a neutral at zero), or copy them from another state.
+	void ZeroParts(State& a_state, int a_parts);
+	void CopyParts(State& a_dst, const State& a_src, int a_parts);
 
 	// kDataLoaded, after OStimData::Init (action aliases are needed to read the action keys).
 	void Load();

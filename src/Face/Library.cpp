@@ -177,10 +177,11 @@ namespace Face::Library
 		return s;
 	}
 
-	void ApplyTo(State& st, const Variant& v, float excitement, float relSpeed, const std::function<float()>& roll)
+	void ApplyTo(State& st, const Variant& v, float excitement, float relSpeed, const std::function<float()>& roll, int skip)
 	{
+		const int parts = v.parts & ~skip;
 		const auto value = [&](const Channel& c) { return c.Value(excitement, relSpeed, roll()); };
-		if (v.parts & kMood) {
+		if (parts & kMood) {
 			st[30] = static_cast<float>(v.mood.type);
 			st[31] = value(v.mood);
 		}
@@ -191,15 +192,40 @@ namespace Face::Library
 				if (std::ranges::find(ids, c.type) != ids.end()) st[16 + c.type] = value(c);
 			}
 		};
-		if (v.parts & kLid) setPart(v.lids, { 12, 13 });
-		if (v.parts & kBrow) setPart(v.brows, { 2, 3, 4, 5, 6, 7 });
-		if (v.parts & kBall) setPart(v.balls, { 8, 9, 10, 11 });
-		if (v.parts & kPhoneme) {
+		if (parts & kLid) setPart(v.lids, { 12, 13 });
+		if (parts & kBrow) setPart(v.brows, { 2, 3, 4, 5, 6, 7 });
+		if (parts & kBall) setPart(v.balls, { 8, 9, 10, 11 });
+		if (parts & kPhoneme) {
 			for (int i = 0; i < 14; ++i) st[i] = 0.0f;
 			for (const auto& c : v.phonemes) {
 				if (c.type >= 0 && c.type < 14) st[c.type] = value(c);
 			}
 		}
+	}
+
+	namespace
+	{
+		// The preset indices each part occupies: phonemes 0-13, brows 18-23, eyeballs 24-27, lids 28-29, mood 30-31.
+		template <class F>
+		void ForPart(int a_parts, F&& a_fn)
+		{
+			if (a_parts & kPhoneme) for (int i = 0; i < 14; ++i) a_fn(i);
+			if (a_parts & kBrow) for (int i = 18; i <= 23; ++i) a_fn(i);
+			if (a_parts & kBall) for (int i = 24; i <= 27; ++i) a_fn(i);
+			if (a_parts & kLid) for (int i = 28; i <= 29; ++i) a_fn(i);
+			if (a_parts & kMood) { a_fn(30); a_fn(31); }
+		}
+	}
+
+	void ZeroParts(State& st, int parts)
+	{
+		ForPart(parts, [&](int i) { st[i] = 0.0f; });
+		if (parts & kMood) st[30] = 7.0f;  // neutral at zero: the mood eases out rather than being left as it was
+	}
+
+	void CopyParts(State& dst, const State& src, int parts)
+	{
+		ForPart(parts, [&](int i) { dst[i] = src[i]; });
 	}
 
 	const Pool* Set(std::string_view a_name) { return Find(g_sets, a_name); }
