@@ -475,6 +475,18 @@ namespace Face::Engine
 				// and "spank" never carry a forced tag; "femdom" does on 59 of 182 scenes.)
 				x.tagRough = SplitCSV("rough,dom,femdom,maledom,domination,dominant,bdsm,bondage,spank,spanking,choking,slave");
 				x.tagLoving = SplitCSV("loving,romance,romantic,tender,passionate");
+				// OStimData names a scene's actions the way OStim resolves them: "cunnilingus" is "vulvaleating",
+				// "lickingvagina" "vulvallicking", "deepthroat" "deepthroating", "anilingus" "rimjob". These lists were
+				// written with the older names, so for those acts no lookup ever matched, and the oral fallbacks
+				// below were quietly covering for it. Each list now carries both names.
+				for (auto* list : { &x.actionOral, &x.actionKiss, &x.actionVaginal, &x.actionAnal, &x.actionPenetration, &x.actionAnySignal,
+						&x.actionFootActor, &x.actionFootTarget }) {
+					const auto original = *list;
+					for (const auto& name : original) {
+						const auto canonical = OStimData::CanonicalAction(name);
+						if (canonical != name && std::ranges::find(*list, canonical) == list->end()) list->push_back(canonical);
+					}
+				}
 #if OSIS_LITE
 				x.tagSub = SplitCSV("submissive,sub,bottom,receiving,passive");
 #else
@@ -716,13 +728,24 @@ namespace Face::Engine
 			return (t.toneForced || t.toneRough) && PositionRole(t, s) < 0;
 		}
 
+		// Whether the scene's own data puts this actor in an action, as the one doing it or the one it is
+		// done to. When it does, the roles are known and a guess about everyone in an oral scene must not
+		// overrule them: the receiver of cunnilingus is not the one whose mouth is busy.
+		bool SceneNamesActor(const Thread& t, const Slot& s)
+		{
+			if (!t.meta || s.pos < 0) return false;
+			return std::ranges::any_of(t.meta->actions, [&](const OStimData::Action& a) {
+				return a.actor == s.pos || a.target == s.pos || a.performer == s.pos;
+			});
+		}
+
 		bool ActorIsOralMouthActor(Thread& t, const Slot& s)
 		{
 			if (!t.meta || s.pos < 0) return false;
 			const auto& m = *t.meta;
 			return OStimData::FindAnyActionForActor(m, s.pos, T().actionOral) >= 0 || ActorHasActionTagAsActor(t, s, T().tagOralAction) ||
 			       (t.sceneOral && OStimData::HasAnyActorTag(m, s.pos, T().tagOralAction)) ||
-			       (t.sceneOral && t.PaintedCount() <= 2 && HasOralSceneTag(t));
+			       (t.sceneOral && t.PaintedCount() <= 2 && HasOralSceneTag(t) && !SceneNamesActor(t, s));
 		}
 
 		bool DialogueMouthYielded(Thread& t, RE::Actor* a)
@@ -973,7 +996,8 @@ namespace Face::Engine
 		if (OStimData::FindAnyActionForActor(m, s.pos, T().actionOral) >= 0) return true;
 		if (ActorHasActionTagAsActor(t, s, T().tagOralAction)) return true;
 		if (t.sceneOral && OStimData::HasAnyActorTag(m, s.pos, T().tagOralAction)) return true;
-		if (t.sceneOral && t.PaintedCount() <= 2 && HasOralSceneTag(t)) return true;
+		// Only for a scene that does not say what this actor is doing; with role data it is wrong for the receiver.
+		if (t.sceneOral && t.PaintedCount() <= 2 && HasOralSceneTag(t) && !SceneNamesActor(t, s)) return true;
 		return false;
 	}
 

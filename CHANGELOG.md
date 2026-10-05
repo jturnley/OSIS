@@ -1,5 +1,29 @@
 # Changelog
 
+## 1.8.1
+
+### Fixed
+- **The receiver of an oral act was treated as the one performing it.** In a two-person scene with
+  oral sex, Director gave *both* actors' mouths away to the animation and gave both the face of
+  someone concentrating on the act (Neutral mood, squint, no mouth of its own). The person being
+  pleasured - Camilla in the 1.8.0 test, receiving cunnilingus from the player - showed Neutral at
+  about 0.55 for the whole scene while the actor next door moved through Happy and Surprise. Two
+  separate defects, both from the first release:
+  1. A fallback meant for scenes whose data says nothing about who does what ("an oral scene with
+     two people: assume both mouths are busy") fired even when the scene says exactly who does
+     what. It now applies only to an actor the scene's data does not place in any action. The
+     scene here has actor 0 performing `cunnilingus` on actor 1, and actor 1 carries no oral tag.
+  2. OStim renames some actions through its alias table (`cunnilingus` is `vulvaleating`,
+     `lickingvagina` `vulvallicking`, `lickingpenis` `penilelicking`, `deepthroat`
+     `deepthroating`, `anilingus` `rimjob`, `rubbingclitoris` `vulvalrubbing`), and OSIS reads a
+     scene's actions by the new name. The Director's action lists were written with the old names,
+     so for those acts no list lookup ever matched and the fallback above had been covering for
+     it. Each list now carries both names.
+
+### Notes
+- Found from the 1.8.0 probe: the beat line gave Camilla `mouth 'Oral action', head 'Animation
+  head'` while its library line said she is the *target* of `vulvaleating`.
+
 ## 1.8.0
 
 Director is being rebuilt to own the whole face: OStim never overrides it, and it plays OStim's
