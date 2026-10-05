@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.7.7
+
+### Added
+- **The face probe now watches the rendered face frame by frame.** One sample a second could not
+  show a flicker or a snap to zero, and 1.7.6 had cut them without removing them. The probe now
+  detects, per actor, every frame in which a channel of the rendered face (mouth, eyes and brows,
+  mood) falls by more than 0.2 and logs it as a SNAP with the keyframe value and OSIS's own last
+  write beside it, so it can be told whether OStim, OSIS or the game did it. Each per-second line
+  also gets a flutter summary: how many big frame-to-frame jumps the group's total made and how
+  many times it reversed direction.
+
+### Fixed
+- The probe's per-second "ours" mouth value could be stale: it reported a channel from an earlier
+  frame as if it had just been written. It now only counts channels written in the previous frame.
+
 ## 1.7.6
 
 ### Fixed

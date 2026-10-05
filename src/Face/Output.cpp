@@ -53,6 +53,18 @@ namespace Face::Output
 			}
 		};
 
+		// The rendered face frame to frame, for one group of channels (mouth, eyes and brows, mood).
+		// The total jumping up and down is flutter; one channel dropping hard in a single frame is a
+		// snap, and is logged with the keyframe and our own last write beside it so it can be attributed.
+		struct Series
+		{
+			std::array<float, 17> fin{};
+			float sum = 0.0f;
+			float lastDelta = 0.0f;
+			bool have = false;
+			int jumps = 0, reversals = 0, snaps = 0;
+		};
+
 		// What one actor's face did between two probe lines. "Ours" is what we wrote last frame,
 		// compared at the start of the next frame against what is in the face data by then.
 		struct Probe
@@ -73,6 +85,8 @@ namespace Face::Output
 			int trackStarts = 0;
 			float next = 0.0f;
 			bool countsLogged = false;
+			std::array<Series, 3> ser{};  // mouth, eyes and brows, mood
+			int snapsLogged = 0;
 		};
 
 		struct State
@@ -140,10 +154,44 @@ namespace Face::Output
 			return best;
 		}
 
+		void ScanGroup(RE::Actor* a, Probe& p, Series& s, const char* name, const RE::BSFaceGenKeyframeMultiple& fin,
+				const RE::BSFaceGenKeyframeMultiple& key, std::uint32_t first, std::uint32_t end, const float* ours, std::uint32_t mask)
+		{
+			std::array<float, 17> now{};
+			float sum = 0.0f;
+			for (std::uint32_t i = first; i < end && i < 17; ++i) {
+				now[i] = Val(fin, i);
+				sum += now[i];
+			}
+			if (s.have) {
+				const float d = sum - s.sum;
+				if (std::abs(d) > 0.15f) {
+					++s.jumps;
+					if (s.lastDelta != 0.0f && (d > 0.0f) != (s.lastDelta > 0.0f)) ++s.reversals;
+					s.lastDelta = d;
+				}
+				for (std::uint32_t i = first; i < end && i < 17; ++i) {
+					if (s.fin[i] - now[i] <= 0.20f || p.snapsLogged >= 80) continue;
+					++p.snapsLogged;
+					++s.snaps;
+					logger::info("Probe {:08X} {}: SNAP {} #{} {:.2f} -> {:.2f} in one frame; keyframe now {:.2f}; we wrote {}", a->GetFormID(),
+						a->GetDisplayFullName(), name, i, s.fin[i], now[i], Val(key, i),
+						(ours && (mask & (1u << i))) ? std::format("{:.2f}", ours[i]) : std::string("nothing last frame"));
+				}
+			}
+			s.fin = now;
+			s.sum = sum;
+			s.have = true;
+		}
+
 		// Start of a frame: did anything change what we wrote last frame?
-		void ProbeEntry(Probe& p, const RE::BSFaceGenAnimationData& fg)
+		void ProbeEntry(RE::Actor* a, Probe& p, const RE::BSFaceGenAnimationData& fg)
 		{
 			++p.frames;
+			ScanGroup(a, p, p.ser[0], "mouth", fg.phoneme3, fg.phenomeKeyFrame, 0, kPhonemes, p.ph.data(), p.valid ? p.phMask : 0u);
+			ScanGroup(a, p, p.ser[1], "eyes/brows", fg.modifier3, fg.modifierKeyFrame, kBrowDownL, kModifiers, p.mod.data(), p.valid ? p.modMask : 0u);
+			ScanGroup(a, p, p.ser[2], "mood", fg.expression3, fg.expressionKeyFrame, 0, kExpressions, p.expr.data(),
+					p.valid && p.exprWritten ? 0x1FFFFu : 0u);
 			if (p.exprWritten && !fg.exprOverride) ++p.overrideOff;
 			for (std::uint32_t i = 0; i < kPhonemes; ++i) p.dlgPh = std::max(p.dlgPh, Val(fg.phoneme1, i));
 			for (std::uint32_t i = kBrowDownL; i < kModifiers; ++i) p.dlgMod = std::max(p.dlgMod, Val(fg.modifier1, i));
@@ -184,7 +232,14 @@ namespace Face::Output
 			float ov, rv, opv, rpv;
 			const int om = p.exprWritten ? Top(p.expr, ov) : -1;
 			const int rm = Top(fg.expression3, kExpressions, rv);
-			const int op = Top(p.ph, opv);
+			int op = -1;
+			opv = 0.0f;
+			for (int i = 0; i < kPhonemes; ++i) {
+				if ((p.phMask & (1u << i)) && p.ph[i] > opv) {
+					opv = p.ph[i];
+					op = i;
+				}
+			}
 			const int rp = Top(fg.phoneme3, kPhonemes, rpv);
 			const auto m = [&](int i) { return (p.modMask & (1u << i)) ? p.mod[i] : -1.0f; };
 			logger::info(
@@ -198,8 +253,17 @@ namespace Face::Output
 				logger::info("Probe {:08X}: largest outside changes: mood #{} {:.2f} where we wrote {:.2f}; modifier #{} {:.2f} where we wrote {:.2f}; phoneme #{} {:.2f} where we wrote {:.2f}",
 					a->GetFormID(), p.chExpr, p.foundExpr, p.oursExpr, p.chMod, p.foundMod, p.oursMod, p.chPh, p.foundPh, p.oursPh);
 			}
+			logger::info("Probe {:08X}: rendered face frame to frame - mouth {} jumps / {} reversals / {} snaps, eyes+brows {} / {} / {}, mood {} / {} / {} ({} frames)",
+				a->GetFormID(), p.ser[0].jumps, p.ser[0].reversals, p.ser[0].snaps, p.ser[1].jumps, p.ser[1].reversals, p.ser[1].snaps,
+				p.ser[2].jumps, p.ser[2].reversals, p.ser[2].snaps, p.frames);
 			const auto keep = p;
 			p = Probe{};
+			for (std::size_t g = 0; g < keep.ser.size(); ++g) {
+				p.ser[g].fin = keep.ser[g].fin;
+				p.ser[g].sum = keep.ser[g].sum;
+				p.ser[g].have = keep.ser[g].have;
+			}
+			p.snapsLogged = keep.snapsLogged;
 			p.ph = keep.ph;
 			p.mod = keep.mod;
 			p.expr = keep.expr;
@@ -480,7 +544,7 @@ namespace Face::Output
 		const bool probing = now < g_probeUntil.load();
 		auto& pr = st.probe;
 		if (probing) {
-			ProbeEntry(pr, *fg);
+			ProbeEntry(a, pr, *fg);
 			if (pr.next <= 0.0f) {
 				pr.next = now + 1.0f;
 			} else if (now >= pr.next) {
