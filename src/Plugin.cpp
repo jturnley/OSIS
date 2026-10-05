@@ -7,6 +7,7 @@
 #include "Body.h"
 #include "Compat.h"
 #include "Face/Engine.h"
+#include "Face/Library.h"
 #include "Face/Output.h"
 #include "Hooks.h"
 #include "LipSync.h"
@@ -122,6 +123,7 @@ namespace
 		switch (a_msg->type) {
 		case SKSE::MessagingInterface::kDataLoaded:
 			Guarded("OStim metadata", OStimData::Init);
+			Guarded("Expression library", Face::Library::Load);
 			Guarded("Face engine", Face::Engine::OnDataLoaded);
 			Guarded("Compatibility check", Compat::Detect);
 			Guarded("Living Skin", Skin::OnDataLoaded);

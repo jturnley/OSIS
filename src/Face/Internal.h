@@ -9,6 +9,7 @@
 // Function names follow OSExpressionFaces.psc so the port can be checked side by side.
 
 #include "Face/Engine.h"
+#include "Face/Library.h"
 #include "Face/Output.h"
 #include "OStimData.h"
 #include "Scenes.h"

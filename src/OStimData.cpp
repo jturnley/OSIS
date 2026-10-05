@@ -19,6 +19,7 @@ namespace OStimData
 		std::unordered_map<std::string, ScenePtr> g_scenes;                   // parsed cache
 		std::unordered_map<std::string, TagList> g_actionTags;                // canonical type -> tags
 		std::unordered_map<std::string, std::string> g_actionAlias;           // alias -> canonical type
+		std::unordered_map<std::string, std::array<std::string, 3>> g_actionOverride;  // type -> expression set per role
 
 		std::string Lower(std::string_view s)
 		{
@@ -73,6 +74,16 @@ namespace OStimData
 					std::ifstream f(path);
 					const auto doc = json::parse(f, nullptr, true, true);
 					g_actionTags[type] = ReadTags(doc.value("tags", json::array()));
+					{
+						static constexpr const char* kRoles[3] = { "actor", "target", "performer" };
+						std::array<std::string, 3> overrides;
+						for (int r = 0; r < 3; ++r) {
+							if (const auto it = doc.find(kRoles[r]); it != doc.end() && it->is_object()) {
+								if (const auto o = it->find("expressionOverride"); o != it->end() && o->is_string()) overrides[r] = Lower(o->get<std::string>());
+							}
+						}
+						if (!overrides[0].empty() || !overrides[1].empty() || !overrides[2].empty()) g_actionOverride[type] = std::move(overrides);
+					}
 					for (const auto& alias : doc.value("aliases", json::array())) {
 						if (alias.is_string()) g_actionAlias[Lower(alias.get<std::string>())] = type;
 					}
@@ -110,6 +121,9 @@ namespace OStimData
 					SceneActor sa;
 					sa.tags = ReadTags(a.value("tags", json::array()));
 					sa.intendedSex = Lower(a.value("intendedSex", std::string{}));
+					sa.underlyingExpression = Lower(a.value("underlyingExpression", std::string{}));
+					sa.expressionOverride = Lower(a.value("expressionOverride", std::string{}));
+					sa.expressionAction = ReadIndex(a, "expressionAction");
 					s->actors.push_back(std::move(sa));
 				}
 				for (const auto& a : doc.value("actions", json::array())) {
@@ -142,6 +156,7 @@ namespace OStimData
 		g_scenes.clear();
 		g_actionTags.clear();
 		g_actionAlias.clear();
+		g_actionOverride.clear();
 		LoadActions();
 		IndexScenes();
 		const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
@@ -175,6 +190,22 @@ namespace OStimData
 		}
 		g_scenes.emplace(id, s);
 		return s;
+	}
+
+	std::string CanonicalAction(std::string_view a_name)
+	{
+		const std::string name = Lower(a_name);
+		std::scoped_lock l(g_lock);
+		if (const auto it = g_actionAlias.find(name); it != g_actionAlias.end()) return it->second;
+		return name;
+	}
+
+	std::string ActionRoleOverride(std::string_view a_type, int a_role)
+	{
+		if (a_role < 0 || a_role > 2) return {};
+		std::scoped_lock l(g_lock);
+		const auto it = g_actionOverride.find(Lower(a_type));
+		return it == g_actionOverride.end() ? std::string{} : it->second[a_role];
 	}
 
 	TagList SplitCSV(std::string_view a_csv)

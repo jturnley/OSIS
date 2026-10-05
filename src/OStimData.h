@@ -24,6 +24,10 @@ namespace OStimData
 	{
 		TagList tags;
 		std::string intendedSex;
+		// Which expression pool a node gives this actor. Empty / -1 means "decide from the actions".
+		std::string underlyingExpression;
+		std::string expressionOverride;
+		int expressionAction = -1;
 	};
 
 	struct Scene
@@ -45,6 +49,11 @@ namespace OStimData
 	[[nodiscard]] std::size_t ActionCount();
 
 	[[nodiscard]] ScenePtr GetScene(std::string_view a_id);
+
+	// An action's canonical type for a name or alias (lowercase in, lowercase out).
+	[[nodiscard]] std::string CanonicalAction(std::string_view a_name);
+	// The expression pool an action's definition gives the actor (0), target (1) or performer (2) of it; empty if none.
+	[[nodiscard]] std::string ActionRoleOverride(std::string_view a_type, int a_role);
 
 	[[nodiscard]] TagList SplitCSV(std::string_view a_csv);
 	[[nodiscard]] bool HasAny(const TagList& a_have, const TagList& a_want);

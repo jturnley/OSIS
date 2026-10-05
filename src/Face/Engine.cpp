@@ -422,10 +422,11 @@ namespace Face::Engine
 				for (auto& s : t.slots) {
 					auto* a = s.Get();
 					if (!a) continue;
-					logger::info("Probe {:08X} {}: beat {} - mode {}, face '{}', mouth '{}', eyes '{}', head '{}', excitement {}{}{}{}{}", a->GetFormID(),
+					logger::info("Probe {:08X} {}: beat {} - mode {}, face '{}', mouth '{}', eyes '{}', head '{}', excitement {}{}{}{}{}; OStim library: {}", a->GetFormID(),
 						a->GetDisplayFullName(), t.tick, S::iMode == S::kDirector ? "Director" : (S::iMode == S::kEnhanced ? "Enhanced" : "Assist"),
 						s.faceOwner, s.mouthOwner, s.eyeOwner, s.headOwner, Raw(a), t.normalActive ? ", normal state" : "",
-						t.afterglow > 0 ? ", afterglow" : "", s.takenOver ? ", OStim face off" : ", OStim face ON", s.painted ? "" : ", not painted");
+						t.afterglow > 0 ? ", afterglow" : "", s.takenOver ? ", OStim face off" : ", OStim face ON", s.painted ? "" : ", not painted",
+						t.meta && s.pos >= 0 ? Library::Describe(*t.meta, s.pos) : std::string("no scene data"));
 				}
 			}
 		}

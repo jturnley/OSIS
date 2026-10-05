@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.8.0
+
+Director is being rebuilt to own the whole face: OStim never overrides it, and it plays OStim's
+own expression library through OSIS's seamless output instead of OStim's writer. This is the first
+step. It reads and resolves the library and changes no behaviour yet.
+
+### Added
+- **OStim's expression library, read and resolved by OStim's own rules.** Every file in
+  `Data/SKSE/Plugins/OStim/facial expressions` (134 in a typical large install, from OStim itself,
+  OStim Community Resource, Night-blooming Violets, Devious Devices NG and others, so installed
+  expression packs apply) is parsed into sets, events and per-action pools, with OStim's value
+  formula (`base + variance + speed and excitement terms`) kept intact. For each actor in a scene
+  node it picks the underlying pool (the scene's named set, else the named action, else the first
+  action the actor performs or receives, else `default`) and the override pool (the oral and kiss
+  sets, `openmouth` and `tongue`), in OStim's order. The startup log lists what it loaded.
+- OStim scene metadata now carries a node's `underlyingExpression`, `expressionOverride` and
+  `expressionAction`, and an action definition's per-role `expressionOverride`. Action names are
+  resolved through OStim's alias table, which the expression files rely on (`vulvallicking`,
+  `penilelicking` and others only match through it).
+- The face probe's beat line says which pools OStim's rules give each actor, so the resolution can
+  be checked against what is happening in the scene.
+
+### Notes
+- Checked against every scene in one install (5,509 scenes, 12,002 actor positions): 79% resolve
+  to an action's pool, 21% fall to `default` (idle, transitions, solo), and the oral override sets
+  map to the right actions.
+- Next: the seamless player, with OStim's overrides switched off for Director and the oral mouth
+  and tongue handled by OSIS; then the personality, orgasm-timing and circumstance inputs.
+
 ## 1.7.11
 
 ### Fixed
