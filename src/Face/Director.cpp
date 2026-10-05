@@ -805,6 +805,23 @@ namespace Face::Engine::detail
 		ApplyGroupConductor(t, e, idx, role, posRole, sub);
 		ApplyV2Controls(t, e, phrase, dom, yieldMouth, victim, react);
 
+		// Director owns the whole face, but its pleasure presets were tuned as an overlay on OStim's
+		// own face, not as one: OStim's expression files run mood 0.7-1.0, brows 0.4-1.0 and mouth
+		// 0.5-1.0 at 60-100 excitement, against Director's mood 0.4-0.5, brows 0.2-0.4 and mouth up to
+		// 0.45 (face probe, 1.7.3). Left alone the faces read as flat. These ratios bring the channels
+		// to OStim's level at fDirectorGain 1; the eyelids already match, so squint is not scaled. The
+		// climax is above OStim's already, and plateau, afterglow and distress are deliberate low or
+		// extreme poses of their own.
+		if (dom == kPleasure && S::fDirectorGain > 0.0f) {
+			const float g = S::fDirectorGain;
+			const float mood = 1.0f + 0.4f * g;
+			const float mouth = 1.0f + 0.6f * g;
+			const float brow = 1.0f + 0.5f * g;
+			e[31] = ClampF(e[31] * mood, 0.0f, 1.0f);
+			for (int i = 0; i < 16; ++i) e[i] = ClampF(e[i] * mouth, 0.0f, 1.0f);
+			for (int i = 18; i <= 23; ++i) e[i] = ClampF(e[i] * brow, 0.0f, 1.0f);
+		}
+
 		// 5) EMIT + gaze
 		const float prof = ProfileScale() * ArchStrength(arch);
 		const float jit = RandFloat(0.92f, 1.08f);

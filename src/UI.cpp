@@ -370,6 +370,13 @@ namespace
 			}
 
 			SliderF("Strength", fGlobalStrength, 0.0f, 2.0f, "%.2f", "How large every expression comes out. 1.00 is the authored size.");
+			if (iMode == kDirector) {
+				SliderF("Pleasure intensity (Director)", fDirectorGain, 0.0f, 2.0f, "%.2f",
+					"Director only. The expression grammar was tuned as an overlay on OStim's own face, which makes it about half as strong "
+					"when it is the whole face: mood, brows and mouth during the pleasure phase come out smaller than OStim's would. 0 leaves them "
+					"as authored, 1.00 brings them up to OStim's amplitude at the same excitement, 2.00 well past it. Eyelids are not changed, "
+					"and climax, plateau, afterglow and distress faces are left as they are.");
+			}
 			SliderF("Style (realistic > cinematic > anime)", fStyle, 0.0f, 2.0f, "%.2f", "Above 1.5 enables the anime climax accents and tongue options.");
 			SliderF("Eye strength", fEyeStrength, 0.0f, 1.5f, "%.2f",
 				"The share of an expression that goes to the eyes: lids, squint and brow. Style raises it a little on its own.");

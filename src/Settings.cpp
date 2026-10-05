@@ -36,6 +36,7 @@ namespace Settings
 				{ "Face", "bEnabled", &Face::bEnabled },
 				{ "Face", "iMode", &Face::iMode },
 				{ "Face", "fGlobalStrength", &Face::fGlobalStrength },
+				{ "Face", "fDirectorGain", &Face::fDirectorGain },
 				{ "Face", "fBaseInterval", &Face::fBaseInterval },
 				{ "Face", "fIntervalJitter", &Face::fIntervalJitter },
 				{ "Face", "fTransition", &Face::fTransition },
@@ -184,6 +185,7 @@ namespace Settings
 		{
 			Face::iMode = std::clamp(Face::iMode, 0, 2);
 			Face::fGlobalStrength = std::clamp(Face::fGlobalStrength, 0.0f, 2.0f);
+			Face::fDirectorGain = std::clamp(Face::fDirectorGain, 0.0f, 2.0f);
 			Face::fBaseInterval = std::clamp(Face::fBaseInterval, 1.0f, 12.0f);
 			Face::fIntervalJitter = std::clamp(Face::fIntervalJitter, 0.0f, 4.0f);
 			Face::fTransition = std::clamp(Face::fTransition, 0.05f, 3.0f);
@@ -593,6 +595,7 @@ namespace Settings
 		fStyle = 0.0f;
 		fEyeStrength = 0.45f;
 		iMode = kDirector;
+		fDirectorGain = 1.0f;
 		bTakeOverFace = false;
 		bAnimeTongue = false;
 		bAnimeTongueFull = false;

@@ -33,6 +33,9 @@ namespace Settings
 		inline bool bEnabled = true;          // off: OSED paints no faces; the other modules keep running
 		inline int iMode = kDirector;         // Assist/Enhanced layer over OStim, or Director owns the face
 		inline float fGlobalStrength = 0.85f;
+		// Director only: how far the pleasure phase is brought up toward OStim's own face amplitude.
+		// 0 leaves the presets as authored, 1 matches OStim at the same excitement, 2 goes well beyond.
+		inline float fDirectorGain = 1.0f;
 		inline float fBaseInterval = 3.0f;
 		inline float fIntervalJitter = 1.0f;
 		inline float fTransition = 0.5f;

@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.7.11
+
+### Fixed
+- **Director's pleasure faces were about half as strong as OStim's.** Measured: OStim's own
+  expression files run mood 0.7-1.0, brows 0.4-1.0 and mouth 0.5-1.0 at 60-100 excitement
+  (`value = base + variance + excitement factor`, from OStim's source); Director's pleasure
+  presets, as the face probe saw them in 1.7.3, came out at mood 0.4-0.5, brows 0.2-0.4 and mouth
+  up to 0.45. The eyelids already matched. The cause is how the grammar was built: the original
+  OSED ran on top of OStim's face, with its takeover optional and off by default, so its presets
+  were tuned as additions to OStim's face. As the only writer there is nothing under them.
+  A new **Pleasure intensity (Director)** setting (`fDirectorGain`, default 1.0) scales mood by
+  x1.4, mouth by x1.6 and brows by x1.5 during the pleasure phase, which brings those channels to
+  OStim's level at the same excitement. 0 gives the old faces, 2 goes well past OStim. Squint is
+  not scaled, and climax, plateau, afterglow and distress are left as authored (the climax already
+  exceeds OStim's).
+
+### Notes
+- The new key is added to an existing `OSIS.ini` by the startup completion in 1.7.10; the log
+  says so.
+
 ## 1.7.10
 
 ### Changed
