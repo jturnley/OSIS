@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.9.2
+
+### Fixed
+- **The face dropped away just before the peak.** In the 1.9.1 test, Camilla's build-up ran at mood
+  0.57-0.96 and mouth 0.57-0.98 (pool faces at 75-90 excitement), then the three plateau beats
+  rendered at **mood 0.28, an Anger mood, and mouth 0.09-0.15**: the plateau was still the built-in
+  template (Anger 0.4, mouth 0.2), about a third of the strength of what led into it, so "I'm almost
+  there" turned into "this is nice". The plateau is now played from the same pool as the build-up,
+  with the tension on top (squint +0.18, brows in +0.15).
+- **The climax face lasted one beat.** The climax phase was chosen only while `raw >= 90`, and in
+  current OStim an actor's excitement resets at the climax (Camilla: 100, then 5 on the next beat).
+  That test comes from the Papyrus original, where excitement stayed high through the orgasm. So the
+  multi-beat climax choreography - tension, eyes rolling up at the peak, the aftershocks - was
+  cut to one beat, and the next beats fell through to the *low-excitement pool* (`penetrated13` at
+  excitement 5) for about 25 s until the afterglow began. An actor's own orgasm (the event names
+  who climaxed) now holds the climax phase for the whole orgasm window, five beats; an actor who
+  did not climax keeps their own phase.
+
+### Notes
+- Both are from the first release. The plateau only became visible as a drop once the build-up
+  before it was played from the pool at full strength.
+
 ## 1.9.1
 
 ### Fixed

@@ -61,6 +61,7 @@ namespace Scenes
 		float tongueHoldUntil = 0.0f;
 		float tongueCooldownUntil = 0.0f;
 		int lastClimax = 0;
+		bool climaxing = false;  // this actor's own orgasm is in progress (the thread's orgasm window)
 		std::string jsonEvent;
 		float jsonUntil = 0.0f;
 

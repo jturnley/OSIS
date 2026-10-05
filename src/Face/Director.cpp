@@ -873,7 +873,7 @@ namespace Face::Engine::detail
 
 		// 1) DOMINANT
 		const int rawEnj = Raw(a);
-		const int dom = SelectDominant(t, enjEff, rawEnj);
+		const int dom = SelectDominant(t, enjEff, rawEnj, s.climaxing);
 		const int enjPhase = ClampI(enjEff + ArchTempo(arch), 0, 130);
 		const int posRole = S::bPositionalDomSub ? PositionRole(t, s) : 0;
 		const int tone = S::bRichEmotions && dom == kPleasure ? PleasureTone(t, a, partner, enjPhase, arch, role, posRole) : 0;
@@ -886,8 +886,17 @@ namespace Face::Engine::detail
 		// the parts it owns are not the underlying pool's to set.
 		const bool overriding = UpdateOralOverride(t, s, a, rawEnj);
 		Preset e{};
-		const bool usingLib = S::bDirectorLibrary && t.consent && (dom == kPleasure || dom == kAnticipation) && LibraryPose(t, s, a, rawEnj, e);
+		const bool usingLib = S::bDirectorLibrary && t.consent && (dom == kPleasure || dom == kAnticipation || dom == kPlateau) &&
+				LibraryPose(t, s, a, rawEnj, e);
 		if (!usingLib) e = BasePreset(t, dom, enjPhase, victim, arch, seed, role, tone);
+		// The edge of the climax is played from the pool like the rest of the build-up, with the tension on top: eyes
+		// squeezed, brows drawn together. The template this phase used (Anger mood 0.4, mouth 0.2) rendered at about a
+		// third of the strength of the faces leading into it - mood 0.28 against 0.57-0.96, mouth 0.15 against 0.57-0.98
+		// in the 1.9.1 test - so the build-up fell away just before the peak.
+		if (usingLib && dom == kPlateau) {
+			Add2(e, 28, 0.18f);  // squint
+			Add2(e, 20, 0.15f);  // brows in
+		}
 		if (dom == kClimax) ClimaxType(e, arch);
 
 		// 2) FLAVORS

@@ -784,11 +784,11 @@ namespace Face::Engine
 			return "Oral action";
 		}
 
-		int SelectDominant(Thread& t, int enj, int raw)
+		int SelectDominant(Thread& t, int enj, int raw, bool climaxing)
 		{
 			using namespace Scenes;
 			if (S::bHardExclusionGate && !t.consent) return kDistress;
-			if (t.orgasm && raw >= 90) return kClimax;
+			if (t.orgasm && (raw >= 90 || climaxing)) return kClimax;
 			if (t.afterglow > 0) return kAfterglow;
 			if (!t.consent) return kDistress;
 			if (t.leadin || enj < 25) return kAnticipation;
@@ -1287,6 +1287,7 @@ namespace Face::Engine
 		if (!s) return;
 		Pulse::Climax(a, t.id);
 		t.orgasm = true;
+		s->climaxing = true;
 		t.orgTicks = 0;
 		const int c = TimesClimaxed(a);
 		t.orgCount = c > t.orgCount ? c : t.orgCount + 1;
@@ -1319,6 +1320,7 @@ namespace Face::Engine
 		if (t.orgasm) {
 			if (++t.orgTicks > 4) {
 				t.orgasm = false;
+				for (auto& sl : t.slots) sl.climaxing = false;
 				if (S::bCinematic) {
 					t.afterglow = 5;
 					t.afterglowUntil = Scenes::Now() + kAfterglowSeconds;

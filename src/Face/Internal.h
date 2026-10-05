@@ -100,7 +100,9 @@ namespace Face::Engine::detail
 	[[nodiscard]] bool HeadCommittedToAnimation(Thread& t, Slot& s, RE::Actor* a);
 	[[nodiscard]] bool LipSyncMouthActive(Slot& s, RE::Actor* a);
 	[[nodiscard]] std::string MouthOwnerLabel(Thread& t, Slot& s, RE::Actor* a, bool yielded);
-	[[nodiscard]] int SelectDominant(Thread& t, int enj, int raw);
+	// `climaxing`: this actor's own orgasm is in progress. Excitement resets at the climax in current OStim, so
+	// `raw >= 90` is true for about one beat; the actor's own orgasm holds the climax face for the whole window.
+	[[nodiscard]] int SelectDominant(Thread& t, int enj, int raw, bool climaxing = false);
 	[[nodiscard]] int PhrasePhase(Thread& t, int idx, int enjEff);
 	[[nodiscard]] int ScenarioCode(Thread& t, int dom, int enjEff, int role, int tone, int posRole);
 	[[nodiscard]] const char* ScenarioName(int scenario);
