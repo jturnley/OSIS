@@ -14,6 +14,12 @@
 // accurate-penetration.toml and every file in ppa-override-configs, to know which mouth preset wins (the
 // highest Priority) and what it does to the face. Whether it is playing one for a given actor is seen
 // from the face itself (Face::Engine::UpdatePPAMouth).
+//
+// A preset can also zero the eyes and brows (OverrideModifiers) or the mood (OverrideExpressions) while it
+// plays, which overwrites what OSIS writes there. PPA's override configs append their presets to the pool and
+// the highest Priority wins, so OSIS can keep the face by writing an override of its own: a copy of the winning
+// preset with those two switched off and a Priority one higher. It never touches another mod's file, and
+// deleting its file puts PPA back exactly as it was.
 namespace Face::PPA
 {
 	// Look for the plugin and read its configs. At data load, when every plugin is in.
@@ -25,9 +31,24 @@ namespace Face::PPA
 	// Installed, its expression system on, and a mouth preset that sets phonemes.
 	[[nodiscard]] bool DrivesMouth();
 	// The winning mouth preset zeroes eyes and brows (OverrideModifiers) or the mood (OverrideExpressions) while
-	// it plays, which overwrites what OSIS writes there. Empty when it does not; otherwise says which file and
-	// which setting, and what to change.
+	// it plays. Empty when it does not; otherwise says which file and which setting, and what to do about it.
 	[[nodiscard]] std::string FaceWarning();
 	// One line for the settings page.
 	[[nodiscard]] std::string Status();
+
+	// OSIS's own override file is there (and says it is OSIS's).
+	[[nodiscard]] bool OsisOverrideInPlace();
+	// The file name, for the menu.
+	[[nodiscard]] const char* OsisOverrideName();
+
+	struct Result
+	{
+		bool ok = false;
+		std::string message;  // for the player: what happened, and when PPA will notice
+	};
+	// Write OSIS's override: a copy of the mouth preset PPA would otherwise play, with OverrideModifiers and
+	// OverrideExpressions off and a Priority one higher. PPA reads it at startup or on its reload key.
+	Result KeepFace();
+	// Delete OSIS's override, leaving PPA exactly as the other mods configured it. Refuses a file that is not OSIS's.
+	Result RestoreDefault();
 }

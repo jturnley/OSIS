@@ -1,5 +1,34 @@
 # Changelog
 
+## 1.9.7
+
+### Added
+- **OSIS can take the eyes and brows back from PPA, and give PPA back as it was, from its own menu.** When the
+  mouth preset PPA plays on a blowjob zeroes the eyes, brows or mood (`OverrideModifiers` /
+  `OverrideExpressions` - see 1.9.6), Face > Mouth now offers **Keep OSIS's eyes and brows**. It writes
+  `Data/SKSE/Plugins/ppa-override-configs/00_OSIS_PPA_Face.toml`: `Inherits = "Any"` and a copy of the winning
+  preset, effects and all, with those two switches off and a `Priority` one higher. PPA appends the presets of an
+  `Inherits = "Any"` override to its pool and the highest `Priority` wins, so it keeps the mouth phonemes and
+  any morphs of the original preset and OSIS keeps the face. **Restore PPA's own setting** deletes that file,
+  and PPA is back exactly as the other mods configure it.
+- It never writes to another mod's file. That is deliberate: under Mod Organizer a write to a mod's file made
+  from inside the game lands as a copy in the overwrite folder, which shadows the mod from then on (including
+  after the mod is updated) and cannot be cleanly undone from in-game. A file OSIS created itself can be
+  deleted. OSIS also refuses to overwrite or delete a file of that name that does not carry its marker line
+  (`# OSIS-PPA-FACE v1`).
+- The copy keeps the original's `Targets`, `Contexts`, size and smoothing settings as written (including a
+  `Targets` array spread over several lines); it only changes the two switches and the `Priority`.
+- PPA reads its configs at startup and on its reload key (F5 by default), so the menu says to restart or press
+  it. The status line says when OSIS changed its override this session.
+
+### Notes
+- The generated file was checked against a real TOML parser on two sample presets (the SMP Head one and a
+  base-config one with a multi-line `Targets` and no `Priority`): valid TOML, effects and targets identical to
+  the original, `Priority` set once, both switches off, nothing from the neighbouring sections copied in.
+  It has not been run in the game yet.
+- The preset's source file (`0SMP_Head_PPA.toml`) is untouched, so a mod update, or removing OSIS's file, leaves
+  nothing behind.
+
 ## 1.9.6
 
 ### Found in the 1.9.5 test

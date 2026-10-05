@@ -401,9 +401,34 @@ namespace
 				"mouth away from the penis. If PPA turns out not to be driving the mouth, OSIS takes it back after a few seconds. "
 				"Director mode with the expression library on; the other modes already leave oral mouths to OStim.");
 			ig::TextDisabled("PPA: %s", Face::PPA::Status().c_str());
+			static std::string ppaResult;  // what the last button did; the page is drawn on one thread
+			static bool ppaResultOk = true;
 			if (const auto warn = Face::PPA::FaceWarning(); !warn.empty()) {
 				ig::TextColored(kWarn, "PPA takes the eyes and brows on a blowjob:");
 				ig::TextWrapped("%s", warn.c_str());
+				if (ig::Button("Keep OSIS's eyes and brows")) {
+					const auto r = Face::PPA::KeepFace();
+					ppaResult = r.message;
+					ppaResultOk = r.ok;
+				}
+				if (ig::IsItemHovered())
+					ig::SetTooltip("Writes a small override file for PPA (%s in ppa-override-configs): a copy of the mouth preset that plays, "
+						"with OverrideModifiers and OverrideExpressions off. PPA keeps the mouth and its morphs; OSIS keeps the eyes, brows and mood. "
+						"No other mod's file is changed. PPA reads it at startup or on its reload key.", Face::PPA::OsisOverrideName());
+			}
+			if (Face::PPA::OsisOverrideInPlace()) {
+				ig::TextDisabled("OSIS's PPA override is in place (%s).", Face::PPA::OsisOverrideName());
+				if (ig::Button("Restore PPA's own setting")) {
+					const auto r = Face::PPA::RestoreDefault();
+					ppaResult = r.message;
+					ppaResultOk = r.ok;
+				}
+				if (ig::IsItemHovered())
+					ig::SetTooltip("Deletes OSIS's override file. PPA goes back to exactly what your other mods configure; OSIS's own file is the only thing removed.");
+			}
+			if (!ppaResult.empty()) {
+				ig::TextColored(ppaResultOk ? kGood : kWarn, ppaResultOk ? "Done:" : "Not done:");
+				ig::TextWrapped("%s", ppaResult.c_str());
 			}
 			Check("Yield mouth to dialogue", bDialogueMouthYield,
 				"While a dialogue menu is open or an actor is speaking lines, leave their mouth alone so the talking reads right.");
