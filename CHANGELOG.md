@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.7.9
+
+### Fixed
+- **The 1.7.8 re-assert was in the wrong place and did nothing.** It ran just before the game's
+  animation update, on the assumption that the game reads the face for rendering inside that
+  update. The probe's own check said otherwise: the game's final face values changed inside it in
+  0 of 5,440 frames. The snap lines had the signature too - OSIS's value intact in the keyframe
+  (0.31) while the rendered value had dropped to 0.10 - meaning the game read OStim's low value
+  somewhere between OSIS's write and the next frame's. The game turns the keyframes into the
+  values it renders in the face node's own update (`BSFaceGenNiNode::UpdateDownwardPass`), which
+  runs after the animation update. OSIS now puts its values back over OStim's from a hook on that
+  call, immediately before the read, and the probe measures whether the final values change
+  inside it. Only applies while OStim's writer is on; not installed on VR.
+
+### Notes
+- Installing a release overwrites `OSIS.ini`, including a face mode changed in the menu. A test
+  of 1.7.8 ran in Director mode for that reason and said nothing about the fix.
+
 ## 1.7.8
 
 ### Fixed

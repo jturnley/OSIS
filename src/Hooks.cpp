@@ -35,7 +35,6 @@ namespace Hooks
 		{
 			static void thunk(RE::PlayerCharacter* a_this, float a_delta)
 			{
-				if (!g_playerViaJob.load(std::memory_order_relaxed)) Face::Output::Reassert(a_this);
 				func(a_this, a_delta);
 				if (!g_playerViaJob.load(std::memory_order_relaxed)) AfterAnimation(a_this, a_delta);
 			}
@@ -49,13 +48,29 @@ namespace Hooks
 		{
 			static void thunk(RE::Actor* a_this, float a_delta)
 			{
-				if (a_this && !(a_this->IsPlayerRef() && !g_playerViaJob.load(std::memory_order_relaxed))) Face::Output::Reassert(a_this);
 				func(a_this, a_delta);
 				if (!a_this) return;
 				if (a_this->IsPlayerRef() && !g_playerViaJob.exchange(true)) {
 					logger::info("The player is animated through the actor job too; using that path for them");
 				}
 				AfterAnimation(a_this, a_delta);
+			}
+			static inline REL::Relocation<decltype(thunk)> func;
+		};
+
+		// The face node's own update is where the game turns the face keyframes into the values it
+		// renders - not the actor's animation update, which is over by then (measured: 0 of 5440 frames
+		// changed inside it). OStim writes the same keyframes from its own thread about every 50 ms, so
+		// OSIS puts its values back over OStim's here, just before that read, instead of leaving a
+		// whole frame for them to be overwritten in.
+		struct FaceNodeUpdate
+		{
+			static void thunk(RE::BSFaceGenNiNode* a_this, RE::NiUpdateData& a_data, std::uint32_t a_arg2)
+			{
+				auto* data = a_this ? a_this->GetRuntimeData().animationData.get() : nullptr;
+				const float pre = Face::Output::ReassertFace(data);
+				func(a_this, a_data, a_arg2);
+				Face::Output::NoteFaceRead(data, pre);
 			}
 			static inline REL::Relocation<decltype(thunk)> func;
 		};
@@ -104,6 +119,9 @@ namespace Hooks
 			g_playerHook = true;
 			logger::info("Installed player animation hook");
 			InstallNPC();
+			REL::Relocation<std::uintptr_t> faceNode{ RE::VTABLE_BSFaceGenNiNode[0] };
+			FaceNodeUpdate::func = faceNode.write_vfunc(0x2C, FaceNodeUpdate::thunk);
+			logger::info("Installed face node update hook");
 		} else {
 			logger::warn("Animation hooks are off (bAnimationHooks): faces are written at 20 Hz from the main thread, toe/finger curl is off");
 		}

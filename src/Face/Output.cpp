@@ -88,7 +88,6 @@ namespace Face::Output
 			bool countsLogged = false;
 			std::array<Series, 3> ser{};  // mouth, eyes and brows, mood
 			int snapsLogged = 0;
-			float preSum = -1.0f;  // the rendered totals just before the animation update ran
 			int movedInside = 0, preChecked = 0;
 		};
 
@@ -102,6 +101,7 @@ namespace Face::Output
 			float mouthFloor = 0.0f;   // a tongue is out: never close the jaw past this
 			bool suspended = false;    // another mod owns this face; write nothing
 			bool layered = false;      // OStim's writer is on: add to its face, never write over it
+			const RE::BSFaceGenAnimationData* fg = nullptr;  // for finding this state from the face node hook
 			bool reseedAll = true;
 			bool releasing = false;
 			bool exprUsed = false;
@@ -199,11 +199,6 @@ namespace Face::Output
 		void ProbeEntry(RE::Actor* a, Probe& p, const RE::BSFaceGenAnimationData& fg)
 		{
 			++p.frames;
-			if (p.preSum >= 0.0f) {
-				++p.preChecked;
-				if (std::abs(FinalSum(fg) - p.preSum) > 0.02f) ++p.movedInside;
-				p.preSum = -1.0f;
-			}
 			ScanGroup(a, p, p.ser[0], "mouth", fg.phoneme3, fg.phenomeKeyFrame, 0, kPhonemes, p.ph.data(), p.valid ? p.phMask : 0u);
 			ScanGroup(a, p, p.ser[1], "eyes/brows", fg.modifier3, fg.modifierKeyFrame, kBrowDownL, kModifiers, p.mod.data(), p.valid ? p.modMask : 0u);
 			ScanGroup(a, p, p.ser[2], "mood", fg.expression3, fg.expressionKeyFrame, 0, kExpressions, p.expr.data(),
@@ -270,7 +265,7 @@ namespace Face::Output
 					a->GetFormID(), p.chExpr, p.foundExpr, p.oursExpr, p.chMod, p.foundMod, p.oursMod, p.chPh, p.foundPh, p.oursPh);
 			}
 			logger::info("Probe {:08X}: rendered face frame to frame - mouth {} jumps / {} reversals / {} snaps, eyes+brows {} / {} / {}, mood {} / {} / {} ({} frames); "
-				"the game's final values changed inside the animation update in {} of {} frames",
+				"the game's final values changed inside the face node update in {} of {} frames",
 				a->GetFormID(), p.ser[0].jumps, p.ser[0].reversals, p.ser[0].snaps, p.ser[1].jumps, p.ser[1].reversals, p.ser[1].snaps,
 				p.ser[2].jumps, p.ser[2].reversals, p.ser[2].snaps, p.frames, p.movedInside, p.preChecked);
 			const auto keep = p;
@@ -552,6 +547,7 @@ namespace Face::Output
 			logger::info("Face: writing {:08X} {} every animation update", a->GetFormID(), a->GetDisplayFullName());
 		}
 
+		st.fg = fg;
 		RE::BSSpinLockGuard guard(fg->lock);
 		const float now = Scenes::Now();
 		if (const float arm = g_probeArm.exchange(0.0f); arm > 0.0f) {
@@ -751,42 +747,60 @@ namespace Face::Output
 		}
 	}
 
-	void Reassert(RE::Actor* a)
+	float ReassertFace(RE::BSFaceGenAnimationData* data)
 	{
-		if (g_count.load(std::memory_order_relaxed) == 0 || !a) return;
+		if (g_count.load(std::memory_order_relaxed) == 0 || !data) return -1.0f;
 
 		std::scoped_lock l(g_lock);
-		auto it = g_states.find(a->GetFormID());
-		if (it == g_states.end()) return;
-		auto& st = it->second;
-		if (st.suspended || !st.layered) return;
-		auto* fg = a->GetFaceGenAnimationData();
-		if (!fg) return;
+		State* found = nullptr;
+		for (auto& [id, st] : g_states) {
+			if (st.fg == data) {
+				found = &st;
+				break;
+			}
+		}
+		if (!found || found->suspended || !found->layered) return -1.0f;
+		auto& st = *found;
 
-		RE::BSSpinLockGuard guard(fg->lock);
-		if (Scenes::Now() < g_probeUntil.load()) st.probe.preSum = FinalSum(*fg);
+		RE::BSSpinLockGuard guard(data->lock);
+		const float pre = Scenes::Now() < g_probeUntil.load() ? FinalSum(*data) : -1.0f;
 		// OStim's updater runs on its own thread and writes these same channels about every 50 ms.
-		// Whatever it wrote since our last pass is taken as its value, and ours goes back over it
-		// before the game reads the face for this frame - not a whole frame later, which is what
-		// left every OStim write visible for a frame (the jaw and lids flickering at about 20 Hz).
+		// The game turns the keyframes into the values it renders when the face node updates, which
+		// is outside the actor's animation update (measured: 0 of 5440 frames changed inside it), so
+		// a write after the animation update leaves a window in which OStim's value is the one read.
+		// This runs from the face node's own update, immediately before that read: whatever OStim wrote
+		// since our last pass is taken as its value and ours goes back over it.
 		// A tongue held out is left to the full pass: its jaw rules are not repeated here.
 		if (st.mouthFloor <= 0.0f) {
 			for (int i = 0; i < kPhonemes; ++i) {
 				auto& c = st.ph[i];
 				if (!c.engaged) continue;
-				c.See(Val(fg->phenomeKeyFrame, i));
+				c.See(Val(data->phenomeKeyFrame, i));
 				const float v = std::max(c.mine, c.theirs);
-				Write(fg->phenomeKeyFrame, i, v);
+				Write(data->phenomeKeyFrame, i, v);
 				c.last = v;
 			}
 		}
 		for (int i = kBrowDownL; i < kModifiers; ++i) {
 			auto& c = st.mod[i];
 			if (!c.used || !c.engaged) continue;
-			c.See(Val(fg->modifierKeyFrame, i));
+			c.See(Val(data->modifierKeyFrame, i));
 			const float v = std::max(c.mine, c.theirs);
-			Write(fg->modifierKeyFrame, i, v);
+			Write(data->modifierKeyFrame, i, v);
 			c.last = v;
+		}
+		return pre;
+	}
+
+	void NoteFaceRead(RE::BSFaceGenAnimationData* data, float pre)
+	{
+		if (pre < 0.0f || !data) return;
+		std::scoped_lock l(g_lock);
+		for (auto& [id, st] : g_states) {
+			if (st.fg != data) continue;
+			++st.probe.preChecked;
+			if (std::abs(FinalSum(*data) - pre) > 0.02f) ++st.probe.movedInside;
+			return;
 		}
 	}
 
