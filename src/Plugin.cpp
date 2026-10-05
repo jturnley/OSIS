@@ -163,6 +163,7 @@ SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 	InitLogger();
 	SKSE::Init(a_skse, { .trampoline = true, .trampolineSize = 64 });
 	Settings::Load();
+	Settings::EnsureFiles();
 	logger::info("OSIS v{}{} loading", SKSE::PluginDeclaration::GetSingleton()->GetVersion().string("."), OSIS_LITE ? "" : " (LoversLab edition)");
 
 	SKSE::GetMessagingInterface()->RegisterListener(OnMessage);

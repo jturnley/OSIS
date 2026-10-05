@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.7.10
+
+### Changed
+- **Updating the mod no longer resets your settings.** The release used to ship `OSIS.ini` and
+  `OSIS/morphs.json`, so installing an update over an old one replaced both with the defaults: a
+  face mode or a morph table you had set in the menu went back to the default every time. The
+  plugin now makes them itself on startup. A missing `OSIS.ini` is written with the defaults and
+  the explanatory comments; one from an older version gets any setting the new version introduced
+  added to it, with your values, your comments and any key it does not know left alone. A missing
+  `morphs.json` is written from the built-in tables (which are identical to the file that used to
+  ship: 22 morphs, 6 blush regions, 9 race multipliers); an existing one is never touched.
+  `OSIS_Personality_DISTR.ini` still ships, since the plugin does not write it.
+- The next install over a copy that still has the old shipped files will replace them one last time.
+  Use **Merge**, not Replace, in the mod manager to keep your current settings through it.
+
 ## 1.7.9
 
 ### Fixed

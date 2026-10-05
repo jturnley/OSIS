@@ -248,6 +248,8 @@ namespace Settings
 
 	void Load();
 	bool Save();
+	// Startup: write OSIS.ini and morphs.json when missing, and add to the INI any setting it lacks.
+	void EnsureFiles();
 	void LoadTables();
 	bool SaveTables();
 	void RestoreDefaults();  // everything except the morph / blush tables

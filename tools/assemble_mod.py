@@ -4,10 +4,13 @@
 
 """Assemble the MO2 mods of both editions from the xmake builds (`xmake build` makes both DLLs):
   mods/OStim Standalone Immersive Sex               the default release, compiled without the
-                            non-consent features: build/lite/windows/x64/<mode>, plus dist-lite/ over dist/
+                            non-consent features: build/lite/windows/x64/<mode>, plus dist/
   mods/OStim Standalone Immersive Sex (LoversLab)  the full plugin: build/windows/x64/<mode>, plus dist/
-Each is OSIS.dll/.pdb plus the data folders (laid out like Data/). A file in an edition's
-overlay folder replaces the one of the same path in dist/.
+Each is OSIS.dll/.pdb plus the data folders (laid out like Data/). A folder listed first for an
+edition would overlay dist/; none does now.
+
+OSIS.ini and OSIS/morphs.json are not shipped: the plugin writes them on startup (and completes an
+older INI), so installing an update over an old one cannot reset what the user chose.
 
 The output folder is generated: each run deletes the files the previous run listed in
 BUILD-OSIS.txt and writes a fresh set. Anything else in the folder (an archive you packed from it,
@@ -31,7 +34,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # (mod folder, build folder, data folders: overlays first, dist last, README title suffix,
 #  source files the edition's DLL is built without)
 EDITIONS = [
-    ('OStim Standalone Immersive Sex', os.path.join('build', 'lite', 'windows', 'x64'), ['dist-lite', 'dist'], '',
+    ('OStim Standalone Immersive Sex', os.path.join('build', 'lite', 'windows', 'x64'), ['dist'], '',
      {'voice.cpp', 'voice.h', 'scenelock.cpp', 'scenelock.h', 'spellcast.cpp', 'spellcast.h'}),
     ('OStim Standalone Immersive Sex (LoversLab)', os.path.join('build', 'windows', 'x64'), ['dist'], ' (LoversLab edition)', set()),
 ]
@@ -209,11 +212,11 @@ one SKSE plugin, plus an arousal-driven body response. This folder is generated 
 ## What is in it
 
 `SKSE/Plugins/OSIS.dll`. There is no plugin (.esp), no Papyrus script and no MCM.
-Settings are in the SKSE Menu Framework (section "OSIS") and in
-`SKSE/Plugins/OSIS.ini`; softbody morph and body-blush tables are in
-`SKSE/Plugins/OSIS/morphs.json`, which also holds the per-race body-blush multipliers.
-Settings you save in game are written to that INI, so
-reinstalling this mod with "Replace" resets them to the defaults shipped here.
+Settings are in the SKSE Menu Framework (section "OSIS"). They are kept in
+`SKSE/Plugins/OSIS.ini`; the softbody morph and body-blush tables, with the per-race body-blush
+multipliers, are in `SKSE/Plugins/OSIS/morphs.json`. The mod does not ship either file: the plugin
+creates them the first time the game runs with it, and adds to the INI any setting a newer version
+introduces. Updating the mod therefore keeps what you chose; delete a file to go back to its defaults.
 
 Changes from the originals that you'll notice:
 - The Living Skin sweat layer is gone (a face overlay never lined up with the body).

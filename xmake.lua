@@ -22,7 +22,7 @@ add_requires("simpleini", "nlohmann_json")
 local projectRoot = os.projectdir():gsub("/", "\\") .. "\\"
 
 set_project("OSIS")
-set_version("1.7.9")
+set_version("1.7.10")
 set_languages("c++23")
 set_warnings("allextra")
 

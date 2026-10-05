@@ -329,38 +329,113 @@ namespace Settings
 		spdlog::set_level(General::bDebug ? spdlog::level::debug : spdlog::level::info);
 	}
 
+	namespace
+	{
+		// The comment above a section in a file the plugin writes itself. Every line starts with the
+		// comment character, which is how SimpleIni takes a comment. The first section of a brand
+		// new file also says what the file is.
+		std::string SectionNote(const std::string& section, bool fileIsNew)
+		{
+			static const std::unordered_map<std::string, std::string> notes = {
+				{ "General",
+					"; Master switches. Everything here is also on the SKSE Menu Framework pages (default key F1).\n"
+					"; bAnimationHooks is read at startup: leave it on unless another mod's hook on the same calls conflicts." },
+				{ "Face", "; Face engine. iMode: 0 Assist, 1 Enhanced, 2 Director (OSED owns the face). fStyle: 0 realistic, 1 cinematic, 2 anime." },
+				{ "Body", "; Toe curl / hand grip at climax. iCurlAxis: 0 X, 1 Y, 2 Z (bone-local)." },
+				{ "Skin",
+					"; Face overlays (\"Face [Ovl#]\"). Texture paths are relative to Data\textures; an empty blush path auto-uses Female Makeup Suite's cheek blush if installed."
+#if !OSIS_LITE
+					" Tears only appear in non-consensual scenes, on the victim."
+#endif
+				},
+				{ "LipSync",
+					"; Mouth follows the moan OStim plays (decoded from your voice-set .wav files at startup).\n"
+					"; bYieldToDDF: stand down while Dynamic Dialogue Framework is installed (both drive the mouth)." },
+				{ "Voice",
+					"; The victim of a non-consensual scene: OStim moans muted, a cry for help that guards/allies answer, personality lines, a scream at the breaking climax, then hard breathing. Vanilla Skyrim.esm lines only.\n"
+					"; iVictimVoice: 0 silent, 1 breathing only, 2 full. iResponders: 0 nobody, 1 guards, 2 guards and allies." },
+				{ "Arousal",
+					"; Softbody Arousal. iSource: 0 auto (OSL first), 1 OSL Aroused, 2 SLO Aroused NG, 3 OStim excitement only.\n"
+					"; Body blush uses \"Body [Ovl#]\" slots iOverlayFirstSlot .. +iOverlaySlots-1; set skee64.ini [Overlays/Body] iNumOverlays to at least 12." },
+			};
+			std::string note;
+			if (fileIsNew && section == "General") {
+				note = "; OStim Standalone Immersive Sex - edit in game via SKSE Menu Framework (OSIS section).\n"
+				       "; The plugin creates this file, adds any setting a newer version introduces, and rewrites it when you press Save,\n"
+				       "; so updating the mod never replaces your settings.\n";
+			}
+			if (const auto it = notes.find(section); it != notes.end()) note += it->second;
+			return note;
+		}
+
+		bool SaveIni()
+		{
+			CSimpleIniA ini;
+			ini.SetUnicode();
+			const bool existed = ini.LoadFile(kIniPath) >= 0;  // keeps the comments, and any key we do not know
+			{
+				std::scoped_lock l(lock);
+				Sanitize();
+				for (const auto& b : Bindings()) {
+					// A section new to this file gets its comment. One that is already there keeps whatever
+					// it has, the user's own edits included.
+					if (!ini.GetSection(b.section)) {
+						const auto note = SectionNote(b.section, !existed);
+						ini.SetValue(b.section, nullptr, nullptr, note.empty() ? nullptr : note.c_str());
+					}
+					std::visit(
+						[&](auto* p) {
+							using T = std::remove_pointer_t<decltype(p)>;
+							if constexpr (std::is_same_v<T, bool>) {
+								ini.SetBoolValue(b.section, b.key, *p);
+							} else if constexpr (std::is_same_v<T, int>) {
+								ini.SetLongValue(b.section, b.key, *p);
+							} else if constexpr (std::is_same_v<T, float>) {
+								ini.SetValue(b.section, b.key, std::format("{:.3f}", *p).c_str());
+							} else {
+								ini.SetValue(b.section, b.key, p->c_str());
+							}
+						},
+						b.ref);
+				}
+			}
+			std::error_code ec;
+			std::filesystem::create_directories(std::filesystem::path(kIniPath).parent_path(), ec);
+			if (ini.SaveFile(kIniPath) < 0) {
+				logger::error("Failed to write {}", kIniPath);
+				return false;
+			}
+			return true;
+		}
+	}
+
 	bool Save()
+	{
+		return SaveIni() && SaveTables();
+	}
+
+	// The release ships neither OSIS.ini nor morphs.json: installing a mod folder over an old one
+	// replaces both, and with them whatever the user had chosen. The plugin makes them itself. A
+	// missing INI is written with the defaults; one from an older version has the settings this
+	// version introduced added to it, its values and comments left alone. The tables are only
+	// written when absent, since an existing one is the user's to edit.
+	void EnsureFiles()
 	{
 		CSimpleIniA ini;
 		ini.SetUnicode();
-		ini.LoadFile(kIniPath);  // keep comments
-		{
-			std::scoped_lock l(lock);
-			Sanitize();
-			for (const auto& b : Bindings()) {
-				std::visit(
-					[&](auto* p) {
-						using T = std::remove_pointer_t<decltype(p)>;
-						if constexpr (std::is_same_v<T, bool>) {
-							ini.SetBoolValue(b.section, b.key, *p);
-						} else if constexpr (std::is_same_v<T, int>) {
-							ini.SetLongValue(b.section, b.key, *p);
-						} else if constexpr (std::is_same_v<T, float>) {
-							ini.SetValue(b.section, b.key, std::format("{:.3f}", *p).c_str());
-						} else {
-							ini.SetValue(b.section, b.key, p->c_str());
-						}
-					},
-					b.ref);
-			}
+		const bool existed = ini.LoadFile(kIniPath) >= 0;
+		std::size_t missing = 0;
+		for (const auto& b : Bindings()) {
+			if (!ini.GetValue(b.section, b.key)) ++missing;
+		}
+		if (missing && SaveIni()) {
+			if (existed) logger::info("{}: added {} setting(s) introduced by this version.", kIniPath, missing);
+			else logger::info("{}: created with the default settings.", kIniPath);
 		}
 		std::error_code ec;
-		std::filesystem::create_directories(std::filesystem::path(kIniPath).parent_path(), ec);
-		if (ini.SaveFile(kIniPath) < 0) {
-			logger::error("Failed to write {}", kIniPath);
-			return false;
+		if (!std::filesystem::exists(kTablePath, ec) && SaveTables()) {
+			logger::info("{}: created with the default morph and blush tables.", kTablePath);
 		}
-		return SaveTables();
 	}
 
 	void LoadTables()
