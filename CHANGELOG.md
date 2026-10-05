@@ -1,5 +1,26 @@
 # Changelog
 
+## 1.7.6
+
+### Fixed
+- **Faces snapping back to zero between animation passes, and the mouth stuttering after a
+  moan, whenever OStim's own face was on (Enhanced and Assist mode).** OSIS wrote every channel
+  it had ever touched on every animation update, zeros included, and OStim's writer was setting
+  the same brows, lids and phonemes. Whoever wrote last that frame won, so the face flickered
+  between the two. Measured with the face probe: OStim asking for inner brow 0.56-1.00, mouth
+  0.35-0.75 and squint 0.5-0.66 while OSIS put 0.15, 0.00 and 0.11 over them. Worse, OStim stops
+  rewriting a value once it reaches its goal, so a zero of ours was never corrected.
+  Writing is now **layered** while OStim's writer is on: OSIS tracks what the other writer
+  last put in each channel and writes the larger of the two, never a bare zero over it, and gives
+  a channel back as OStim had it when it stops using it. Where the takeover holds (Director
+  mode) OSIS still owns the face outright.
+
+### Notes
+- The "never loses a fight with OStim's face updater" design from the first port is right when
+  OSIS owns the face and wrong when it shares it. It had been applied to both.
+- In Enhanced mode OStim's own moan expression still opens the mouth alongside the lip-sync
+  track, since both are running; they overlap rather than alternate now.
+
 ## 1.7.5
 
 ### Fixed

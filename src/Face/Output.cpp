@@ -20,6 +20,19 @@ namespace Face::Output
 			float speed = 0.5f;
 			bool used = false;  // written at least once; unused channels are left to the game
 
+			// Layered writing, for when OStim's own face writer is on and the face is shared. `last` is
+			// what we wrote here, `theirs` what was there before that or whatever replaced it since.
+			float last = 0.0f;
+			float theirs = 0.0f;
+			bool engaged = false;  // written by us and not yet handed back
+
+			void See(float found)
+			{
+				// A value that is not the one we left was written by someone else. Our own write is
+				// not theirs, so it is not taken as their value: that would pin our boost in place.
+				if (!engaged || std::abs(found - last) > 0.004f) theirs = found;
+			}
+
 			void Set(float v, float s)
 			{
 				target = std::clamp(v, 0.0f, 1.0f);
@@ -71,6 +84,7 @@ namespace Face::Output
 			bool reseedMouth = true;   // copy live phonemes before the first write
 			float mouthFloor = 0.0f;   // a tongue is out: never close the jaw past this
 			bool suspended = false;    // another mod owns this face; write nothing
+			bool layered = false;      // OStim's writer is on: add to its face, never write over it
 			bool reseedAll = true;
 			bool releasing = false;
 			bool exprUsed = false;
@@ -300,6 +314,13 @@ namespace Face::Output
 		st->exprRelease = true;
 	}
 
+	void SetLayered(RE::Actor* a, bool layered)
+	{
+		std::scoped_lock l(g_lock);
+		auto* st = Get(a, true);
+		if (st) st->layered = layered;
+	}
+
 	void SetSuspended(RE::Actor* a, bool suspended)
 	{
 		std::scoped_lock l(g_lock);
@@ -521,6 +542,7 @@ namespace Face::Output
 			auto& c = st.ph[i];
 			c.Step(dt);
 			settled &= c.cur <= 0.005f;
+			if (st.layered) c.See(Val(fg->phenomeKeyFrame, i));
 			const bool baseWrites = st.mouthOwned && c.used;
 			bool write = true;
 			float v;
@@ -540,6 +562,10 @@ namespace Face::Output
 				v = 0.0f;
 				write = false;
 			}
+			// OStim's face is on and shares this one. Its moan expressions and licking mouths set
+			// phonemes of their own, and writing our small or zero values over them every frame is
+			// what made the mouth stutter after a moan. Ours goes on top of theirs, not instead.
+			if (st.layered && write) v = std::max(v, c.theirs);
 			// A tongue is out. Whoever is driving the mouth, the jaw stays open and the lips stay
 			// apart, or the tongue is pushed straight through them.
 			if (st.mouthFloor > 0.0f) {
@@ -561,8 +587,17 @@ namespace Face::Output
 					write = write || v > 0.0f;
 				}
 			}
+			// Nothing of ours left in this channel: give it back as OStim has it, once.
+			bool handBack = false;
+			if (st.layered && !write && c.engaged) {
+				v = c.theirs;
+				write = true;
+				handBack = true;
+			}
 			if (write) {
 				Write(fg->phenomeKeyFrame, i, v);
+				c.last = v;
+				c.engaged = !handBack;
 				if (probing) {
 					pr.ph[i] = v;
 					pr.phMask |= 1u << i;
@@ -576,8 +611,17 @@ namespace Face::Output
 			c.Step(dt);
 			settled &= c.cur <= 0.005f;
 			const bool squint = i == kSquintL || i == kSquintR;
-			const float mv = squint ? std::min(1.0f, c.cur + squintBoost * st.trackBlend) : c.cur;
+			float mv = squint ? std::min(1.0f, c.cur + squintBoost * st.trackBlend) : c.cur;
+			// Layered: OStim's expressions set brows, lids and eyes too, and a zero of ours is a
+			// real write that wipes them - and OStim stops rewriting a value once it has reached
+			// its goal, so nothing would ever put it back. Add to theirs instead.
+			if (st.layered) {
+				c.See(Val(fg->modifierKeyFrame, i));
+				mv = std::max(mv, c.theirs);
+			}
 			Write(fg->modifierKeyFrame, i, mv);
+			c.last = mv;
+			c.engaged = true;
 			if (probing) {
 				pr.mod[i] = mv;
 				pr.modMask |= 1u << i;

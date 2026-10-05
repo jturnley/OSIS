@@ -381,6 +381,9 @@ namespace Face::Engine
 					}
 					continue;
 				}
+				// Whether OStim's writer is also on for this actor. If so the face is shared and OSIS
+				// adds to it; if the takeover holds, OSIS has it to itself.
+				Output::SetLayered(a, !s.takenOver);
 				s.faced = true;
 				RequestVoiceName(a);
 				const bool ym = MouthYielded(t, s, a);

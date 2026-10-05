@@ -73,6 +73,10 @@ namespace Face::Output
 	void SetMouthFloor(RE::Actor* a_actor, float a_floor);
 	// Write nothing at all for this actor while another mod owns its face. The channels are
 	// kept, so painting resumes where it left off; the other mod's values simply stand.
+	// OStim's own face writer is running for this actor, so the face is shared. Writes then add to
+	// whatever OStim has put in a channel (the larger of the two) instead of replacing it, and a
+	// channel we stop using is handed back as OStim had it. Off, OSIS owns the face outright.
+	void SetLayered(RE::Actor* a_actor, bool a_layered);
 	void SetSuspended(RE::Actor* a_actor, bool a_suspended);
 	[[nodiscard]] bool IsSuspended(RE::Actor* a_actor);
 
