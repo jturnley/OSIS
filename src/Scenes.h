@@ -72,6 +72,7 @@ namespace Scenes
 			return st;
 		}();
 		bool libHave = false;
+		bool libFallback = false;  // playing the stimulation pool because the scene names no act for an aroused actor
 		const void* libPool = nullptr;
 		const void* libLast = nullptr;
 		std::string libLastName;

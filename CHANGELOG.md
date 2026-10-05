@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.9.1
+
+### Fixed
+- **Faces were muted, or absent, in scenes whose data does not say what the actor is doing.** The
+  1.9.0 test spent a lot of time in idle, approach and transition nodes (`OARE_Sitting`,
+  `OStim2PSittingMF`, `OStim2PStandingApartMF`...) and in Anub's solo scenes, which define no
+  actions at all. By OStim's rules those get its `default` pool, the mild idle one, many of whose
+  files set a single part (squint only, brows only, mouth only). Measured in that run: rendered mood
+  averaged 0.25-0.33 and the mouth 0.25-0.29 on it, against 0.43-0.55 and 0.57-0.80 on an action
+  pool, and Serana, whose whole scene was a solo one, never passed a mood of 0.34.
+  When the pool would be `default` but the actor is clearly aroused (22 excitement to start, below
+  12 to stop) in a node that is neither an idle nor a transition, the Director now borrows the pool
+  OStim has for being stimulated - the `femalemasturbation` or `malemasturbation` target pool, by
+  sex - instead. The face label says when it has (`Library/stimulated6 (no act in the scene:
+  stimulation pool)`). Idle and transition nodes, and anything below that excitement, still get
+  `default`.
+
+### Notes
+- This is a limit of OStim's own data, not of the player: OStim itself would show those scenes the
+  `default` pool too. A scene author who defines the action (and an expression pool exists for it)
+  gets that pool, as before.
+- Personality still scales the result, so a shy actor is about 30% quieter than a bold one.
+
 ## 1.9.0
 
 ### Changed

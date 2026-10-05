@@ -156,6 +156,23 @@ namespace Face::Engine::detail
 			const Library::Pool* pool = resolved.underlying;
 			if (!pool || pool->empty()) return false;
 			const bool female = ActorSex(a) == 1;
+			// A scene whose data says nothing about what this actor is doing - an idle or transition node, or a scene
+			// whose author defined no actions - gets OStim's "default" pool, which is the mild idle one: in the 1.9.0
+			// test, rendered mood averaged 0.25-0.33 on it against 0.43-0.55 on an action pool, and a whole solo scene
+			// never passed 0.34. When the actor is clearly aroused in a node that is neither an idle nor a transition,
+			// borrow the pool OStim has for being stimulated (the same files its self-stimulation actions use) instead.
+			// In at 22 excitement, out again below 12, so it does not flicker between the two.
+			if (resolved.underlyingWhy == "default") {
+				const bool idleNode = OStimData::HasAnySceneTag(*t.meta, OStimData::TagList{ "idle" }) || !t.meta->destination.empty();
+				s.libFallback = !idleNode && raw >= (s.libFallback ? 12 : 22);
+				if (s.libFallback) {
+					const auto* alt = Library::ActionTarget(female ? "femalemasturbation" : "malemasturbation");
+					if (alt && !alt->empty()) pool = alt;
+					else s.libFallback = false;
+				}
+			} else {
+				s.libFallback = false;
+			}
 			const float now = Scenes::Now();
 			if (s.libPool != pool || now >= s.libNextPick) {
 				const Library::Expression* pick = nullptr;
@@ -962,7 +979,8 @@ namespace Face::Engine::detail
 		// A pool changes slowly, so it also moves slowly: a longer ease than the templates need.
 		const float ease = usingLib ? std::max(S::fTransition, 0.9f) : S::fTransition;
 		Output::ApplyPreset(a, e, breathHoldsMouth || yieldMouth, eStr, mStr, strength, ease);
-		SetOwners(s, usingLib ? "Library/" + s.libLastName : std::string(DomName(dom)) + "/" + ScenarioName(scenario),
+		SetOwners(s, usingLib ? "Library/" + s.libLastName + (s.libFallback ? " (no act in the scene: stimulation pool)" : "")
+				: std::string(DomName(dom)) + "/" + ScenarioName(scenario),
 				yieldMouth ? MouthOwnerLabel(t, s, a, true) : (overriding ? "Library override/" + s.libOvrName : std::string("OSED arc")),
 			"Phrase " + std::to_string(phrase), "Pending gaze");
 		PulseActor(t, s, a, dom, phrase, enjEff);
