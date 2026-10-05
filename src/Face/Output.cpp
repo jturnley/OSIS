@@ -89,6 +89,8 @@ namespace Face::Output
 			std::array<Series, 3> ser{};  // mouth, eyes and brows, mood
 			int snapsLogged = 0;
 			int movedInside = 0, preChecked = 0;
+			int restores = 0;       // times an outside change to an owned face was put back before render
+			float restoreWorst = 0.0f;
 		};
 
 		struct State
@@ -265,9 +267,10 @@ namespace Face::Output
 					a->GetFormID(), p.chExpr, p.foundExpr, p.oursExpr, p.chMod, p.foundMod, p.oursMod, p.chPh, p.foundPh, p.oursPh);
 			}
 			logger::info("Probe {:08X}: rendered face frame to frame - mouth {} jumps / {} reversals / {} snaps, eyes+brows {} / {} / {}, mood {} / {} / {} ({} frames); "
-				"the game's final values changed inside the face node update in {} of {} frames",
+				"the game's final values changed inside the face node update in {} of {} frames; "
+				"outside changes to our face put back before render: {} (largest {:.2f})",
 				a->GetFormID(), p.ser[0].jumps, p.ser[0].reversals, p.ser[0].snaps, p.ser[1].jumps, p.ser[1].reversals, p.ser[1].snaps,
-				p.ser[2].jumps, p.ser[2].reversals, p.ser[2].snaps, p.frames, p.movedInside, p.preChecked);
+				p.ser[2].jumps, p.ser[2].reversals, p.ser[2].snaps, p.frames, p.movedInside, p.preChecked, p.restores, p.restoreWorst);
 			const auto keep = p;
 			p = Probe{};
 			for (std::size_t g = 0; g < keep.ser.size(); ++g) {
@@ -674,6 +677,7 @@ namespace Face::Output
 				write = true;
 				handBack = true;
 			}
+			if (!write && !st.layered) c.engaged = false;  // not ours this frame (the mouth is yielded): nothing to restore
 			if (write) {
 				Write(fg->phenomeKeyFrame, i, v);
 				c.last = v;
@@ -759,11 +763,50 @@ namespace Face::Output
 				break;
 			}
 		}
-		if (!found || found->suspended || !found->layered) return -1.0f;
+		if (!found || found->suspended) return -1.0f;
 		auto& st = *found;
 
 		RE::BSSpinLockGuard guard(data->lock);
-		const float pre = Scenes::Now() < g_probeUntil.load() ? FinalSum(*data) : -1.0f;
+		const bool probing = Scenes::Now() < g_probeUntil.load();
+		const float pre = probing ? FinalSum(*data) : -1.0f;
+		if (!st.layered) {
+			// This face is ours alone (OStim's writer is off). Put back whatever we last wrote over anything that
+			// changed it since, so the game reads ours: an outside reset - another mod's script, or the engine on an
+			// animation change - zeroed whole faces for a frame at every node change (seen in the 1.8.2 probe: every
+			// channel of one actor to zero in one frame, 0.4-0.8 s after the scene node changed).
+			int restored = 0;
+			float worst = 0.0f;
+			const auto check = [&](RE::BSFaceGenKeyframeMultiple& kf, int i, float want) {
+				const float d = std::abs(Val(kf, static_cast<std::uint32_t>(i)) - want);
+				if (d <= 0.02f) return;
+				++restored;
+				worst = std::max(worst, d);
+				Write(kf, static_cast<std::uint32_t>(i), want);
+			};
+			for (int i = 0; i < kPhonemes; ++i) {
+				if (st.ph[i].engaged) check(data->phenomeKeyFrame, i, st.ph[i].last);
+			}
+			for (int i = kBrowDownL; i < kModifiers; ++i) {
+				if (st.mod[i].used && st.mod[i].engaged) check(data->modifierKeyFrame, i, st.mod[i].last);
+			}
+			if (st.exprUsed) {
+				for (int i = 0; i < kExpressions; ++i) check(data->expressionKeyFrame, i, st.expr[i].cur);
+				data->exprOverride = true;
+			}
+			if (restored > 0 && probing) {
+				++st.probe.restores;
+				st.probe.restoreWorst = std::max(st.probe.restoreWorst, worst);
+				if (restored >= 4) {
+					RE::Actor* who = nullptr;
+					for (auto& [id, other] : g_states) {
+						if (&other == &st) who = RE::TESForm::LookupByID<RE::Actor>(id);
+					}
+					logger::info("Probe {:08X} {}: face reset by something else, {} channels (largest {:.2f}); put back before it rendered",
+							who ? who->GetFormID() : 0u, who ? who->GetDisplayFullName() : "?", restored, worst);
+				}
+			}
+			return pre;
+		}
 		// OStim's updater runs on its own thread and writes these same channels about every 50 ms.
 		// The game turns the keyframes into the values it renders when the face node updates, which
 		// is outside the actor's animation update (measured: 0 of 5440 frames changed inside it), so

@@ -1,5 +1,32 @@
 # Changelog
 
+## 1.8.3
+
+### Fixed
+- **The face was zeroed for a frame at every scene node change.** Found in the 1.8.2 probe: at
+  21:55:59, 21:56:02.4 and 21:56:02.7 every channel of one actor - mood, brows, mouth, the keyframe
+  as well as the rendered value - went to zero in the same frame, each time 0.35-0.8 s after the
+  player moved to a new node (OStim logged `thread 0 changed to node ...` just before each). OStim's
+  node change re-applies expressions but does not reset the face, so the reset comes from elsewhere
+  (Conditional Expressions, which runs periodic and equip-triggered scripts on the player and
+  followers, is installed in two variants; not proven). The 1.7.9 re-assert from the face node's
+  update, which puts our values back just before the game reads them, only ran while OStim's face
+  was on. It now also runs for a face OSIS owns, putting back whatever we last wrote - phonemes,
+  eyes and brows, and the mood - over anything that changed it since, so a reset never reaches the
+  screen. The probe counts these, and logs `face reset by something else, N channels ... put back
+  before it rendered` for a real reset (four or more channels), which also tells which scene change
+  or moment it follows.
+- An owned channel is only restored if OSIS wrote it in the latest frame; a mouth yielded to the
+  animation is not touched.
+
+### Notes
+- The first Director pool test (1.8.2) came out well: Camilla's face moved through 11 of
+  `penetrated*` and `stimulated*` expressions as the scene changed from oral to penetration, with
+  no flutter (eyes and brows 0.1 jumps per second, no reversals; mouth 0.7, no reversals).
+- OStim's own override expressions are still allowed in Director, and one showed in that probe: a
+  look-down to 1.0 dropping to zero in one frame on an oral partner. Switching them off, and playing
+  the `openmouth` and `tongue` pools ourselves, is the next step.
+
 ## 1.8.2
 
 ### Changed
