@@ -582,8 +582,15 @@ namespace
 				"An actor's voice type suggests a personality when nothing else has set one.");
 			Check("OBlush-aware shyness", bOBlushSync, "While OBlush has an actor blushing, the grammar treats them as shy.");
 		}
+		ig::TextWrapped("Each actor's personality is worked out the first time a scene needs it and then kept in your save game, "
+			"so it is the same in every scene and after every load - the SPID roll is not. What you set below always wins.");
+		if (ig::Button("Work every personality out again")) OnGame([]() {
+			const auto n = Face::Engine::ForgetPinnedPersonalities();
+			Papyrus::Notify(std::format("OSIS: forgot {} automatic personalit{}; they are settled again at the next scene", n, n == 1 ? "y" : "ies"));
+		});
+		if (ig::IsItemHovered()) ig::SetTooltip("Use after changing the SPID file or the sources above. Personalities you set yourself are kept.");
 		ig::SeparatorText("Crosshair NPC");
-		ig::TextWrapped("Aim at an NPC (or select one in the console), then pick a personality. Saved in your save game.");
+		ig::TextWrapped("Aim at an NPC (or select one in the console), then pick a personality. Auto works it out afresh and pins that.");
 		static int pick = 0;
 		ig::Combo("##npcpers", &pick, kPersonalities, 6);
 		ig::SameLine();

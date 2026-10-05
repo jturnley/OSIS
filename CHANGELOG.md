@@ -1,5 +1,35 @@
 # Changelog
 
+## 1.9.4
+
+### Fixed
+- **An actor's personality no longer changes between runs.** In the 1.9.3 test the same actresses had
+  different personalities from one run to the next (Camilla bold in one, shy in the next; Serana bold,
+  then fierce), and with them different faces, because the personality was recomputed from the rules
+  every time it was asked for and the first rule is the SPID distribution - a roll the game makes when
+  it loads, not a property of the actor. Each actor's personality is now **pinned the first time a
+  scene needs it** and kept in the save game, so it is the same in every scene and after every load.
+  The pin records what the rules gave at that moment (SPID keyword, keyword, voice, vanilla AI, or the
+  form-id fallback) and logs it: `Personality: Camilla (xxxxxxxx) pinned as Bold (SPID)`.
+- **The player now has one too.** The player's personality was whatever the fallback rules happened to
+  give each time (Player set -> NPC override -> SPID -> keywords -> voice -> vanilla AI -> form-id
+  seed), and with no personality set in the menu the picks were not shaped by one. The player's is now
+  worked out once and pinned like everyone else's. A personality chosen in the menu still wins: the
+  Player personality setting while it is anything but Auto, and a personality set on an NPC from the
+  crosshair.
+
+### Added
+- **Work every personality out again** (Personality page): forgets everything OSIS pinned by itself,
+  the player's included, so each is settled again from the current rules at its next scene. Use it
+  after changing the SPID file or the personality sources. Personalities you set yourself are kept.
+- Setting an NPC's personality to Auto from the crosshair now works it out afresh and pins that.
+
+### Notes
+- Pins are stored in the cosave beside the personalities you set (a flag on the same entry), capped at
+  4096 so a long run of generated NPCs cannot bloat it. Children and creatures are not pinned.
+- A save made before this version has only the personalities you set; the rest are pinned as each
+  actor is next seen.
+
 ## 1.9.3
 
 ### Changed

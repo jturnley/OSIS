@@ -41,8 +41,10 @@ namespace Face::Engine
 	[[nodiscard]] Reaction VictimReaction(int a_arch);
 	[[nodiscard]] const char* ReactionName(Reaction a_reaction);
 	[[nodiscard]] bool VictimCries(RE::Actor* a);  // tears belong to every reaction but defiance
-	[[nodiscard]] int GetNpcPersonality(RE::Actor* a);
-	void SetNpcPersonality(RE::Actor* a, int a_arch);   // -1 clears
+	[[nodiscard]] int GetNpcPersonality(RE::Actor* a);   // what the player set for this NPC, -1 if nothing
+	[[nodiscard]] int StoredPersonality(RE::Actor* a);    // the cosave entry as stored (low byte + pin flag), -1 if none
+	void SetNpcPersonality(RE::Actor* a, int a_arch);   // -1 clears; the next scene works it out again and pins that
+	std::size_t ForgetPinnedPersonalities();            // drop what OSIS pinned by itself, keep what the player set
 	[[nodiscard]] std::unordered_map<RE::FormID, int> NpcPersonalities();
 	void SetNpcPersonalities(std::unordered_map<RE::FormID, int> a_map);
 

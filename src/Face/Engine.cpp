@@ -47,7 +47,11 @@ namespace Face::Engine
 		std::string g_ahegaoFound = "none detected";
 
 		std::mutex g_dataLock;  // personality overrides, takeover list, voice cache
+		// Personality per actor, in the cosave. The low byte is the personality; kPinnedFlag marks one OSIS settled on by
+		// itself the first time it saw the actor, as against one the player chose. The player's own entry is under 0x14.
 		std::unordered_map<RE::FormID, int> g_npcPersonality;
+		constexpr int kPinnedFlag = 0x100;
+		constexpr std::size_t kMaxPins = 4096;  // the cosave holds a few bytes per actor; a stray run of generated NPCs cannot bloat it
 		std::unordered_set<RE::FormID> g_takenOver;
 		std::unordered_map<RE::FormID, std::string> g_voiceNames;
 		std::unordered_set<RE::FormID> g_voiceRequested;
@@ -1004,9 +1008,52 @@ namespace Face::Engine
 	}
 
 	// ---- personality
+	namespace
+	{
+		// What the rules alone give for this actor, with nothing pinned. The caller holds Settings::lock.
+		int ResolvePersonality(RE::Actor* a, std::string& source)
+		{
+			if (int sp = SPIDArchetype(a); sp >= 0) {
+				source = "SPID";
+				return sp;
+			}
+			if (g_kStoic && a->HasKeyword(g_kStoic)) return source = "Keyword", 1;
+			if (g_kVocal && a->HasKeyword(g_kVocal)) return source = "Keyword", 2;
+			if (g_kShy && a->HasKeyword(g_kShy)) return source = "Keyword", 3;
+			if (g_kDominant && a->HasKeyword(g_kDominant)) return source = "Keyword", 4;
+			if (S::bVoiceArchetype) {
+				if (int va = VoiceArchetype(a); va >= 0) {
+					source = "Voice";
+					return va;
+				}
+			}
+			if (int v = VanillaAIPersonality(a); v >= 0) {
+				source = "Vanilla AI";
+				return v;
+			}
+			source = "Seed";
+			return Seed(a) % 5;
+		}
+
+		// Settle an actor's personality the first time it is needed, so it is the same in every scene and every load.
+		// The SPID distribution is a roll made when the game loads, not a property of the actor: in the 1.9.3 test
+		// the same two actresses came out bold and fierce in one run and shy in the next, and the faces they were
+		// given followed the roll. The player gets one too. Not for children or creatures, which have no personality here.
+		void PinPersonality(RE::Actor* a, int arch, const std::string& why)
+		{
+			if (!a || (!a->IsPlayerRef() && (!IsHuman(a) || a->IsChild()))) return;
+			{
+				std::scoped_lock l(g_dataLock);
+				if (g_npcPersonality.size() >= kMaxPins && !g_npcPersonality.contains(a->GetFormID())) return;
+				g_npcPersonality[a->GetFormID()] = arch | kPinnedFlag;
+			}
+			logger::info("Personality: {} ({:08X}) pinned as {} ({})", a->GetDisplayFullName(), a->GetFormID(), PersonalityName(arch), why);
+		}
+	}
+
 	int Archetype(RE::Actor* a, std::string* source)
 	{
-		auto src = [&](const char* s) {
+		auto src = [&](const std::string& s) {
 			if (source) *source = s;
 		};
 		if (!a) {
@@ -1018,30 +1065,16 @@ namespace Face::Engine
 			src("Player set");
 			return S::iPlayerPersonality;
 		}
-		if (int o = GetNpcPersonality(a); o >= 0 && o <= 4) {
-			src("Player set (NPC)");
-			return o;
+		if (const int stored = StoredPersonality(a); stored >= 0) {
+			src((stored & kPinnedFlag) ? "Pinned" : (a->IsPlayerRef() ? "Player set" : "Player set (NPC)"));
+			const int arch = stored & 0xFF;
+			return arch <= 4 ? arch : 0;
 		}
-		if (int sp = SPIDArchetype(a); sp >= 0) {
-			src("SPID");
-			return sp;
-		}
-		if (g_kStoic && a->HasKeyword(g_kStoic)) return src("Keyword"), 1;
-		if (g_kVocal && a->HasKeyword(g_kVocal)) return src("Keyword"), 2;
-		if (g_kShy && a->HasKeyword(g_kShy)) return src("Keyword"), 3;
-		if (g_kDominant && a->HasKeyword(g_kDominant)) return src("Keyword"), 4;
-		if (S::bVoiceArchetype) {
-			if (int va = VoiceArchetype(a); va >= 0) {
-				src("Voice");
-				return va;
-			}
-		}
-		if (int v = VanillaAIPersonality(a); v >= 0) {
-			src("Vanilla AI");
-			return v;
-		}
-		src("Seed");
-		return Seed(a) % 5;
+		std::string why;
+		const int arch = ResolvePersonality(a, why);
+		PinPersonality(a, arch, why);
+		src(why);
+		return arch;
 	}
 
 	Reaction VictimReaction(int arch)
@@ -1082,12 +1115,18 @@ namespace Face::Engine
 		}
 	}
 
-	int GetNpcPersonality(RE::Actor* a)
+	int StoredPersonality(RE::Actor* a)
 	{
 		if (!a) return -1;
 		std::scoped_lock l(g_dataLock);
 		auto it = g_npcPersonality.find(a->GetFormID());
 		return it != g_npcPersonality.end() ? it->second : -1;
+	}
+
+	int GetNpcPersonality(RE::Actor* a)
+	{
+		const int stored = StoredPersonality(a);
+		return stored >= 0 && !(stored & kPinnedFlag) ? stored : -1;  // only what the player chose
 	}
 
 	void SetNpcPersonality(RE::Actor* a, int arch)
@@ -1096,6 +1135,14 @@ namespace Face::Engine
 		std::scoped_lock l(g_dataLock);
 		if (arch < 0) g_npcPersonality.erase(a->GetFormID());
 		else g_npcPersonality[a->GetFormID()] = ClampI(arch, 0, 4);
+	}
+
+	// Forget every personality OSIS settled on by itself - the player's included - so they are worked out again
+	// from the current rules the next time each is needed. What the player chose stays.
+	std::size_t ForgetPinnedPersonalities()
+	{
+		std::scoped_lock l(g_dataLock);
+		return std::erase_if(g_npcPersonality, [](const auto& kv) { return (kv.second & kPinnedFlag) != 0; });
 	}
 
 	std::unordered_map<RE::FormID, int> NpcPersonalities()

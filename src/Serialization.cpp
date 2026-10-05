@@ -70,7 +70,7 @@ namespace Serialization
 					}
 				}
 			}
-			logger::info("Cosave: {} NPC personality override(s), {} OStim face takeover(s) to restore", pers.size(), taken.size());
+			logger::info("Cosave: {} personalit(y/ies) kept (pinned or set), {} OStim face takeover(s) to restore", pers.size(), taken.size());
 			Face::Engine::SetNpcPersonalities(std::move(pers));
 			Face::Engine::SetTakenOverIDs(std::move(taken));
 			Skin::SetEmoTearIDs(std::move(emo));
