@@ -401,6 +401,10 @@ namespace
 				"mouth away from the penis. If PPA turns out not to be driving the mouth, OSIS takes it back after a few seconds. "
 				"Director mode with the expression library on; the other modes already leave oral mouths to OStim.");
 			ig::TextDisabled("PPA: %s", Face::PPA::Status().c_str());
+			if (const auto warn = Face::PPA::FaceWarning(); !warn.empty()) {
+				ig::TextColored(kWarn, "PPA takes the eyes and brows on a blowjob:");
+				ig::TextWrapped("%s", warn.c_str());
+			}
 			Check("Yield mouth to dialogue", bDialogueMouthYield,
 				"While a dialogue menu is open or an actor is speaking lines, leave their mouth alone so the talking reads right.");
 			Check("Breathing clock", bBreathing, "Moan/breath mouth cycle between beats. Off by default: Lip-Sync drives the mouth from the real moans.");

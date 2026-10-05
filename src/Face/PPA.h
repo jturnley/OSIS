@@ -10,19 +10,24 @@
 // mouth, with every other phoneme zeroed (OverridePhonemes). That is the mouth OSIS would otherwise be
 // writing, so for a blowjob the Director leaves it to PPA.
 //
-// Nothing here talks to the plugin. It is found by its module name and its config is read as text, to
-// know whether it has a mouth preset to play at all. Whether it is playing one for a given actor is
-// seen from the face itself (Face::Engine::UpdatePPAMouth).
+// Nothing here talks to the plugin. It is found by its module name and its configs are read as text:
+// accurate-penetration.toml and every file in ppa-override-configs, to know which mouth preset wins (the
+// highest Priority) and what it does to the face. Whether it is playing one for a given actor is seen
+// from the face itself (Face::Engine::UpdatePPAMouth).
 namespace Face::PPA
 {
-	// Look for the plugin and read its config. At data load, when every plugin is in.
+	// Look for the plugin and read its configs. At data load, when every plugin is in.
 	void Init();
-	// Read the config again if it changed on disk (PPA reloads it on a hotkey). At each scene start.
+	// Read them again if any changed on disk (PPA reloads on a hotkey). At each scene start.
 	void Refresh();
 
 	[[nodiscard]] bool Installed();
-	// Installed, its expression system on, and a facial preset that applies to the mouth.
+	// Installed, its expression system on, and a mouth preset that sets phonemes.
 	[[nodiscard]] bool DrivesMouth();
+	// The winning mouth preset zeroes eyes and brows (OverrideModifiers) or the mood (OverrideExpressions) while
+	// it plays, which overwrites what OSIS writes there. Empty when it does not; otherwise says which file and
+	// which setting, and what to change.
+	[[nodiscard]] std::string FaceWarning();
 	// One line for the settings page.
 	[[nodiscard]] std::string Status();
 }

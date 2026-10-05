@@ -1,5 +1,37 @@
 # Changelog
 
+## 1.9.6
+
+### Found in the 1.9.5 test
+- **The mouth hand-over works** (three hand-overs on blowjob nodes, each confirmed within 0.5-1.1 s; PPA held
+  phoneme 0 at 0.95 and OSIS wrote nothing to the mouth). **The eyes and brows did not survive it**: during a
+  blowjob OSIS wrote brow-up 0.5-0.97 and squint 0.3-0.5 and the rendered values were 0.00 on all four
+  channels for the whole 75 s, with all of them dropping to zero in a single frame when the hand-over began.
+  The cause is `OverrideModifiers = true` in the mouth preset that ships with `[Predator] SMP Head`
+  (`ppa-override-configs/0SMP_Head_PPA.toml`, priority 999999): PPA zeroes every eye and brow channel its preset
+  does not set. The measured phoneme change (3.69 both times) matches that preset's phonemes (sum 3.7), not
+  the base config's (5.18). OSIS only read the base config, so it could not see any of this.
+
+### Changed
+- **OSIS now reads PPA's override configs too** (`Data/SKSE/Plugins/ppa-override-configs/*.toml`, as well as
+  `accurate-penetration.toml`) and works out which mouth preset wins - the highest `Priority`, as PPA does,
+  with a preset that has no `Targets` counting as matching the mouth. The hand-over check and the status line
+  now describe the preset that really plays: `PPA: installed, 2 facial preset(s) for the mouth across 1 override
+  file(s); the one that plays is in 0SMP_Head_PPA.toml (priority 999999), it sets the mouth phonemes`. The
+  files are watched, so a change to any of them is picked up at the next scene start.
+- **A warning when that preset takes the eyes and brows.** If the winning mouth preset has `OverrideModifiers`
+  (eyes and brows) or `OverrideExpressions` (mood) on, OSIS logs a warning at startup naming the file and the
+  setting, and the Face > Mouth page shows it under the PPA line. Setting it to `false` in that file keeps
+  OSIS's eyes and brows during a blowjob; the preset's phonemes and morphs are unaffected. OSIS does not try to
+  out-write PPA: the zeroing won every frame in the test, so the setting is the way to keep the face.
+
+### Notes
+- Only the highest-priority mouth preset is considered. Overrides that apply to particular races or bodies
+  are not told apart, so a lower-priority preset that would win for some other actor is not reported.
+- The same run showed PPA tracking the penis through the kneeling blowjob, facefuck and 69 nodes (tip on the
+  path, offset at most 0.62). The earlier stretches where PPA logged `Actor Test 6 isn't managed by havok?` and
+  stopped tracking did not recur.
+
 ## 1.9.5
 
 ### Added
