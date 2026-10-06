@@ -380,7 +380,9 @@ namespace Face::Output
 			// shows, and a face that shuts the eyes should shut them (hard squeezed is the whole range's top, not a share of it).
 			const float v = e[16 + i] * (IsBlink(i) ? 1.0f : modStr);
 			if (IsGated(i) && v <= 0.0f && !st->mod[i].used) continue;
-			st->mod[i].Set(v, speed);
+			// Lids close and open quickly whatever the pose's own ease: at the pose's 0.8 s a short clip's hard squeeze reached only about
+			// 0.8 of shut before the clip began to open again (1.0 written, 0.79 rendered in the 2.0.3 test).
+			st->mod[i].Set(v, IsBlink(i) ? std::min(speed, 0.35f) : speed);
 		}
 		const int mood = static_cast<int>(e[30]);
 		if (mood >= 0 && mood < kExpressions) {

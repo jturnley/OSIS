@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.0 beta 2 (plugin version 2.0.3) - in progress
+## 2.0 beta 2 (plugin version 2.0.4) - in progress
 
 ### Fixed
 - **Repeated orgasms held one actor's climax face for minutes.** In the 2.0 beta 1 probe Auri orgasmed every
@@ -53,8 +53,9 @@
   shut with the lids trembling), **tight** (lip bite, pained: shut with a squeeze) and **hard** (gasp, clenched:
   squeezed as hard as it goes, brows in and down). The lids stay as they are until the face starts to settle and
   open with it, and a rapid clip never opens them fully, since the next orgasm is already coming. The lids are
-  not scaled by the Strength setting or by personality: a face that shuts its eyes shuts them. The probe line
-  shows `blink ours / rendered`.
+  not scaled by the Strength setting or by personality: a face that shuts its eyes shuts them. The lids ease
+  to their target in 0.35 s, not the pose's 0.8 s: in the 2.0.3 test a hard squeeze wrote 1.00 and rendered
+  only 0.79 before a short clip began to open it again. The probe line shows `blink ours / rendered`.
 - **A face update every 0.8 s during an orgasm,** not every three seconds, so a clip of 4-14 s is played in
   steps and not as two or three jumps. The tick after an orgasm is pulled forward to match. Back to the normal
   cadence when the climax ends. The face label in the probe names the clip, `Climax/lip_bite/rapid-short`, and
