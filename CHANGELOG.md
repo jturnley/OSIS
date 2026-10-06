@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.0 beta 2 (plugin version 2.0.4) - in progress
+## 2.0 beta 2 (plugin version 2.0.5) - in progress
 
 ### Fixed
 - **Repeated orgasms held one actor's climax face for minutes.** In the 2.0 beta 1 probe Auri orgasmed every
@@ -11,14 +11,15 @@
   and the shared afterglow gave a partner who had not climaxed an afterglow face (Test 6 at 23 excitement).
   Climax and afterglow are now **per actor and timed by the clock**: an actor's own orgasm holds their climax
   face for its length and starts their own afterglow, and nothing a partner does starts either.
-- Simulated on the gaps from that recording (32, 16, 14, 10, 15 s, then every 7 s): the climax face lasts 12.3,
-  9.0, 8.5, 7.8, 8.8 s and then 5.2 s for the 7 s cadence, always leaving the face some time to come back down,
+- Simulated on the gaps from that recording (32, 16, 14, 10, 15 s, then every 7 s): a rapid clip lasts 9.1, 8.0,
+  7.0, 5.2, 7.7 s and then 3.5 s for the 7 s cadence (long form), or 4.9, 4.9, 4.9, 3.6, 4.9 and 2.5 s (short form),
+  never more than half the gap, so the face always has the other half to come back down,
   where it used to run through.
 
 ### Added
 - **Faces shaped by the time between orgasms and their number.** An orgasm that comes within the rapid window
   (default 40 s) of the actor's last is "rapid", by how close it is: its climax face is shortened by up to 60%
-  (and never to more than three quarters of the gap), it skips the squeeze at the start (the face is still
+  (and never to more than half the gap), it skips the squeeze at the start (the face is still
   tight), the afterglow is skipped or cut short (and any afterglow ends as soon as excitement is back above 45),
   and the face between orgasms carries a tension, squint and brows drawn in, that grows with each orgasm in the
   run (0.12 each, up to 0.35) and fades over the window. An orgasm outside the window is a fresh one.
@@ -33,8 +34,9 @@
   overwhelmed, pained) over the calm ones.
 - **Long and short, standard and rapid.** The orgasm is also long or short, and standard or rapid, which gives
   each face four clips (60 in all). The length is the setting for a long standard orgasm (14 s), 45% of it for a
-  short one, 65% of it for a rapid long one and 35% for a rapid short one, the rapid ones never more than most of
-  the gap since the last orgasm. Long is likelier for a bold actor, after a long hold at the edge, and for faces
+  short one, 65% of it for a rapid long one and 35% for a rapid short one, the rapid ones never more than half of
+  the gap since the last orgasm (a 7 s cadence spent about 60% of the time on the climax with the earlier cap of
+  60-75%). Long is likelier for a bold actor, after a long hold at the edge, and for faces
   that suit it (long moan, smiling, eyes rolled); a rapid orgasm is likelier short the closer it comes to the last.
 - **What a clip does over its length.** A standard orgasm starts with a squeeze (the eyes screwed up, brows in),
   reaches the full pose, holds it, then ripples through the aftershocks (three ripples in the long form, none in

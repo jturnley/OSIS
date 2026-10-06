@@ -891,14 +891,17 @@ namespace Face::Engine
 			switch (s.climaxKind) {
 			case 0: return full;
 			case 1: return std::max(4.0f, full * 0.45f);
-			case 2: return std::max(4.0f, std::min(full * 0.65f, s.orgasmGap * 0.75f));
-			case 3: return std::max(3.0f, std::min(full * 0.35f, s.orgasmGap * 0.60f));
+			// A rapid clip is at most half the gap since the last orgasm (the 2.0.3 test at a 7 s cadence spent about 60% of the
+			// time on the climax with a 60% cap): the other half is left for the build-up face. The short form is kept shorter than
+			// the long even at a fast cadence. Floors keep a clip long enough to play in the 0.8 s steps.
+			case 2: return std::max(3.0f, std::min(full * 0.65f, s.orgasmGap * 0.50f));
+			case 3: return std::max(2.5f, std::min(full * 0.35f, s.orgasmGap * 0.35f));
 			default: break;
 			}
 			// The built-in template (the pool off, or a non-consensual scene): shorter for a rapid one, by up to 60%.
 			const float r = RapidFactor(s);
 			if (r <= 0.0f) return full;
-			return std::max(4.0f, std::min(full * (1.0f - 0.6f * r), s.orgasmGap * 0.75f));
+			return std::max(3.0f, std::min(full * (1.0f - 0.6f * r), s.orgasmGap * 0.50f));
 		}
 
 		int SelectDominant(Thread& t, const Slot& s, int enj, int raw)
