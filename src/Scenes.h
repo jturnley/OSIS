@@ -61,7 +61,22 @@ namespace Scenes
 		float tongueHoldUntil = 0.0f;
 		float tongueCooldownUntil = 0.0f;
 		int lastClimax = 0;
-		bool climaxing = false;  // this actor's own orgasm is in progress (the thread's orgasm window)
+		bool climaxing = false;  // this actor's own orgasm is in progress (until climaxUntil)
+		// This actor's own orgasms in the scene, for the face. Per actor and timed by the clock: the thread-wide window they used
+		// to share was re-armed by every orgasm of anyone, so in a scene of repeated orgasms it never ended.
+		int orgasms = 0;
+		int rapidRun = 0;           // orgasms in a row that came within the rapid window of the one before
+		float lastOrgasmAt = 0.0f;
+		float orgasmGap = 0.0f;      // seconds between the last two orgasms; 0 for the first
+		float climaxStart = 0.0f;
+		float climaxUntil = 0.0f;
+		float afterglowUntil = 0.0f;  // this actor's own afterglow; a partner's orgasm does not start one
+		// The climax face the Director picked from its pool for this orgasm, held through it; the next orgasm picks another.
+		int climaxVariant = -1;
+		int lastClimaxVariant = -1;
+		float climaxVariantAt = -1.0f;  // the climaxStart the pick was made for
+		bool climaxFromPool = false;    // this beat's climax face came from the pool, not the built-in template
+		std::string climaxName;
 		std::string jsonEvent;
 		float jsonUntil = 0.0f;
 
@@ -150,7 +165,6 @@ namespace Scenes
 		bool consent = true;
 		bool leadin = false;
 		bool orgasm = false;
-		int orgTicks = 0;
 		int orgCount = 0;
 		int afterglow = 0;
 		float afterglowUntil = 0.0f;  // wall-clock end, so repeated climaxes cannot pin it

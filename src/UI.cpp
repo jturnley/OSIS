@@ -380,6 +380,16 @@ namespace
 					"when it is the whole face: mood, brows and mouth during the pleasure phase come out smaller than OStim's would. 0 leaves them "
 					"as authored, 1.00 brings them up to OStim's amplitude at the same excitement, 2.00 well past it. Eyelids are not changed, "
 					"and climax, plateau, afterglow and distress faces are left as they are.");
+				Check("Vary the climax face (Director)", bClimaxPool,
+					"Director only. Each orgasm gets its own face from a pool of fifteen (open-mouthed gasp, clenched, lip bitten, wide-eyed, rolled up, smiling, "
+					"snarl and so on), picked by the actor's personality and avoiding the one before; a run of rapid orgasms leans to the overwhelmed ones. "
+					"Off: the one built-in climax face. Consensual scenes only.");
+				SliderF("Climax face length (s)", fClimaxSeconds, 4.0f, 30.0f, "%.0f",
+					"Director only. How long an actor's face stays on the climax after their own orgasm. A partner's face is not held by it.");
+				SliderF("Rapid orgasm window (s)", fRapidOrgasmSeconds, 10.0f, 120.0f, "%.0f",
+					"Director only. When an actor orgasms again within this many seconds of their last one, the climax face is cut shorter (never "
+					"most of the gap), the afterglow is skipped or cut short, and the face between orgasms carries a tension that grows with each "
+					"one and fades over this window. Orgasms further apart than this are treated as separate.");
 			}
 			SliderF("Style (realistic > cinematic > anime)", fStyle, 0.0f, 2.0f, "%.2f", "Above 1.5 enables the anime climax accents and tongue options.");
 			SliderF("Eye strength", fEyeStrength, 0.0f, 1.5f, "%.2f",

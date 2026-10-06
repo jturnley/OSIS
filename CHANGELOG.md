@@ -1,5 +1,50 @@
 # Changelog
 
+## 2.0 beta 2 (plugin version 2.0.1) - in progress
+
+### Fixed
+- **Repeated orgasms held one actor's climax face for minutes.** In the 2.0 beta 1 probe Auri orgasmed every
+  7-14 s and her face stayed on the climax pose with the head thrown back from 14:08:05 to the end of the
+  recording, two minutes. The climax window was the thread's, not the actor's: five ticks (about 14 s) from the
+  latest orgasm of anyone, re-armed by each one, so a run of orgasms closer together than that never let it end.
+  The same shared window gave a partner the climax face at 91 excitement 11 s before their own orgasm (Test 6),
+  and the shared afterglow gave a partner who had not climaxed an afterglow face (Test 6 at 23 excitement).
+  Climax and afterglow are now **per actor and timed by the clock**: an actor's own orgasm holds their climax
+  face for its length and starts their own afterglow, and nothing a partner does starts either.
+- Simulated on the gaps from that recording (32, 16, 14, 10, 15 s, then every 7 s): the climax face lasts 12.3,
+  9.0, 8.5, 7.8, 8.8 s and then 5.2 s for the 7 s cadence, always leaving the face some time to come back down,
+  where it used to run through.
+
+### Added
+- **Faces shaped by the time between orgasms and their number.** An orgasm that comes within the rapid window
+  (default 40 s) of the actor's last is "rapid", by how close it is: its climax face is shortened by up to 60%
+  (and never to more than three quarters of the gap), it skips the squeeze at the start (the face is still
+  tight), the afterglow is skipped or cut short (and any afterglow ends as soon as excitement is back above 45),
+  and the face between orgasms carries a tension, squint and brows drawn in, that grows with each orgasm in the
+  run (0.12 each, up to 0.35) and fades over the window. An orgasm outside the window is a fresh one.
+- **A pool of fifteen climax faces.** The climax used to be one template (the same open mouth, squint and brows)
+  with the occasional wide-eyed beat. Each orgasm now picks one of fifteen, held through that orgasm, never the
+  same as the one before: gasp, cry out, clenched, lip bite, silent, wide-eyed, eyes rolled, smiling, intense,
+  long moan, overwhelmed, pained, breathless, snarl, laughing. They differ in eyes (shut tight, narrowed, rolled
+  up, wide), mouth (stretched, round, parted, clenched, pressed) and brows (knitted, lifted, lowered), with a
+  mood to match. The pick is weighted by the actor's personality (a stoic actor is most often silent, clenched or
+  breathless; a bold one long moan, cry out, smiling or eyes rolled; a shy one lip bite, wide-eyed or pained; a
+  fierce one intense, snarl or clenched) and a rapid run favours the overwhelmed ones (gasp, clenched,
+  overwhelmed, pained) over the calm ones. The face label in the probe says which: `Climax/lip_bite`. The
+  personality and orgasm count, with the time since the last, are now on the probe's beat line too.
+- Settings (Face page, Director): **Vary the climax face** (`bClimaxPool`, on; off gives the one built-in
+  template back), **Climax face length** (`fClimaxSeconds`, 14 s, for an orgasm on its own) and **Rapid orgasm
+  window** (`fRapidOrgasmSeconds`, 40 s).
+
+### Notes
+- Consensual scenes only: the victim's reaction in a non-consensual scene keeps its own template.
+- The eye channels are scaled by Eye strength (0.45 by default) and capped at the realistic style, so how
+  different the eyes look between variants depends on those settings; the mouth, brows and mood carry most of
+  the difference at the defaults.
+- The values are authored here from how an orgasm face is described anatomically, not copied from OStim's
+  expression files; they live in a table at the top of `Face/Director.cpp` (`kClimaxVariants`).
+- Not yet run in the game.
+
 ## 2.0 beta 1 (plugin version 2.0.0)
 
 The 1.9.7 code level, released as a beta. Everything in the 1.x entries below is in it; this is what the beta

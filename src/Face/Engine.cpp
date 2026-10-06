@@ -23,6 +23,8 @@ namespace Face::Engine
 	{
 		// How long an afterglow may last however many beats or climax events arrive.
 		constexpr float kAfterglowSeconds = 18.0f;
+		// An actor's own afterglow ends once their excitement is back above this: they are building again.
+		constexpr int kAfterglowEndsAt = 45;
 
 		// forms resolved at data load; all optional
 		RE::TESFaction* g_excitement = nullptr;
@@ -260,7 +262,7 @@ namespace Face::Engine
 			if (AhegaoYield()) {
 				if (arc) {
 					const int enjEff = EffectiveIntensity(t, a);
-					PulseActor(t, s, a, SelectDominant(t, enjEff, Raw(a)), PhrasePhase(t, idx, enjEff), enjEff);
+					PulseActor(t, s, a, SelectDominant(t, s, enjEff, Raw(a)), PhrasePhase(t, idx, enjEff), enjEff);
 					SetOwners(s, "Ahegao mod yield", "Ahegao mod yield", "Ahegao mod yield", "Ahegao mod yield");
 				}
 				return;
@@ -277,7 +279,7 @@ namespace Face::Engine
 			Output::ApplyPreset(a, e, ym, S::fGlobalStrength, 1.0f, 1.0f, std::max(S::fTransition, 1.5f));
 			SetOwners(s, "Broken", ym ? MouthOwnerLabel(t, s, a, true) : "Broken (slack)", "Broken (vacant)", "Broken (unfocused)");
 			const int enjEff = EffectiveIntensity(t, a);
-			PulseActor(t, s, a, SelectDominant(t, enjEff, Raw(a)), PhrasePhase(t, idx, enjEff), enjEff);
+			PulseActor(t, s, a, SelectDominant(t, s, enjEff, Raw(a)), PhrasePhase(t, idx, enjEff), enjEff);
 		}
 
 		// The climax that breaks the victim: eyes wide, brows up, jaw dropped, for a few seconds
@@ -297,8 +299,21 @@ namespace Face::Engine
 			SetOwners(s, "Shock", ym ? MouthOwnerLabel(t, s, a, true) : "Shock", "Shock", "Shock");
 			if (arc) {
 				const int enjEff = EffectiveIntensity(t, a);
-				PulseActor(t, s, a, SelectDominant(t, enjEff, Raw(a)), PhrasePhase(t, idx, enjEff), enjEff);
+				PulseActor(t, s, a, SelectDominant(t, s, enjEff, Raw(a)), PhrasePhase(t, idx, enjEff), enjEff);
 			}
+		}
+
+		// What the probe's beat line says about this actor's orgasms and personality.
+		std::string OrgasmNote(const Slot& s)
+		{
+			const float now = Scenes::Now();
+			std::string out = std::format(", personality {} ({})", PersonalityName(s.arch), s.archSource);
+			if (s.orgasms > 0) {
+				out += std::format(", orgasm {} ({:.0f} s ago{}{})", s.orgasms, now - s.lastOrgasmAt,
+					s.orgasms > 1 ? std::format(", {:.0f} s after the one before", s.orgasmGap) : std::string(),
+					s.climaxing && now < s.climaxUntil ? ", climax face" : "");
+			}
+			return out;
 		}
 
 		void ApplyAll(Thread& t, bool arc)
@@ -359,7 +374,7 @@ namespace Face::Engine
 					SetOwners(s, owner, owner, owner, owner);
 					if (arc) {
 						const int enjEff = EffectiveIntensity(t, a);
-						PulseActor(t, s, a, SelectDominant(t, enjEff, Raw(a)), PhrasePhase(t, idx, enjEff), enjEff);
+						PulseActor(t, s, a, SelectDominant(t, s, enjEff, Raw(a)), PhrasePhase(t, idx, enjEff), enjEff);
 					}
 					continue;
 				}
@@ -380,7 +395,7 @@ namespace Face::Engine
 					}
 					if (arc) {
 						const int enjEff = EffectiveIntensity(t, a);
-						PulseActor(t, s, a, SelectDominant(t, enjEff, Raw(a)), PhrasePhase(t, idx, enjEff), enjEff);
+						PulseActor(t, s, a, SelectDominant(t, s, enjEff, Raw(a)), PhrasePhase(t, idx, enjEff), enjEff);
 						const char* owner = S::bEnabled ? "Old OSED core" : "Faces off";
 						SetOwners(s, owner, owner, owner, owner);
 					}
@@ -428,10 +443,10 @@ namespace Face::Engine
 				for (auto& s : t.slots) {
 					auto* a = s.Get();
 					if (!a) continue;
-					logger::info("Probe {:08X} {}: beat {} - mode {}, face '{}', mouth '{}', eyes '{}', head '{}', excitement {}{}{}{}{}; OStim library: {}", a->GetFormID(),
+					logger::info("Probe {:08X} {}: beat {} - mode {}, face '{}', mouth '{}', eyes '{}', head '{}', excitement {}{}{}{}{}{}; OStim library: {}", a->GetFormID(),
 						a->GetDisplayFullName(), t.tick, S::iMode == S::kDirector ? "Director" : (S::iMode == S::kEnhanced ? "Enhanced" : "Assist"),
 						s.faceOwner, s.mouthOwner, s.eyeOwner, s.headOwner, Raw(a), t.normalActive ? ", normal state" : "",
-						t.afterglow > 0 ? ", afterglow" : "", s.takenOver ? ", OStim face off" : ", OStim face ON", s.painted ? "" : ", not painted",
+						Scenes::Now() < s.afterglowUntil ? ", afterglow" : "", s.takenOver ? ", OStim face off" : ", OStim face ON", s.painted ? "" : ", not painted", OrgasmNote(s),
 						t.meta && s.pos >= 0 ? Library::Describe(*t.meta, s.pos) : std::string("no scene data"));
 				}
 			}
@@ -851,12 +866,40 @@ namespace Face::Engine
 			return "Oral action";
 		}
 
-		int SelectDominant(Thread& t, int enj, int raw, bool climaxing)
+		float RapidFactor(const Slot& s)
+		{
+			if (s.rapidRun < 1 || S::fRapidOrgasmSeconds <= 0.0f) return 0.0f;
+			return ClampF(1.0f - s.orgasmGap / S::fRapidOrgasmSeconds, 0.0f, 1.0f);
+		}
+
+		float Sensitivity(const Slot& s, float now)
+		{
+			if (s.rapidRun < 1 || s.climaxing || S::fRapidOrgasmSeconds <= 0.0f) return 0.0f;
+			const float since = now - s.lastOrgasmAt;
+			if (since >= S::fRapidOrgasmSeconds) return 0.0f;
+			return std::min(0.35f, 0.12f * static_cast<float>(s.rapidRun)) * (1.0f - since / S::fRapidOrgasmSeconds);
+		}
+
+		// How long the climax face lasts for this actor's latest orgasm: the setting for one on its own, shorter for one that came
+		// quickly after the last (by up to 60%), and never most of the gap since it, so the face has time to come back down.
+		float ClimaxLength(const Slot& s)
+		{
+			const float full = ClampF(S::fClimaxSeconds, 4.0f, 30.0f);
+			const float r = RapidFactor(s);
+			if (r <= 0.0f) return full;
+			return std::max(4.0f, std::min(full * (1.0f - 0.6f * r), s.orgasmGap * 0.75f));
+		}
+
+		int SelectDominant(Thread& t, const Slot& s, int enj, int raw)
 		{
 			using namespace Scenes;
 			if (S::bHardExclusionGate && !t.consent) return kDistress;
-			if (t.orgasm && (raw >= 90 || climaxing)) return kClimax;
-			if (t.afterglow > 0) return kAfterglow;
+			const float now = Scenes::Now();
+			// Their own orgasm holds the climax for its timed length. It was the thread's: five beats from the latest orgasm of anyone,
+			// re-armed by each, so repeated orgasms (every 7-14 s in the 1.9.7 test) held one actor's climax face for two minutes and gave a
+			// partner at 90 excitement the face before their own orgasm. Afterglow is theirs too, and ends when they are building again.
+			if (s.climaxing && now < s.climaxUntil) return kClimax;
+			if (now < s.afterglowUntil && raw < kAfterglowEndsAt) return kAfterglow;
 			if (!t.consent) return kDistress;
 			if (t.leadin || enj < 25) return kAnticipation;
 			if (S::bNaturalDetail && t.plateau >= 3) return kPlateau;
@@ -1400,9 +1443,19 @@ namespace Face::Engine
 		auto* s = t.Find(a);
 		if (!s) return;
 		Pulse::Climax(a, t.id);
-		t.orgasm = true;
+		// This actor's orgasm, timed on its own (see SelectDominant): how long since their last decides how long the climax
+		// face lasts and whether an afterglow follows.
+		const float now = Scenes::Now();
+		const bool again = s->orgasms > 0;
+		s->orgasmGap = again ? now - s->lastOrgasmAt : 0.0f;
+		s->rapidRun = again && s->orgasmGap < S::fRapidOrgasmSeconds ? s->rapidRun + 1 : 0;
+		s->lastOrgasmAt = now;
+		++s->orgasms;
+		s->climaxStart = now;
+		s->climaxUntil = now + ClimaxLength(*s);
+		s->afterglowUntil = 0.0f;  // a new orgasm ends any afterglow
 		s->climaxing = true;
-		t.orgTicks = 0;
+		t.orgasm = true;  // somebody's climax is in progress: gaze and the thread-level consumers follow this
 		const int c = TimesClimaxed(a);
 		t.orgCount = c > t.orgCount ? c : t.orgCount + 1;
 #if !OSIS_LITE
@@ -1432,12 +1485,29 @@ namespace Face::Engine
 			logger::debug("thread {}: afterglow timed out after {:.0f}s", t.id, kAfterglowSeconds);
 		}
 		if (t.orgasm) {
-			if (++t.orgTicks > 4) {
-				t.orgasm = false;
-				for (auto& sl : t.slots) sl.climaxing = false;
+			// Each actor's climax ends on the clock, and their own afterglow starts: the full length for an orgasm on its own, none for
+			// one that came right after the last, since they are building again. The thread's flag follows whoever is still climaxing.
+			const float now = Scenes::Now();
+			bool ended = false;
+			bool stillClimaxing = false;
+			for (auto& sl : t.slots) {
+				if (!sl.climaxing) continue;
+				if (now < sl.climaxUntil) {
+					stillClimaxing = true;
+					continue;
+				}
+				sl.climaxing = false;
+				ended = true;
+				if (S::bCinematic) {
+					const float len = kAfterglowSeconds * (1.0f - RapidFactor(sl));
+					sl.afterglowUntil = len >= 3.0f ? sl.climaxUntil + len : 0.0f;
+				}
+			}
+			t.orgasm = stillClimaxing;
+			if (ended && !stillClimaxing) {
 				if (S::bCinematic) {
 					t.afterglow = 5;
-					t.afterglowUntil = Scenes::Now() + kAfterglowSeconds;
+					t.afterglowUntil = now + kAfterglowSeconds;
 				}
 				ClearGazeAll(t);
 			}

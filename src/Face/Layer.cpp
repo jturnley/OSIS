@@ -503,7 +503,7 @@ namespace Face::Engine::detail
 		const int arch = Archetype(a, &src);
 		s.arch = arch;
 		s.archSource = src;
-		const int dom = SelectDominant(t, enjEff, raw);
+		const int dom = SelectDominant(t, s, enjEff, raw);
 		const bool shy = arch == 3 || (S::bExposureAware && t.consent && IsNude(a) && raw < 72) || OBlushLikely(a, raw);
 		const bool bold = arch == 2 || arch == 4;
 		if (AhegaoYield()) {

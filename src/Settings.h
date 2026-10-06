@@ -39,6 +39,14 @@ namespace Settings
 		// Director only: in the pleasure and anticipation phases, play OStim's own expression pool for what the
 		// actor is doing (the same files OStim reads) instead of the built-in templates.
 		inline bool bDirectorLibrary = true;
+		// Director: how long an actor's face stays on the climax after their own orgasm, in seconds. And the gap between two of
+		// their orgasms under which the second counts as rapid: its climax face is cut shorter, its afterglow skipped or cut short,
+		// and the face between orgasms carries a tension that grows with each one and fades over this window.
+		inline float fClimaxSeconds = 14.0f;
+		inline float fRapidOrgasmSeconds = 40.0f;
+		// Director: each orgasm gets its own climax face from a pool of fifteen, picked by personality and how rapid the run is,
+		// instead of the one built-in template.
+		inline bool bClimaxPool = true;
 		inline float fBaseInterval = 3.0f;
 		inline float fIntervalJitter = 1.0f;
 		inline float fTransition = 0.5f;

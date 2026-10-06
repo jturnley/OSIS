@@ -103,9 +103,14 @@ namespace Face::Engine::detail
 	[[nodiscard]] bool HeadCommittedToAnimation(Thread& t, Slot& s, RE::Actor* a);
 	[[nodiscard]] bool LipSyncMouthActive(Slot& s, RE::Actor* a);
 	[[nodiscard]] std::string MouthOwnerLabel(Thread& t, Slot& s, RE::Actor* a, bool yielded);
-	// `climaxing`: this actor's own orgasm is in progress. Excitement resets at the climax in current OStim, so
-	// `raw >= 90` is true for about one beat; the actor's own orgasm holds the climax face for the whole window.
-	[[nodiscard]] int SelectDominant(Thread& t, int enj, int raw, bool climaxing = false);
+	// This actor's own phase. Their own orgasm holds the climax face for a timed length (Engine.cpp OnOrgasm), an afterglow
+	// of their own follows unless the orgasms are coming quickly, and a partner's orgasm starts neither. Excitement resets at
+	// the climax in current OStim, so none of this can be read from `raw`.
+	[[nodiscard]] int SelectDominant(Thread& t, const Slot& s, int enj, int raw);
+	// How close together this actor's last two orgasms were: 0 for the first, or when the gap was longer than the rapid window; 1 back to back.
+	[[nodiscard]] float RapidFactor(const Slot& s);
+	// The tension a run of rapid orgasms leaves in the face, 0..0.35: grows with each orgasm in the run, fades over the rapid window after the last.
+	[[nodiscard]] float Sensitivity(const Slot& s, float now);
 	[[nodiscard]] int PhrasePhase(Thread& t, int idx, int enjEff);
 	[[nodiscard]] int ScenarioCode(Thread& t, int dom, int enjEff, int role, int tone, int posRole);
 	[[nodiscard]] const char* ScenarioName(int scenario);
