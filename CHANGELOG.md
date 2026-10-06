@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.0 beta 2 (plugin version 2.0.5) - in progress
+## 2.0 beta 2 (plugin version 2.0.6) - in progress
 
 ### Fixed
 - **Repeated orgasms held one actor's climax face for minutes.** In the 2.0 beta 1 probe Auri orgasmed every
@@ -25,7 +25,7 @@
   run (0.12 each, up to 0.35) and fades over the window. An orgasm outside the window is a fresh one.
 - **A pool of fifteen climax faces, each a timed clip in four forms.** The climax used to be one template (the
   same open mouth, squint and brows) held for the whole orgasm. Each orgasm now picks one of fifteen faces, never
-  the same as the one before: gasp, cry out, clenched, lip bite, silent, wide-eyed, eyes rolled, smiling, intense,
+  the same as the one before (and the one before that is held back to a quarter of its weight): gasp, cry out, clenched, lip bite, silent, wide-eyed, eyes rolled, smiling, intense,
   long moan, overwhelmed, pained, breathless, snarl, laughing. They differ in eyes (shut tight, narrowed, rolled
   up, wide), mouth (stretched, round, parted, clenched, pressed) and brows (knitted, lifted, lowered), with a mood
   to match. The pick is weighted by the actor's personality (a stoic actor is most often silent, clenched or

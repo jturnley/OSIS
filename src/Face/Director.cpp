@@ -142,7 +142,10 @@ namespace Face::Engine::detail
 				const auto& v = kClimaxVariants[i];
 				float w = v.suits[ClampI(arch, 0, 4)];
 				if (rapid) w *= v.intense ? 1.8f : (v.calm ? 0.5f : 1.0f);
-				if (i == s.lastClimaxVariant) w = 0.0f;  // a change, always
+				// A change, always, and the one before that is held back too: with only the last excluded, a face the personality favours
+				// came back every other orgasm (long moan and gasp alternated five times running in the 2.0.5 test).
+				if (i == s.lastClimaxVariant) w = 0.0f;
+				else if (i == s.lastClimaxVariant2) w *= 0.25f;
 				weight[i] = w;
 				total += w;
 			}
@@ -1175,6 +1178,7 @@ namespace Face::Engine::detail
 	void PickClimaxClip(const Thread& t, Slot& s, int arch)
 	{
 		s.climaxVariant = PickClimaxVariant(s, arch);
+		s.lastClimaxVariant2 = s.lastClimaxVariant;
 		s.lastClimaxVariant = s.climaxVariant;
 		s.climaxVariantAt = s.climaxStart;
 		const auto& v = kClimaxVariants[s.climaxVariant];
