@@ -256,11 +256,12 @@ namespace Face::Output
 			const int rp = Top(fg.phoneme3, kPhonemes, rpv);
 			const auto m = [&](int i) { return (p.modMask & (1u << i)) ? p.mod[i] : -1.0f; };
 			logger::info(
-				"Probe {:08X} {}: mood ours {}@{:.2f} rendered {}@{:.2f} | brows ours dn {:.2f} in {:.2f} up {:.2f} sq {:.2f}, rendered dn {:.2f} in {:.2f} up {:.2f} sq {:.2f} | "
+				"Probe {:08X} {}: mood ours {}@{:.2f} rendered {}@{:.2f} | brows ours dn {:.2f} in {:.2f} up {:.2f} sq {:.2f}, rendered dn {:.2f} in {:.2f} up {:.2f} sq {:.2f}, blink ours {:.2f} rendered {:.2f} | "
 				"mouth ours {}@{:.2f} rendered {}@{:.2f}, dialogue lip-sync max {:.2f} | changed by something else between our writes: mood {}/{} brows {}/{} mouth {}/{} frames, "
 				"override found off {} | lip-sync clips started {}",
 				a->GetFormID(), a->GetDisplayFullName(), om, ov, rm, rv, m(kBrowDownL), m(kBrowInL), m(kBrowUpL), m(kSquintL),
 				Val(fg.modifier3, kBrowDownL), Val(fg.modifier3, kBrowInL), Val(fg.modifier3, kBrowUpL), Val(fg.modifier3, kSquintL),
+				m(kBlinkL), Val(fg.modifier3, kBlinkL),
 				op, opv, rp, rpv, p.dlgPh, p.hitExpr, p.frames, p.hitMod, p.frames, p.hitPh, p.frames, p.overrideOff, p.trackStarts);
 			if (p.chExpr >= 0 || p.chMod >= 0 || p.chPh >= 0) {
 				logger::info("Probe {:08X}: largest outside changes: mood #{} {:.2f} where we wrote {:.2f}; modifier #{} {:.2f} where we wrote {:.2f}; phoneme #{} {:.2f} where we wrote {:.2f}",
@@ -304,6 +305,12 @@ namespace Face::Output
 		}
 
 		bool IsLook(int id) { return id >= kLookDown && id <= kLookUp; }
+
+		// The eyelids close through Blink, which the engine animates on its own: a blink channel is written only while a face
+		// holds the lids shut (or part shut), and handed back once it is at rest, so the actor goes on blinking naturally
+		// the rest of the time. Look is handled the same way, and for the same reason.
+		bool IsBlink(int id) { return id == kBlinkL || id == kBlinkR; }
+		bool IsGated(int id) { return IsLook(id) || IsBlink(id); }
 
 		void Seed(RE::BSFaceGenKeyframeMultiple& kf, auto& channels)
 		{
@@ -353,7 +360,10 @@ namespace Face::Output
 	{
 		std::scoped_lock l(g_lock);
 		if (auto* st = Get(a, true)) {
-			for (int i = kBrowDownL; i < kModifiers; ++i) st->mod[i].Set(0.0f, speed);
+			for (int i = kBlinkL; i < kModifiers; ++i) {
+				if (IsGated(i) && !st->mod[i].used) continue;
+				st->mod[i].Set(0.0f, speed);
+			}
 		}
 	}
 
@@ -365,9 +375,11 @@ namespace Face::Output
 		if (!skipPhonemes) {
 			for (int i = 0; i < kPhonemes; ++i) st->ph[i].Set(e[i] * phStr, speed);
 		}
-		for (int i = kBrowDownL; i < kModifiers; ++i) {
-			const float v = e[16 + i] * modStr;
-			if (IsLook(i) && v <= 0.0f && !st->mod[i].used) continue;
+		for (int i = kBlinkL; i < kModifiers; ++i) {
+			// The lids close as far as the face says: the strength setting and the personality scale how much of an expression
+			// shows, and a face that shuts the eyes should shut them (hard squeezed is the whole range's top, not a share of it).
+			const float v = e[16 + i] * (IsBlink(i) ? 1.0f : modStr);
+			if (IsGated(i) && v <= 0.0f && !st->mod[i].used) continue;
 			st->mod[i].Set(v, speed);
 		}
 		const int mood = static_cast<int>(e[30]);
@@ -697,7 +709,7 @@ namespace Face::Output
 			}
 		}
 		settled &= st.trackBlend <= 0.0f && st.mouthFloor <= 0.0f;
-		for (int i = kBrowDownL; i < kModifiers; ++i) {
+		for (int i = kBlinkL; i < kModifiers; ++i) {
 			auto& c = st.mod[i];
 			if (!c.used) continue;
 			c.Step(dt);
@@ -719,8 +731,8 @@ namespace Face::Output
 				pr.mod[i] = mv;
 				pr.modMask |= 1u << i;
 			}
-			// Look modifiers stop eye blinking while non-zero; hand them back once at rest.
-			if (IsLook(i) && c.cur <= 0.0f && c.target <= 0.0f) c.used = false;
+			// Look modifiers stop eye blinking while non-zero, and a blink we write is the lids' to own; hand both back once at rest.
+			if (IsGated(i) && c.cur <= 0.0f && c.target <= 0.0f) c.used = false;
 		}
 		if (st.exprUsed) {
 			for (int i = 0; i < kExpressions; ++i) {
@@ -747,7 +759,7 @@ namespace Face::Output
 
 		if (st.releasing && settled) {
 			for (int i = 0; i < kPhonemes; ++i) Write(fg->phenomeKeyFrame, i, 0.0f);
-			for (int i = kBrowDownL; i < kModifiers; ++i) {
+			for (int i = kBlinkL; i < kModifiers; ++i) {
 				if (st.mod[i].used) Write(fg->modifierKeyFrame, i, 0.0f);
 			}
 			if (st.exprUsed) {
@@ -794,7 +806,7 @@ namespace Face::Output
 			for (int i = 0; i < kPhonemes; ++i) {
 				if (st.ph[i].engaged) check(data->phenomeKeyFrame, i, st.ph[i].last);
 			}
-			for (int i = kBrowDownL; i < kModifiers; ++i) {
+			for (int i = kBlinkL; i < kModifiers; ++i) {
 				if (st.mod[i].used && st.mod[i].engaged) check(data->modifierKeyFrame, i, st.mod[i].last);
 			}
 			if (st.exprUsed) {
@@ -832,7 +844,7 @@ namespace Face::Output
 				c.last = v;
 			}
 		}
-		for (int i = kBrowDownL; i < kModifiers; ++i) {
+		for (int i = kBlinkL; i < kModifiers; ++i) {
 			auto& c = st.mod[i];
 			if (!c.used || !c.engaged) continue;
 			c.See(Val(data->modifierKeyFrame, i));

@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.0 beta 2 (plugin version 2.0.2) - in progress
+## 2.0 beta 2 (plugin version 2.0.3) - in progress
 
 ### Fixed
 - **Repeated orgasms held one actor's climax face for minutes.** In the 2.0 beta 1 probe Auri orgasmed every
@@ -43,6 +43,18 @@
   smiling (wide-eyed, smiling, laughing), slack (silent, eyes rolled, breathless) or staying tight (clenched,
   intense, overwhelmed, snarl). A rapid orgasm skips the squeeze, since the face is still tight, and eases only
   to a held tension, because the next orgasm is already coming.
+- **Eyes that close, from a languid blink to squeezed hard shut.** Skyrim's face has two eyelid channels: Squint
+  narrows the eyes, but only Blink closes the lids, and OSIS had never written Blink (so that actors keep blinking
+  on their own). Each of the fifteen faces now has an eye style, and Blink is written only while a face holds the
+  lids shut and handed back once they are at rest, so natural blinking carries on the rest of the time. The
+  styles, in order of how far they close: **open** (wide-eyed, intense, snarl), **languid** (silent, breathless:
+  slow blinks, down over a second, held, up again, about every 3.4 s), **heavy** (cry out, eyes rolled: the lids
+  held half down and drifting), **closed** (smiling, long moan: shut and still), **flutter** (overwhelmed, laughing:
+  shut with the lids trembling), **tight** (lip bite, pained: shut with a squeeze) and **hard** (gasp, clenched:
+  squeezed as hard as it goes, brows in and down). The lids stay as they are until the face starts to settle and
+  open with it, and a rapid clip never opens them fully, since the next orgasm is already coming. The lids are
+  not scaled by the Strength setting or by personality: a face that shuts its eyes shuts them. The probe line
+  shows `blink ours / rendered`.
 - **A face update every 0.8 s during an orgasm,** not every three seconds, so a clip of 4-14 s is played in
   steps and not as two or three jumps. The tick after an orgasm is pulled forward to match. Back to the normal
   cadence when the climax ends. The face label in the probe names the clip, `Climax/lip_bite/rapid-short`, and
@@ -60,6 +72,9 @@
   expression files; the fifteen faces are a table at the top of `Face/Director.cpp` (`kClimaxVariants`: the peak
   pose, how it settles, how much it ripples and how likely it is to run long), and the four timelines are in
   `ShapeOf`.
+- The face is updated about every 0.8 s during an orgasm, so a languid blink is played in steps eased over that time,
+  not frame by frame, and the flutter is a slow tremor rather than a fast one. The squint of several faces was
+  lowered now that the lids themselves close.
 - Not yet run in the game.
 
 ## 2.0 beta 1 (plugin version 2.0.0)

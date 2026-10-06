@@ -64,6 +64,11 @@ namespace Face::Engine::detail
 		// the pipeline after it (eye scalar, strength) shapes them like any other face.
 		enum Settle : int { kSoften, kSmile, kSlack, kHold };  // where the face goes as the orgasm ends: loosens, smiles, goes slack, stays tight
 
+		// What the eyelids do, from not at all to hard shut. Squint narrows the eyes, but only Blink closes the lids, so a face that
+		// shuts its eyes writes both: the closure goes from a slow blink that comes and goes (languid), through lids held half down
+		// (heavy), shut and still (closed), shut and trembling (flutter), shut with a squeeze (tight), to squeezed as hard as it goes (hard).
+		enum Eyes : int { kOpen, kLanguid, kHeavy, kClosed, kFlutter, kTight, kHard };
+
 		struct ClimaxVariant
 		{
 			const char* name;
@@ -75,6 +80,7 @@ namespace Face::Engine::detail
 			bool calm;
 			bool intense;
 			Settle settle;
+			Eyes eyes;
 			float tremor;    // how much the face ripples through the aftershocks, 0..1
 			float longBias;  // added to the chance this face runs long
 			float suits[5];  // weight by personality: none, stoic, bold, shy, fierce
@@ -82,35 +88,35 @@ namespace Face::Engine::detail
 
 		constexpr ClimaxVariant kClimaxVariants[] = {
 			{ "gasp", 10, 0.35f, 0.70f, 0.55f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.85f, 0.15f, 0.55f, 0.00f, 0.00f,
-				false, false, true, kSoften, 0.60f, -0.10f, { 1.00f, 0.80f, 1.20f, 1.00f, 0.90f } },
-			{ "cry_out", 12, 0.50f, 0.35f, 0.20f, 0.75f, 0.30f, 0.00f, 0.00f, 0.00f, 0.00f, 0.45f, 0.70f, 0.00f, 0.00f, 0.60f,
-				false, false, false, kSoften, 0.50f, 0.05f, { 1.00f, 0.30f, 2.00f, 0.60f, 1.20f } },
+				false, false, true, kSoften, kHard, 0.60f, -0.10f, { 1.00f, 0.80f, 1.20f, 1.00f, 0.90f } },
+			{ "cry_out", 12, 0.50f, 0.35f, 0.20f, 0.75f, 0.30f, 0.00f, 0.00f, 0.00f, 0.00f, 0.30f, 0.70f, 0.00f, 0.00f, 0.60f,
+				false, false, false, kSoften, kHeavy, 0.50f, 0.05f, { 1.00f, 0.30f, 2.00f, 0.60f, 1.20f } },
 			{ "clenched", 8, 0.30f, 0.10f, 0.00f, 0.00f, 0.00f, 0.55f, 0.00f, 0.20f, 0.00f, 0.90f, 0.00f, 0.60f, 0.35f, 0.00f,
-				false, false, true, kHold, 0.70f, 0.00f, { 1.00f, 2.00f, 0.40f, 1.20f, 1.60f } },
-			{ "lip_bite", 11, 0.35f, 0.08f, 0.00f, 0.00f, 0.00f, 0.00f, 0.10f, 0.55f, 0.20f, 0.80f, 0.25f, 0.40f, 0.00f, 0.00f,
-				false, false, false, kSoften, 0.30f, 0.00f, { 1.00f, 1.20f, 0.30f, 2.20f, 0.30f } },
-			{ "silent", 7, 0.30f, 0.15f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.80f, 0.10f, 0.20f, 0.00f, 0.00f,
-				false, true, false, kSlack, 0.20f, -0.20f, { 1.00f, 2.40f, 0.20f, 1.40f, 0.50f } },
+				false, false, true, kHold, kHard, 0.70f, 0.00f, { 1.00f, 2.00f, 0.40f, 1.20f, 1.60f } },
+			{ "lip_bite", 11, 0.35f, 0.08f, 0.00f, 0.00f, 0.00f, 0.00f, 0.10f, 0.55f, 0.20f, 0.60f, 0.25f, 0.40f, 0.00f, 0.00f,
+				false, false, false, kSoften, kTight, 0.30f, 0.00f, { 1.00f, 1.20f, 0.30f, 2.20f, 0.30f } },
+			{ "silent", 7, 0.30f, 0.15f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.30f, 0.10f, 0.20f, 0.00f, 0.00f,
+				false, true, false, kSlack, kLanguid, 0.20f, -0.20f, { 1.00f, 2.40f, 0.20f, 1.40f, 0.50f } },
 			{ "wide_eyed", 12, 1.00f, 0.30f, 0.00f, 0.55f, 0.15f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 1.00f, 0.00f, 0.00f, 0.00f,
-				true, false, false, kSmile, 0.40f, -0.10f, { 1.00f, 0.60f, 0.80f, 2.00f, 0.40f } },
-			{ "eyes_rolled", 10, 0.30f, 0.55f, 0.20f, 0.00f, 0.10f, 0.00f, 0.00f, 0.00f, 0.00f, 0.55f, 0.45f, 0.00f, 0.00f, 0.85f,
-				false, false, false, kSlack, 0.50f, 0.10f, { 1.00f, 0.30f, 1.80f, 0.60f, 1.00f } },
+				true, false, false, kSmile, kOpen, 0.40f, -0.10f, { 1.00f, 0.60f, 0.80f, 2.00f, 0.40f } },
+			{ "eyes_rolled", 10, 0.30f, 0.55f, 0.20f, 0.00f, 0.10f, 0.00f, 0.00f, 0.00f, 0.00f, 0.35f, 0.45f, 0.00f, 0.00f, 0.85f,
+				false, false, false, kSlack, kHeavy, 0.50f, 0.10f, { 1.00f, 0.30f, 1.80f, 0.60f, 1.00f } },
 			{ "smiling", 10, 0.85f, 0.45f, 0.00f, 0.00f, 0.00f, 0.30f, 0.00f, 0.00f, 0.00f, 0.75f, 0.20f, 0.00f, 0.00f, 0.00f,
-				false, false, false, kSmile, 0.30f, 0.10f, { 1.00f, 0.50f, 1.80f, 0.50f, 0.80f } },
+				false, false, false, kSmile, kClosed, 0.30f, 0.10f, { 1.00f, 0.50f, 1.80f, 0.50f, 0.80f } },
 			{ "intense", 8, 0.35f, 0.25f, 0.00f, 0.00f, 0.00f, 0.10f, 0.00f, 0.00f, 0.00f, 0.55f, 0.00f, 0.35f, 0.45f, 0.00f,
-				false, false, false, kHold, 0.20f, 0.05f, { 1.00f, 1.40f, 0.60f, 0.30f, 2.20f } },
-			{ "long_moan", 11, 0.40f, 0.20f, 0.65f, 0.00f, 0.50f, 0.00f, 0.00f, 0.00f, 0.00f, 0.80f, 0.35f, 0.45f, 0.00f, 0.00f,
-				false, false, false, kSoften, 0.40f, 0.25f, { 1.00f, 0.20f, 2.20f, 0.50f, 0.80f } },
-			{ "overwhelmed", 9, 0.45f, 0.60f, 0.40f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.90f, 0.30f, 0.65f, 0.00f, 0.00f,
-				false, false, true, kHold, 0.90f, 0.00f, { 1.00f, 0.60f, 1.00f, 1.80f, 0.80f } },
-			{ "pained", 11, 0.55f, 0.35f, 0.00f, 0.00f, 0.00f, 0.15f, 0.35f, 0.00f, 0.00f, 0.85f, 0.55f, 0.60f, 0.00f, 0.00f,
-				false, false, true, kSoften, 0.60f, 0.00f, { 1.00f, 1.20f, 0.50f, 1.80f, 0.50f } },
-			{ "breathless", 7, 0.30f, 0.35f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.15f, 0.35f, 0.25f, 0.00f, 0.00f, 0.25f,
-				false, true, false, kSlack, 0.30f, -0.10f, { 1.00f, 1.60f, 0.60f, 1.40f, 0.60f } },
+				false, false, false, kHold, kOpen, 0.20f, 0.05f, { 1.00f, 1.40f, 0.60f, 0.30f, 2.20f } },
+			{ "long_moan", 11, 0.40f, 0.20f, 0.65f, 0.00f, 0.50f, 0.00f, 0.00f, 0.00f, 0.00f, 0.50f, 0.35f, 0.45f, 0.00f, 0.00f,
+				false, false, false, kSoften, kClosed, 0.40f, 0.25f, { 1.00f, 0.20f, 2.20f, 0.50f, 0.80f } },
+			{ "overwhelmed", 9, 0.45f, 0.60f, 0.40f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.70f, 0.30f, 0.65f, 0.00f, 0.00f,
+				false, false, true, kHold, kFlutter, 0.90f, 0.00f, { 1.00f, 0.60f, 1.00f, 1.80f, 0.80f } },
+			{ "pained", 11, 0.55f, 0.35f, 0.00f, 0.00f, 0.00f, 0.15f, 0.35f, 0.00f, 0.00f, 0.70f, 0.55f, 0.60f, 0.00f, 0.00f,
+				false, false, true, kSoften, kTight, 0.60f, 0.00f, { 1.00f, 1.20f, 0.50f, 1.80f, 0.50f } },
+			{ "breathless", 7, 0.30f, 0.35f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.15f, 0.20f, 0.25f, 0.00f, 0.00f, 0.25f,
+				false, true, false, kSlack, kLanguid, 0.30f, -0.10f, { 1.00f, 1.60f, 0.60f, 1.40f, 0.60f } },
 			{ "snarl", 14, 0.45f, 0.30f, 0.00f, 0.00f, 0.00f, 0.40f, 0.00f, 0.00f, 0.00f, 0.75f, 0.00f, 0.30f, 0.55f, 0.00f,
-				false, false, false, kHold, 0.40f, 0.00f, { 1.00f, 0.40f, 0.80f, 0.10f, 2.20f } },
+				false, false, false, kHold, kOpen, 0.40f, 0.00f, { 1.00f, 0.40f, 0.80f, 0.10f, 2.20f } },
 			{ "laughing", 10, 0.70f, 0.65f, 0.25f, 0.00f, 0.00f, 0.20f, 0.00f, 0.00f, 0.00f, 0.70f, 0.50f, 0.00f, 0.00f, 0.00f,
-				false, false, false, kSmile, 0.80f, 0.05f, { 1.00f, 0.20f, 1.80f, 0.60f, 0.60f } },
+				false, false, false, kSmile, kFlutter, 0.80f, 0.05f, { 1.00f, 0.20f, 1.80f, 0.60f, 0.60f } },
 		};
 		constexpr int kClimaxVariantCount = static_cast<int>(sizeof(kClimaxVariants) / sizeof(kClimaxVariants[0]));
 
@@ -152,6 +158,37 @@ namespace Face::Engine::detail
 
 		float Lerp(float a, float b, float t) { return a + (b - a) * t; }
 		float Smooth(float t) { t = ClampF(t, 0.0f, 1.0f); return t * t * (3.0f - 2.0f * t); }
+
+		// How far the lids are closed at this moment of the clip, 0..1, for a face's eyes style. `f` follows the clip's intensity, so the lids
+		// stay as they are until the face starts to settle and open with it; a rapid clip never opens them fully, the next orgasm is coming.
+		float BlinkAmount(Eyes style, float age, float k, float tremor, bool rapid)
+		{
+			float f = Smooth(k / 0.6f);
+			if (rapid) f = 0.6f + 0.4f * f;
+			switch (style) {
+			case kLanguid: {
+				// slow blinks: down over a second, held, up over a second, then open for a while
+				const float period = 3.4f;
+				const float ph = std::fmod(age, period) / period;
+				const float wave = ph < 0.30f ? Smooth(ph / 0.30f) : (ph < 0.42f ? 1.0f : (ph < 0.72f ? 1.0f - Smooth((ph - 0.42f) / 0.30f) : 0.0f));
+				return 0.85f * wave * f;
+			}
+			case kHeavy:
+				return (0.50f + 0.08f * std::sin(6.2831853f * age / 4.5f)) * f;  // lids half down, drifting slowly
+			case kClosed:
+				return 0.95f * Smooth(age / 0.6f) * f;
+			case kFlutter:
+				// shut, the lids trembling. The face is updated about every 0.8 s, so the period is not a multiple of that: a period of
+				// 1.6 s would be sampled at the same point of the wave every time and not tremble at all.
+				return (0.78f + (0.10f + 0.12f * tremor) * std::sin(6.2831853f * age / 1.3f)) * Smooth(age / 0.5f) * f;
+			case kTight:
+				return Smooth(age / 0.4f) * f;
+			case kHard:
+				return Smooth(age / 0.3f) * f;
+			default:
+				return 0.0f;
+			}
+		}
 
 		// The face at the peak of an orgasm: the variant's pose.
 		Preset PeakPose(const ClimaxVariant& v, float m)
@@ -266,6 +303,7 @@ namespace Face::Engine::detail
 			for (int i = 0; i <= 29; ++i) e[i] = Lerp(rest[i], peak[i], k);
 			e[30] = k >= 0.3f ? peak[30] : rest[30];  // the mood id cannot be blended, only its strength
 			e[31] = Lerp(rest[31], peak[31], k);
+			e[16] = e[17] = BlinkAmount(v.eyes, ClampF(Scenes::Now() - s.climaxStart, 0.0f, length), k, v.tremor, rapid);
 			if (S::bClimaxChoreo) {
 				if (!v.wide && tension > 0.0f) Add2(e, 28, tension);
 				if (s.rapidRun >= 1) {  // oversensitive: each climax in a rapid run hits harder
@@ -1291,7 +1329,7 @@ namespace Face::Engine::detail
 		const bool clenched = dom == kClimax && (arch == 1 || arch == 3);
 		const bool breathHoldsMouth = !yieldMouth && S::bBreathing && ((dom == kClimax && !gagC && !clenched) || gagR);
 		// A pool changes slowly, so it also moves slowly: a longer ease than the templates need.
-		const float ease = usingLib ? std::max(S::fTransition, 0.9f) : S::fTransition;
+		const float ease = usingLib ? std::max(S::fTransition, 0.9f) : (dom == kClimax && s.climaxFromPool ? std::max(S::fTransition, 0.8f) : S::fTransition);
 		Output::ApplyPreset(a, e, breathHoldsMouth || yieldMouth, eStr, mStr, strength, ease);
 		SetOwners(s, usingLib ? "Library/" + s.libLastName + (s.libFallback ? " (no act in the scene: stimulation pool)" : "")
 				: (dom == kClimax && s.climaxFromPool ? "Climax/" + s.climaxName : std::string(DomName(dom)) + "/" + ScenarioName(scenario)),
