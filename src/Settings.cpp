@@ -181,6 +181,10 @@ namespace Settings
 				{ "Arousal", "fRadius", &Arousal::fRadius },
 				{ "Arousal", "fRiseHalfLife", &Arousal::fRiseHalfLife },
 				{ "Arousal", "fFallHalfLife", &Arousal::fFallHalfLife },
+				{ "Arousal", "bShapedResponse", &Arousal::bShapedResponse },
+				{ "Arousal", "fResponseFloor", &Arousal::fResponseFloor },
+				{ "Arousal", "fResponseCeiling", &Arousal::fResponseCeiling },
+				{ "Arousal", "fPeakWindow", &Arousal::fPeakWindow },
 				{ "Arousal", "bBlush", &Arousal::bBlush },
 				{ "Arousal", "iOverlayFirstSlot", &Arousal::iOverlayFirstSlot },
 				{ "Arousal", "iOverlaySlots", &Arousal::iOverlaySlots },
@@ -219,6 +223,9 @@ namespace Settings
 			Arousal::fRiseHalfLife = std::max(0.5f, Arousal::fRiseHalfLife);
 			Arousal::fFallHalfLife = std::max(0.5f, Arousal::fFallHalfLife);
 			Arousal::fClimaxHold = std::clamp(Arousal::fClimaxHold, 0.0f, 60.0f);
+			Arousal::fResponseFloor = std::clamp(Arousal::fResponseFloor, 0.0f, 1.0f);
+			Arousal::fResponseCeiling = std::clamp(Arousal::fResponseCeiling, Arousal::fResponseFloor, 0.95f);
+			Arousal::fPeakWindow = std::clamp(Arousal::fPeakWindow, 1.0f, 30.0f);
 			Arousal::iOverlayFirstSlot = std::max(0, Arousal::iOverlayFirstSlot);
 			Arousal::iOverlaySlots = std::clamp(Arousal::iOverlaySlots, 0, 32);
 			LipSync::fAttack = std::clamp(LipSync::fAttack, 0.005f, 0.5f);

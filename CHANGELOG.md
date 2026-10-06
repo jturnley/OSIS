@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.0 beta 2 (plugin version 2.0.7) - in progress
+## 2.0 beta 2 (plugin version 2.0.8) - in progress
 
 ### Fixed
 - **Repeated orgasms held one actor's climax face for minutes.** In the 2.0 beta 1 probe Auri orgasmed every
@@ -92,6 +92,29 @@
 - Settings (Face page, Director): **Vary the climax face** (`bClimaxPool`, on; off gives the one built-in
   template back), **Climax face length** (`fClimaxSeconds`, 14 s, for an orgasm on its own) and **Rapid orgasm
   window** (`fRapidOrgasmSeconds`, 40 s).
+
+### Changed
+- **The arousal response no longer sits at its peak.** Each softbody morph, body-blush overlay and genital bend
+  reached its maximum once the arousal level passed its own `full` threshold (0.35 to 0.7 for most of the table), the
+  level was held at 0.9 while edging and eased to 1.0 at an orgasm, and the level lags excitement by a ten-second
+  half-life: so most of the body was at its extreme for most of a scene and the orgasm changed nothing. It looked wrong
+  beside faces that now vary and build. A **shaped response** now sets how much of each range shows (Arousal page, new
+  section "Shape of the response"; `bShapedResponse`, on):
+  - **A floor.** As soon as the actor is aroused a share of the range, 30%, is there to see (`fResponseFloor`):
+    apparent, not exaggerated. A morph still waits for its own start level before it moves at all, so they come in in
+    the same order as before.
+  - **A logarithmic rise to a ceiling.** The share rises with the arousal level on a log curve: quick to become apparent,
+    then flattening (30% at a tenth of the level, about 51% at a third, 62% at two thirds), to a ceiling of 65%
+    (`fResponseCeiling`) that holds through the rest of the build-up and the edging.
+  - **The highest levels only in the last seconds.** From the ceiling towards 95% when the orgasm is within the peak
+    window (`fPeakWindow`, 6 s), estimated from how fast OStim excitement is rising (excitement near the top and rising;
+    stalled at the edge it is not approaching anything). Simulated on a three-minute build: 64% at 168 s, 70% at 175 s,
+    80% at 177 s, 95% at 179 s.
+  - **The full range only at the orgasm.** 100% while the climax hold lasts (8 s), fading to the ceiling over about ten
+    seconds after it, as the level settles at its own pace.
+  Old curve against new on a three-minute build, for a morph that starts at 0.10 and is full at 0.50: 34% of its range
+  at 60 s (17% now), 90% at 90 s (50% now), 100% from 120 s (59% at 120 s, 64% at 168 s). The face blush (Living Skin)
+  and the skin effects that read the level are unchanged. Turn the setting off for the old curve.
 
 ### Notes
 - Consensual scenes only: the victim's reaction in a non-consensual scene keeps its own template.

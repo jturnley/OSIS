@@ -12,6 +12,8 @@
 //   - OSED scene state: an orgasm spikes to full engorgement for fClimaxHold seconds,
 //     edging (plateau) holds the response high, afterglow keeps it up while resolving
 //   - personality: vocal/dominant engorge faster, stoic slower; shy flush harder
+// How much of each response's range then shows is shaped (Shape in Arousal.cpp): a floor, a logarithmic rise to a ceiling, the
+// top only in the last seconds before an orgasm, and the full range only at the orgasm.
 // The same level drives Living Skin's face blush, so face and body flush together.
 namespace Arousal
 {
@@ -21,6 +23,7 @@ namespace Arousal
 		float arousal;   // 0-100 from the arousal mod
 		float target;    // 0-1 after scene factors
 		float level;     // 0-1 smoothed tissue response
+		float shown;     // 0-1 share of each response's range that shows (the shaped curve)
 		std::string why; // strongest factor
 	};
 

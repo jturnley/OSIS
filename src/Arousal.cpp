@@ -39,6 +39,11 @@ namespace Arousal
 			float level = 0.0f;     // 0-1
 			float flushMult = 1.0f;
 			float climaxUntil = 0.0f;
+			float exc = 0.0f;       // OStim excitement 0-1 as last read, and when
+			float excAt = 0.0f;
+			float excRate = 0.0f;   // how fast it is rising per second, smoothed
+			float boost = 0.0f;     // 1 during an orgasm, then fading: the full range shows only then
+			float shown = 1.0f;     // 0-1 share of each response's range that shows
 			std::string why = "arousal";
 			std::vector<float> applied;
 			std::uint32_t lastTick = 0;
@@ -77,6 +82,8 @@ namespace Arousal
 			std::vector<S::RaceBlush> raceBlush;
 			bool matte;
 			bool genitals;
+			bool shaped;
+			float floorShown, ceilingShown, peakWindow;
 		};
 
 		Snap CopySettings()
@@ -85,7 +92,7 @@ namespace Arousal
 			return { S::bEnabled && Settings::General::bEnabled, S::bAffectPlayer, S::bAffectNPCs, S::bOStimExcitement, S::bSceneFactors,
 				S::bPersonality, S::iSource, S::iMaxNPCs, S::fIntensity, S::fRadius, S::fRiseHalfLife, S::fFallHalfLife, S::fClimaxHold,
 				S::morphs, S::bBlush, S::iOverlayFirstSlot, S::iOverlaySlots, S::blushes, S::raceBlush, Settings::Skin::bMatteOverlays,
-				Settings::Body::bGenitals };
+				Settings::Body::bGenitals, S::bShapedResponse, S::fResponseFloor, S::fResponseCeiling, S::fPeakWindow };
 		}
 
 		float Ease(float level, float start, float full)
@@ -216,7 +223,7 @@ namespace Arousal
 			const float raceMult = BlushRaceMult(a, s);
 			for (size_t i = 0; i < active.size(); ++i) {
 				const auto* b = active[i];
-				const float alpha = std::clamp(b->max * Ease(st.level, b->start, b->full) * s.intensity * st.flushMult * raceMult, 0.0f, 1.0f);
+				const float alpha = std::clamp(b->max * Ease(st.level, b->start, b->full) * s.intensity * st.shown * st.flushMult * raceMult, 0.0f, 1.0f);
 				if (!std::isnan(st.blushAlpha[i]) && std::abs(alpha - st.blushAlpha[i]) <= 0.01f) continue;
 				Papyrus::SetOverlayAlpha(a, st.female, st.blushNodes[i], alpha);
 				st.blushAlpha[i] = alpha;
@@ -339,6 +346,50 @@ namespace Arousal
 			}
 			return std::clamp(target, 0.0f, 1.0f);
 		}
+
+		// How much of each response's range (every morph's change, the body blush, the genital bend) shows, 0-1.
+		//
+		// The old curve gave each morph its maximum once the level passed that morph's own `full` - 0.35 to 0.7 for most of them - and the
+		// level was held at 0.9 while edging, so most of the body sat at its extreme for most of a scene, and the orgasm added nothing.
+		// Now: the level sets a share between a floor and a ceiling on a logarithmic curve (quick to become apparent, then flattening, so
+		// the rest of the build-up does not exaggerate it); a lift from the ceiling towards 0.95 only when the orgasm is within the peak
+		// window, estimated from how fast OStim excitement is rising; and the full range only during the orgasm, fading over a few
+		// seconds after it. Each morph still waits for its own start level, so the order they come in is as before.
+		float Shape(RE::Actor* a, ActorState& st, const Snap& s, float now, float dt)
+		{
+			if (!s.shaped) return 1.0f;
+			float imminent = 0.0f;
+			if (auto* t = Scenes::ThreadOf(a); t && t->active) {
+				const float exc = std::clamp(static_cast<float>(Face::Engine::Excitement(a)) / 100.0f, 0.0f, 1.0f);
+				if (st.excAt > 0.0f && now > st.excAt) {
+					const float span = now - st.excAt;
+					// Excitement resets at an orgasm: that is not a falling rate, so the rate never goes below zero.
+					const float rate = std::max(0.0f, (exc - st.exc) / span);
+					st.excRate += (rate - st.excRate) * (1.0f - std::exp(-span / 3.0f));
+				}
+				st.exc = exc;
+				st.excAt = now;
+				// Seconds to the orgasm at the current rate; excitement has to be near the top for it to count at all, and a stalled
+				// excitement (edging) is not approaching anything.
+				if (exc >= 0.85f && st.excRate > 0.001f) {
+					const float untilOrgasm = (1.0f - exc) / st.excRate;
+					imminent = std::clamp(1.0f - untilOrgasm / std::max(1.0f, s.peakWindow), 0.0f, 1.0f);
+				}
+				if (exc >= 0.985f) imminent = 1.0f;
+			} else {
+				st.exc = st.excAt = st.excRate = 0.0f;
+			}
+			if (s.factors && now < st.climaxUntil) st.boost = 1.0f;
+			else if (dt > 0.0f) st.boost *= std::pow(0.5f, dt / 4.0f);
+			if (st.boost < 0.01f) st.boost = 0.0f;
+			const float level = std::clamp(st.level, 0.0f, 1.0f);
+			const float u = std::clamp(level / 0.9f, 0.0f, 1.0f);
+			const float curve = std::log1p(9.0f * u) / std::log(10.0f);  // 0.30 at a tenth of the way, 0.62 at a third, 0.85 at two thirds
+			float body = s.floorShown + (s.ceilingShown - s.floorShown) * curve;
+			body *= std::clamp(level / 0.12f, 0.0f, 1.0f);  // the floor comes in over the first of the arousal, so it does not pop at zero
+			const float top = body + (0.95f - body) * imminent;
+			return std::max(top, st.boost);
+		}
 	}
 
 	void Init()
@@ -454,13 +505,14 @@ namespace Arousal
 			const float halfLife = st.target > st.level ? s.rise * riseMult : s.fall * fallMult;
 			if (dt > 0.0f) st.level += (st.target - st.level) * (1.0f - std::pow(0.5f, dt / std::max(0.1f, halfLife)));
 			if (std::abs(st.target - st.level) < 0.002f) st.level = st.target;
+			st.shown = Shape(a, st, s, now, dt);
 
 			ApplyBlush(a, st, s);
 			// A male body has no softbody sliders worth driving, but it does have the genital
 			// chain. Same level, applied as bones in the Body module. The enable comes from the
 			// tick's settings snapshot: this runs under the state lock, and taking Settings::lock
 			// here would invert the project's Scenes -> Settings -> module lock order.
-			if (!st.female && s.genitals) Body::SetGenitalResponse(a, st.level * std::clamp(s.intensity, 0.0f, 1.0f));
+			if (!st.female && s.genitals) Body::SetGenitalResponse(a, st.level * st.shown * std::clamp(s.intensity, 0.0f, 1.0f));
 
 			bool changed = false;
 			for (size_t i = 0; i < s.morphs.size(); ++i) {
@@ -471,7 +523,7 @@ namespace Arousal
 					st.applied[i] = 0.0f;  // never set on this body: nothing to clear
 					continue;
 				}
-				const float v = applies ? m.rest + (m.max - m.rest) * Ease(st.level, m.start, m.full) * s.intensity : 0.0f;
+				const float v = applies ? m.rest + (m.max - m.rest) * Ease(st.level, m.start, m.full) * s.intensity * st.shown : 0.0f;
 				if (!std::isnan(prev) && std::abs(v - prev) <= 0.005f) continue;
 				if (v == 0.0f) Papyrus::ClearBodyMorph(a, m.name, kMorphKey);
 				else Papyrus::SetBodyMorph(a, m.name, kMorphKey, v);
@@ -480,7 +532,7 @@ namespace Arousal
 			}
 			if (changed) {
 				Papyrus::UpdateModelWeight(a);
-				logger::debug("{:08X} {} arousal={:.0f} target={:.2f} ({}) level={:.3f}", a->GetFormID(), st.name, st.arousal, st.target, st.why, st.level);
+				logger::debug("{:08X} {} arousal={:.0f} target={:.2f} ({}) level={:.3f} shown={:.2f}", a->GetFormID(), st.name, st.arousal, st.target, st.why, st.level, st.shown);
 			}
 		}
 		// Anyone not processed this tick keeps their state through the grace period, then
@@ -519,7 +571,7 @@ namespace Arousal
 	{
 		std::scoped_lock l(g_stateLock);
 		std::vector<StatusRow> rows;
-		for (auto& [id, st] : g_states) rows.push_back({ st.name, st.arousal, st.target, st.level, st.why });
+		for (auto& [id, st] : g_states) rows.push_back({ st.name, st.arousal, st.target, st.level, st.shown, st.why });
 		return rows;
 	}
 }

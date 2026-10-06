@@ -242,6 +242,15 @@ namespace Settings
 		inline float fRiseHalfLife = 10.0f;
 		inline float fFallHalfLife = 45.0f;
 
+		// The shape of the response: how much of each morph's, blush's and genital bend's range shows. A floor from the moment an
+		// actor is aroused (apparent, not exaggerated), a logarithmic rise to a ceiling through the build-up, a lift towards the top
+		// only in the last seconds before an orgasm, and the full range only at the orgasm itself. Off: the old curve, where each
+		// morph reached its maximum once the level passed its own `full` and stayed there.
+		inline bool bShapedResponse = true;
+		inline float fResponseFloor = 0.30f;    // the share of the range shown as soon as the actor is aroused
+		inline float fResponseCeiling = 0.65f;  // the most shown through the build-up, until the last seconds
+		inline float fPeakWindow = 6.0f;        // seconds before the orgasm, as estimated from how fast excitement is rising, that the lift begins
+
 		inline bool bBlush = true;
 		inline int iOverlayFirstSlot = 6;
 		inline int iOverlaySlots = 6;

@@ -919,6 +919,22 @@ namespace
 				"Seconds to cover half the distance to the target while the level is rising.");
 			SliderF("Resolution half-life (s)", fFallHalfLife, 1.0f, 600.0f, "%.0f",
 				"The same while it falls. Longer than the rise on purpose: a body settles slower than it responds.");
+
+			ig::SeparatorText("Shape of the response");
+			Check("Shape the response", bShapedResponse,
+				"How much of each morph, body blush and genital bend shows. On: a floor as soon as the actor is aroused, a logarithmic rise "
+				"(quick at first, then flattening) to a ceiling through the build-up, a lift towards the top only in the last seconds before an "
+				"orgasm, and the full range only at the orgasm. Off: the old curve, where every morph reached its maximum early and stayed there.");
+			if (bShapedResponse) {
+				SliderF("Floor", fResponseFloor, 0.0f, 1.0f, "%.2f",
+					"The share of each morph's range that shows as soon as it is engaged: apparent, not exaggerated. A morph still waits for its own "
+					"start level before it moves at all.");
+				SliderF("Ceiling until the last seconds", fResponseCeiling, 0.0f, 0.95f, "%.2f",
+					"The most that shows through the build-up, however high the arousal. The rise towards it is logarithmic: quick early, flat later.");
+				SliderF("Last seconds before orgasm", fPeakWindow, 1.0f, 30.0f, "%.0f",
+					"The lift from the ceiling to the top begins this many seconds before the orgasm, as estimated from how fast OStim excitement is "
+					"rising. Full only once the orgasm happens. With no scene there is no orgasm to wait for, so the ceiling holds.");
+			}
 		}
 		ig::SeparatorText("Affected actors");
 		const auto rows = Arousal::Snapshot();
@@ -929,7 +945,7 @@ namespace
 				ig::TableNextColumn();
 				ig::Text("%s", r.name.c_str());
 				ig::TableNextColumn();
-				ig::Text("arousal %3.0f  target %3.0f%%  response %3.0f%%  (%s)", r.arousal, r.target * 100.0f, r.level * 100.0f, r.why.c_str());
+				ig::Text("arousal %3.0f  target %3.0f%%  level %3.0f%%  shown %3.0f%%  (%s)", r.arousal, r.target * 100.0f, r.level * 100.0f, r.shown * 100.0f, r.why.c_str());
 			}
 			ig::EndTable();
 		}
