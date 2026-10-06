@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.0 beta 2 (plugin version 2.0.1) - in progress
+## 2.0 beta 2 (plugin version 2.0.2) - in progress
 
 ### Fixed
 - **Repeated orgasms held one actor's climax face for minutes.** In the 2.0 beta 1 probe Auri orgasmed every
@@ -22,16 +22,31 @@
   tight), the afterglow is skipped or cut short (and any afterglow ends as soon as excitement is back above 45),
   and the face between orgasms carries a tension, squint and brows drawn in, that grows with each orgasm in the
   run (0.12 each, up to 0.35) and fades over the window. An orgasm outside the window is a fresh one.
-- **A pool of fifteen climax faces.** The climax used to be one template (the same open mouth, squint and brows)
-  with the occasional wide-eyed beat. Each orgasm now picks one of fifteen, held through that orgasm, never the
-  same as the one before: gasp, cry out, clenched, lip bite, silent, wide-eyed, eyes rolled, smiling, intense,
+- **A pool of fifteen climax faces, each a timed clip in four forms.** The climax used to be one template (the
+  same open mouth, squint and brows) held for the whole orgasm. Each orgasm now picks one of fifteen faces, never
+  the same as the one before: gasp, cry out, clenched, lip bite, silent, wide-eyed, eyes rolled, smiling, intense,
   long moan, overwhelmed, pained, breathless, snarl, laughing. They differ in eyes (shut tight, narrowed, rolled
-  up, wide), mouth (stretched, round, parted, clenched, pressed) and brows (knitted, lifted, lowered), with a
-  mood to match. The pick is weighted by the actor's personality (a stoic actor is most often silent, clenched or
+  up, wide), mouth (stretched, round, parted, clenched, pressed) and brows (knitted, lifted, lowered), with a mood
+  to match. The pick is weighted by the actor's personality (a stoic actor is most often silent, clenched or
   breathless; a bold one long moan, cry out, smiling or eyes rolled; a shy one lip bite, wide-eyed or pained; a
-  fierce one intense, snarl or clenched) and a rapid run favours the overwhelmed ones (gasp, clenched,
-  overwhelmed, pained) over the calm ones. The face label in the probe says which: `Climax/lip_bite`. The
-  personality and orgasm count, with the time since the last, are now on the probe's beat line too.
+  fierce one intense, snarl or clenched), and a rapid run favours the overwhelmed ones (gasp, clenched,
+  overwhelmed, pained) over the calm ones.
+- **Long and short, standard and rapid.** The orgasm is also long or short, and standard or rapid, which gives
+  each face four clips (60 in all). The length is the setting for a long standard orgasm (14 s), 45% of it for a
+  short one, 65% of it for a rapid long one and 35% for a rapid short one, the rapid ones never more than most of
+  the gap since the last orgasm. Long is likelier for a bold actor, after a long hold at the edge, and for faces
+  that suit it (long moan, smiling, eyes rolled); a rapid orgasm is likelier short the closer it comes to the last.
+- **What a clip does over its length.** A standard orgasm starts with a squeeze (the eyes screwed up, brows in),
+  reaches the full pose, holds it, then ripples through the aftershocks (three ripples in the long form, none in
+  the short, the depth of the ripple a trait of the face: a laugh or an overwhelmed face shakes, a silent one
+  hardly moves) and eases to where that face settles: loosening (gasp, cry out, lip bite, long moan, pained),
+  smiling (wide-eyed, smiling, laughing), slack (silent, eyes rolled, breathless) or staying tight (clenched,
+  intense, overwhelmed, snarl). A rapid orgasm skips the squeeze, since the face is still tight, and eases only
+  to a held tension, because the next orgasm is already coming.
+- **A face update every 0.8 s during an orgasm,** not every three seconds, so a clip of 4-14 s is played in
+  steps and not as two or three jumps. The tick after an orgasm is pulled forward to match. Back to the normal
+  cadence when the climax ends. The face label in the probe names the clip, `Climax/lip_bite/rapid-short`, and
+  the personality and orgasm count, with the time since the last, are on the probe's beat line.
 - Settings (Face page, Director): **Vary the climax face** (`bClimaxPool`, on; off gives the one built-in
   template back), **Climax face length** (`fClimaxSeconds`, 14 s, for an orgasm on its own) and **Rapid orgasm
   window** (`fRapidOrgasmSeconds`, 40 s).
@@ -42,7 +57,9 @@
   different the eyes look between variants depends on those settings; the mouth, brows and mood carry most of
   the difference at the defaults.
 - The values are authored here from how an orgasm face is described anatomically, not copied from OStim's
-  expression files; they live in a table at the top of `Face/Director.cpp` (`kClimaxVariants`).
+  expression files; the fifteen faces are a table at the top of `Face/Director.cpp` (`kClimaxVariants`: the peak
+  pose, how it settles, how much it ripples and how likely it is to run long), and the four timelines are in
+  `ShapeOf`.
 - Not yet run in the game.
 
 ## 2.0 beta 1 (plugin version 2.0.0)

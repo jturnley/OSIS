@@ -73,6 +73,7 @@ namespace Scenes
 		float afterglowUntil = 0.0f;  // this actor's own afterglow; a partner's orgasm does not start one
 		// The climax face the Director picked from its pool for this orgasm, held through it; the next orgasm picks another.
 		int climaxVariant = -1;
+		int climaxKind = -1;      // 0 long, 1 short, 2 rapid long, 3 rapid short; -1 when the built-in template is used
 		int lastClimaxVariant = -1;
 		float climaxVariantAt = -1.0f;  // the climaxStart the pick was made for
 		bool climaxFromPool = false;    // this beat's climax face came from the pool, not the built-in template

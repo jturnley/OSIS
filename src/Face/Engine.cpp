@@ -234,6 +234,7 @@ namespace Face::Engine
 
 		int ArcEvery(const Thread& t)
 		{
+			if (t.orgasm && S::bClimaxPool) return 1;
 			if (!S::bBreathing && !S::bTongueLife && !OSEDNeedsFastTick(t)) return 1;
 			int n = static_cast<int>(S::fBaseInterval / 0.8f + 0.5f);
 			if (t.sceneOral && S::bYieldOralMouth && !OverridesAreOurs()) n *= 2;
@@ -885,6 +886,16 @@ namespace Face::Engine
 		float ClimaxLength(const Slot& s)
 		{
 			const float full = ClampF(S::fClimaxSeconds, 4.0f, 30.0f);
+			// The clip's own length: a long standard orgasm is the setting, a short one under half of it, and a rapid one is shorter again
+			// and never most of the gap, so the face has time to come back down before the next.
+			switch (s.climaxKind) {
+			case 0: return full;
+			case 1: return std::max(4.0f, full * 0.45f);
+			case 2: return std::max(4.0f, std::min(full * 0.65f, s.orgasmGap * 0.75f));
+			case 3: return std::max(3.0f, std::min(full * 0.35f, s.orgasmGap * 0.60f));
+			default: break;
+			}
+			// The built-in template (the pool off, or a non-consensual scene): shorter for a rapid one, by up to 60%.
 			const float r = RapidFactor(s);
 			if (r <= 0.0f) return full;
 			return std::max(4.0f, std::min(full * (1.0f - 0.6f * r), s.orgasmGap * 0.75f));
@@ -1386,6 +1397,7 @@ namespace Face::Engine
 	float TickInterval(const Thread& t)
 	{
 		std::scoped_lock l(Settings::lock);
+		if (t.orgasm && S::bClimaxPool) return 0.8f;  // a climax clip needs a face update every second or so, not every three
 		if (S::bBreathing || S::bTongueLife || OSEDNeedsFastTick(t)) return 0.8f;
 		float base = S::fBaseInterval;
 		if (t.sceneOral && S::bYieldOralMouth && !detail::OverridesAreOurs()) base *= 1.75f;
@@ -1452,6 +1464,9 @@ namespace Face::Engine
 		s->lastOrgasmAt = now;
 		++s->orgasms;
 		s->climaxStart = now;
+		// This orgasm's climax clip: one of the fifteen faces, long or short, as a standard or a rapid orgasm.
+		if (S::bClimaxPool && t.consent) PickClimaxClip(t, *s, Archetype(a));
+		else s->climaxKind = -1;
 		s->climaxUntil = now + ClimaxLength(*s);
 		s->afterglowUntil = 0.0f;  // a new orgasm ends any afterglow
 		s->climaxing = true;
@@ -1466,6 +1481,8 @@ namespace Face::Engine
 		}
 #endif
 		ApplyAll(t, true);
+		// The tick after an orgasm is on the quick clock (TickInterval), but the one already scheduled may be three seconds off.
+		if (S::bClimaxPool) t.nextTick = std::min(t.nextTick, Scenes::Now() + 0.8f);
 	}
 
 	void OnTick(Thread& t)

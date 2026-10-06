@@ -54,13 +54,16 @@ namespace Face::Engine::detail
 			return 1.0f;
 		}
 
-		// ---- the climax pool
-		// One climax template made every orgasm look the same: the same open mouth, squint and brows, the occasional wide-eyed beat
-		// the only difference. A pool of fifteen faces, each a distinct combination of eyes (shut tight, narrowed, rolled up, wide),
-		// mouth (stretched open, round, parted, clenched, lip held) and brows (knitted, lifted, lowered), with a mood to match. The
-		// pick is made once per orgasm, weighted by the actor's personality (`suits`) and by whether the orgasms are coming quickly
-		// (`intense` ones are favoured, `calm` ones held back), and is never the one before. The values are the pose at the peak:
-		// the pipeline after it (phrase envelope, eye scalar, strength) shapes them like any other face.
+		// ---- the climax clips
+		// One climax template made every orgasm look the same. Fifteen faces now, each a distinct combination of eyes (shut tight,
+		// narrowed, rolled up, wide), mouth (stretched, round, parted, clenched, pressed) and brows (knitted, lifted, lowered) with a
+		// mood to match, and each played as a clip over the length of the orgasm rather than as one held pose. The pick is made once per
+		// orgasm (PickClimaxClip), by personality (`suits`) and by whether the orgasms are coming quickly (`intense` ones favoured, `calm`
+		// ones held back), never the one before, and the orgasm is long or short too: a standard orgasm (alone, or well after the last)
+		// or a rapid one (soon after it), each in a long and a short form, so a face has four clips. The values are the pose at the peak;
+		// the pipeline after it (eye scalar, strength) shapes them like any other face.
+		enum Settle : int { kSoften, kSmile, kSlack, kHold };  // where the face goes as the orgasm ends: loosens, smiles, goes slack, stays tight
+
 		struct ClimaxVariant
 		{
 			const char* name;
@@ -68,46 +71,61 @@ namespace Face::Engine::detail
 			float moodStr;
 			float aah, bigAah, oh, ooh, eee, eh, bmp, th;  // phonemes 0, 1, 11, 12, 5, 6, 2, 14
 			float squint, browUp, browIn, browDown, lookUp;
-			bool rollsUp;  // the eyes roll up at the start of the orgasm
 			bool wide;     // eyes wide: no squeeze at the start
 			bool calm;
 			bool intense;
+			Settle settle;
+			float tremor;    // how much the face ripples through the aftershocks, 0..1
+			float longBias;  // added to the chance this face runs long
 			float suits[5];  // weight by personality: none, stoic, bold, shy, fierce
 		};
 
 		constexpr ClimaxVariant kClimaxVariants[] = {
-			{ "gasp", 10, 0.35f, 0.70f, 0.55f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.85f, 0.15f, 0.55f, 0.00f, 0.00f, false, false, false, true,
-				{ 1.00f, 0.80f, 1.20f, 1.00f, 0.90f } },
-			{ "cry_out", 12, 0.50f, 0.35f, 0.20f, 0.75f, 0.30f, 0.00f, 0.00f, 0.00f, 0.00f, 0.45f, 0.70f, 0.00f, 0.00f, 0.60f, true, false, false, false,
-				{ 1.00f, 0.30f, 2.00f, 0.60f, 1.20f } },
-			{ "clenched", 8, 0.30f, 0.10f, 0.00f, 0.00f, 0.00f, 0.55f, 0.00f, 0.20f, 0.00f, 0.90f, 0.00f, 0.60f, 0.35f, 0.00f, false, false, false, true,
-				{ 1.00f, 2.00f, 0.40f, 1.20f, 1.60f } },
-			{ "lip_bite", 11, 0.35f, 0.08f, 0.00f, 0.00f, 0.00f, 0.00f, 0.10f, 0.55f, 0.20f, 0.80f, 0.25f, 0.40f, 0.00f, 0.00f, false, false, false, false,
-				{ 1.00f, 1.20f, 0.30f, 2.20f, 0.30f } },
-			{ "silent", 7, 0.30f, 0.15f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.80f, 0.10f, 0.20f, 0.00f, 0.00f, false, false, true, false,
-				{ 1.00f, 2.40f, 0.20f, 1.40f, 0.50f } },
-			{ "wide_eyed", 12, 1.00f, 0.30f, 0.00f, 0.55f, 0.15f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 1.00f, 0.00f, 0.00f, 0.00f, false, true, false, false,
-				{ 1.00f, 0.60f, 0.80f, 2.00f, 0.40f } },
-			{ "eyes_rolled", 10, 0.30f, 0.55f, 0.20f, 0.00f, 0.10f, 0.00f, 0.00f, 0.00f, 0.00f, 0.55f, 0.45f, 0.00f, 0.00f, 0.85f, true, false, false, false,
-				{ 1.00f, 0.30f, 1.80f, 0.60f, 1.00f } },
-			{ "smiling", 10, 0.85f, 0.45f, 0.00f, 0.00f, 0.00f, 0.30f, 0.00f, 0.00f, 0.00f, 0.75f, 0.20f, 0.00f, 0.00f, 0.00f, false, false, false, false,
-				{ 1.00f, 0.50f, 1.80f, 0.50f, 0.80f } },
-			{ "intense", 8, 0.35f, 0.25f, 0.00f, 0.00f, 0.00f, 0.10f, 0.00f, 0.00f, 0.00f, 0.55f, 0.00f, 0.35f, 0.45f, 0.00f, false, false, false, false,
-				{ 1.00f, 1.40f, 0.60f, 0.30f, 2.20f } },
-			{ "long_moan", 11, 0.40f, 0.20f, 0.65f, 0.00f, 0.50f, 0.00f, 0.00f, 0.00f, 0.00f, 0.80f, 0.35f, 0.45f, 0.00f, 0.00f, false, false, false, false,
-				{ 1.00f, 0.20f, 2.20f, 0.50f, 0.80f } },
-			{ "overwhelmed", 9, 0.45f, 0.60f, 0.40f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.90f, 0.30f, 0.65f, 0.00f, 0.00f, false, false, false, true,
-				{ 1.00f, 0.60f, 1.00f, 1.80f, 0.80f } },
-			{ "pained", 11, 0.55f, 0.35f, 0.00f, 0.00f, 0.00f, 0.15f, 0.35f, 0.00f, 0.00f, 0.85f, 0.55f, 0.60f, 0.00f, 0.00f, false, false, false, true,
-				{ 1.00f, 1.20f, 0.50f, 1.80f, 0.50f } },
-			{ "breathless", 7, 0.30f, 0.35f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.15f, 0.35f, 0.25f, 0.00f, 0.00f, 0.25f, false, false, true, false,
-				{ 1.00f, 1.60f, 0.60f, 1.40f, 0.60f } },
-			{ "snarl", 14, 0.45f, 0.30f, 0.00f, 0.00f, 0.00f, 0.40f, 0.00f, 0.00f, 0.00f, 0.75f, 0.00f, 0.30f, 0.55f, 0.00f, false, false, false, false,
-				{ 1.00f, 0.40f, 0.80f, 0.10f, 2.20f } },
-			{ "laughing", 10, 0.70f, 0.65f, 0.25f, 0.00f, 0.00f, 0.20f, 0.00f, 0.00f, 0.00f, 0.70f, 0.50f, 0.00f, 0.00f, 0.00f, false, false, false, false,
-				{ 1.00f, 0.20f, 1.80f, 0.60f, 0.60f } },
+			{ "gasp", 10, 0.35f, 0.70f, 0.55f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.85f, 0.15f, 0.55f, 0.00f, 0.00f,
+				false, false, true, kSoften, 0.60f, -0.10f, { 1.00f, 0.80f, 1.20f, 1.00f, 0.90f } },
+			{ "cry_out", 12, 0.50f, 0.35f, 0.20f, 0.75f, 0.30f, 0.00f, 0.00f, 0.00f, 0.00f, 0.45f, 0.70f, 0.00f, 0.00f, 0.60f,
+				false, false, false, kSoften, 0.50f, 0.05f, { 1.00f, 0.30f, 2.00f, 0.60f, 1.20f } },
+			{ "clenched", 8, 0.30f, 0.10f, 0.00f, 0.00f, 0.00f, 0.55f, 0.00f, 0.20f, 0.00f, 0.90f, 0.00f, 0.60f, 0.35f, 0.00f,
+				false, false, true, kHold, 0.70f, 0.00f, { 1.00f, 2.00f, 0.40f, 1.20f, 1.60f } },
+			{ "lip_bite", 11, 0.35f, 0.08f, 0.00f, 0.00f, 0.00f, 0.00f, 0.10f, 0.55f, 0.20f, 0.80f, 0.25f, 0.40f, 0.00f, 0.00f,
+				false, false, false, kSoften, 0.30f, 0.00f, { 1.00f, 1.20f, 0.30f, 2.20f, 0.30f } },
+			{ "silent", 7, 0.30f, 0.15f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.80f, 0.10f, 0.20f, 0.00f, 0.00f,
+				false, true, false, kSlack, 0.20f, -0.20f, { 1.00f, 2.40f, 0.20f, 1.40f, 0.50f } },
+			{ "wide_eyed", 12, 1.00f, 0.30f, 0.00f, 0.55f, 0.15f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 1.00f, 0.00f, 0.00f, 0.00f,
+				true, false, false, kSmile, 0.40f, -0.10f, { 1.00f, 0.60f, 0.80f, 2.00f, 0.40f } },
+			{ "eyes_rolled", 10, 0.30f, 0.55f, 0.20f, 0.00f, 0.10f, 0.00f, 0.00f, 0.00f, 0.00f, 0.55f, 0.45f, 0.00f, 0.00f, 0.85f,
+				false, false, false, kSlack, 0.50f, 0.10f, { 1.00f, 0.30f, 1.80f, 0.60f, 1.00f } },
+			{ "smiling", 10, 0.85f, 0.45f, 0.00f, 0.00f, 0.00f, 0.30f, 0.00f, 0.00f, 0.00f, 0.75f, 0.20f, 0.00f, 0.00f, 0.00f,
+				false, false, false, kSmile, 0.30f, 0.10f, { 1.00f, 0.50f, 1.80f, 0.50f, 0.80f } },
+			{ "intense", 8, 0.35f, 0.25f, 0.00f, 0.00f, 0.00f, 0.10f, 0.00f, 0.00f, 0.00f, 0.55f, 0.00f, 0.35f, 0.45f, 0.00f,
+				false, false, false, kHold, 0.20f, 0.05f, { 1.00f, 1.40f, 0.60f, 0.30f, 2.20f } },
+			{ "long_moan", 11, 0.40f, 0.20f, 0.65f, 0.00f, 0.50f, 0.00f, 0.00f, 0.00f, 0.00f, 0.80f, 0.35f, 0.45f, 0.00f, 0.00f,
+				false, false, false, kSoften, 0.40f, 0.25f, { 1.00f, 0.20f, 2.20f, 0.50f, 0.80f } },
+			{ "overwhelmed", 9, 0.45f, 0.60f, 0.40f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.90f, 0.30f, 0.65f, 0.00f, 0.00f,
+				false, false, true, kHold, 0.90f, 0.00f, { 1.00f, 0.60f, 1.00f, 1.80f, 0.80f } },
+			{ "pained", 11, 0.55f, 0.35f, 0.00f, 0.00f, 0.00f, 0.15f, 0.35f, 0.00f, 0.00f, 0.85f, 0.55f, 0.60f, 0.00f, 0.00f,
+				false, false, true, kSoften, 0.60f, 0.00f, { 1.00f, 1.20f, 0.50f, 1.80f, 0.50f } },
+			{ "breathless", 7, 0.30f, 0.35f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.15f, 0.35f, 0.25f, 0.00f, 0.00f, 0.25f,
+				false, true, false, kSlack, 0.30f, -0.10f, { 1.00f, 1.60f, 0.60f, 1.40f, 0.60f } },
+			{ "snarl", 14, 0.45f, 0.30f, 0.00f, 0.00f, 0.00f, 0.40f, 0.00f, 0.00f, 0.00f, 0.75f, 0.00f, 0.30f, 0.55f, 0.00f,
+				false, false, false, kHold, 0.40f, 0.00f, { 1.00f, 0.40f, 0.80f, 0.10f, 2.20f } },
+			{ "laughing", 10, 0.70f, 0.65f, 0.25f, 0.00f, 0.00f, 0.20f, 0.00f, 0.00f, 0.00f, 0.70f, 0.50f, 0.00f, 0.00f, 0.00f,
+				false, false, false, kSmile, 0.80f, 0.05f, { 1.00f, 0.20f, 1.80f, 0.60f, 0.60f } },
 		};
 		constexpr int kClimaxVariantCount = static_cast<int>(sizeof(kClimaxVariants) / sizeof(kClimaxVariants[0]));
+
+		enum ClimaxKind : int { kStdLong = 0, kStdShort = 1, kRapidLong = 2, kRapidShort = 3 };
+
+		const char* ClimaxKindName(int kind)
+		{
+			switch (kind) {
+			case kStdLong: return "long";
+			case kStdShort: return "short";
+			case kRapidLong: return "rapid-long";
+			case kRapidShort: return "rapid-short";
+			default: return "template";
+			}
+		}
 
 		int PickClimaxVariant(const Slot& s, int arch)
 		{
@@ -132,17 +150,13 @@ namespace Face::Engine::detail
 			return kClimaxVariantCount - 1;
 		}
 
-		// The pose of this orgasm's climax face, over the timeline of the orgasm: a squeeze at the start (not for the wide-eyed ones, and
-		// not for a repeat that came quickly - the face is still tight), the eyes rolling up for the variants that do.
-		bool ClimaxVariantPose(Slot& s, int arch, float m, Preset& e)
+		float Lerp(float a, float b, float t) { return a + (b - a) * t; }
+		float Smooth(float t) { t = ClampF(t, 0.0f, 1.0f); return t * t * (3.0f - 2.0f * t); }
+
+		// The face at the peak of an orgasm: the variant's pose.
+		Preset PeakPose(const ClimaxVariant& v, float m)
 		{
-			if (s.climaxVariant < 0 || s.climaxVariantAt != s.climaxStart) {
-				s.climaxVariant = PickClimaxVariant(s, arch);
-				s.lastClimaxVariant = s.climaxVariant;
-				s.climaxVariantAt = s.climaxStart;
-			}
-			const auto& v = kClimaxVariants[s.climaxVariant];
-			e = {};
+			Preset e{};
 			e[0] = v.aah * m;
 			e[1] = v.bigAah * m;
 			e[2] = v.bmp * m;
@@ -158,21 +172,108 @@ namespace Face::Engine::detail
 			e[28] = e[29] = v.squint;
 			e[30] = static_cast<float>(v.mood);
 			e[31] = v.moodStr;
+			return e;
+		}
+
+		// Where the face is heading as the orgasm ends. After a standard orgasm it settles, the way this variant settles (an afterglow
+		// follows). After a rapid one it stays tight, because the next orgasm is already coming.
+		Preset RestPose(const ClimaxVariant& v, const Preset& p, bool rapid, float m)
+		{
+			Preset r{};
+			switch (rapid ? kHold : v.settle) {
+			case kSoften:
+				for (int i = 0; i <= 15; ++i) r[i] = p[i] * 0.35f;
+				r[18] = r[19] = p[18] * 0.35f;
+				r[20] = r[21] = p[20] * 0.35f;
+				r[22] = r[23] = p[22] * 0.5f;
+				r[28] = r[29] = p[28] * 0.55f;
+				r[30] = p[30];
+				r[31] = p[31] * 0.5f;
+				break;
+			case kSmile:
+				r[0] = 0.15f * m;
+				r[22] = r[23] = 0.10f;
+				r[28] = r[29] = 0.40f;
+				r[30] = 10.0f;
+				r[31] = 0.5f;
+				break;
+			case kSlack:
+				r[0] = 0.12f * m;
+				r[28] = r[29] = 0.50f;
+				r[30] = 7.0f;
+				r[31] = 0.3f;
+				break;
+			case kHold:
+				for (int i = 0; i <= 29; ++i) r[i] = p[i] * 0.7f;
+				r[30] = p[30];
+				r[31] = p[31] * 0.8f;
+				break;
+			}
+			return r;
+		}
+
+		// The timeline of a clip, as fractions of its length: the squeeze at the start ends at `onset` (none for a rapid orgasm, which starts
+		// already tight), the full peak holds to `peak`, the aftershocks ripple to `ripple` (none when it is the same as `peak`), and the
+		// face then eases to its rest pose.
+		struct ClipShape
+		{
+			float onset, peak, ripple;
+			int ripples;
+		};
+
+		constexpr ClipShape ShapeOf(int kind)
+		{
+			switch (kind) {
+			case kStdLong: return { 0.10f, 0.40f, 0.72f, 3 };
+			case kStdShort: return { 0.12f, 0.50f, 0.50f, 0 };
+			case kRapidLong: return { 0.00f, 0.35f, 0.70f, 2 };
+			default: return { 0.00f, 0.45f, 0.45f, 0 };
+			}
+		}
+
+		// The pick for this orgasm, once, at the orgasm: the face, and whether it runs long or short as a standard or rapid orgasm. Long is
+		// likelier for a bold actor, after a long hold at the edge and for faces that suit it (a long moan); a rapid orgasm is likelier short
+		// the closer it comes to the last.
+		bool ClimaxVariantPose(Thread& t, Slot& s, int arch, float m, Preset& e)
+		{
+			if (s.climaxVariant < 0 || s.climaxVariantAt != s.climaxStart || s.climaxKind < 0) PickClimaxClip(t, s, arch);
+			const auto& v = kClimaxVariants[ClampI(s.climaxVariant, 0, kClimaxVariantCount - 1)];
+			const bool rapid = s.climaxKind == kRapidLong || s.climaxKind == kRapidShort;
+			const float length = std::max(0.5f, s.climaxUntil - s.climaxStart);
+			const float u = ClampF((Scenes::Now() - s.climaxStart) / length, 0.0f, 1.0f);
+			const auto shape = ShapeOf(s.climaxKind);
+			const Preset peak = PeakPose(v, m);
+			const Preset rest = RestPose(v, peak, rapid, m);
+
+			// how much of the peak pose is on the face right now
+			float k = 1.0f;
+			float tension = 0.0f;
+			if (u < shape.onset) {
+				const float x = u / shape.onset;
+				k = Lerp(0.55f, 1.0f, Smooth(x));
+				tension = 0.20f * (1.0f - x);  // the squeeze at the start
+			} else if (u < shape.peak) {
+				k = 1.0f;
+			} else if (u < shape.ripple) {
+				const float x = (u - shape.peak) / (shape.ripple - shape.peak);
+				k = 0.95f + (0.04f + 0.08f * v.tremor) * std::sin(6.2831853f * static_cast<float>(shape.ripples) * x);
+			} else {
+				const float x = (u - shape.ripple) / std::max(0.01f, 1.0f - shape.ripple);
+				k = (shape.ripple > shape.peak ? 0.95f : 1.0f) * (1.0f - Smooth(x));
+			}
+			k = ClampF(k, 0.0f, 1.0f);
+
+			for (int i = 0; i <= 29; ++i) e[i] = Lerp(rest[i], peak[i], k);
+			e[30] = k >= 0.3f ? peak[30] : rest[30];  // the mood id cannot be blended, only its strength
+			e[31] = Lerp(rest[31], peak[31], k);
 			if (S::bClimaxChoreo) {
-				const float age = Scenes::Now() - s.climaxStart;
-				const bool repeat = RapidFactor(s) > 0.0f;
-				if (!repeat && !v.wide && age < 1.5f) Add2(e, 28, 0.20f);  // the squeeze at the start
-				if (v.rollsUp && age < (repeat ? 3.0f : 4.5f)) {
-					e[27] = std::max(e[27], 0.6f);  // eyes roll up
-					Add2(e, 22, 0.15f);
-				}
+				if (!v.wide && tension > 0.0f) Add2(e, 28, tension);
 				if (s.rapidRun >= 1) {  // oversensitive: each climax in a rapid run hits harder
 					const float over = ClampF(static_cast<float>(s.rapidRun) * 0.12f, 0.0f, 0.35f);
 					Add2(e, 28, over);
 					Add2(e, 20, over);
 				}
 			}
-			s.climaxName = v.name;
 			s.climaxFromPool = true;
 			return true;
 		}
@@ -373,7 +474,7 @@ namespace Face::Engine::detail
 				s.climaxFromPool = false;
 				if (S::bClimaxPool && t.consent) {
 					Preset v{};
-					if (ClimaxVariantPose(s, arch, m, v)) return v;
+					if (ClimaxVariantPose(t, s, arch, m, v)) return v;
 				}
 				auto e = Build(12, 1.0f, 0.6f * m, 0.4f * m, 0.75f, 0.65f, 0.0f, 0.0f);
 				if (S::bClimaxChoreo) {
@@ -1033,6 +1134,26 @@ namespace Face::Engine::detail
 		if (s.libOvrMask) Library::CopyParts(e, s.libOvr, s.libOvrMask);
 	}
 
+	void PickClimaxClip(const Thread& t, Slot& s, int arch)
+	{
+		s.climaxVariant = PickClimaxVariant(s, arch);
+		s.lastClimaxVariant = s.climaxVariant;
+		s.climaxVariantAt = s.climaxStart;
+		const auto& v = kClimaxVariants[s.climaxVariant];
+		const float r = RapidFactor(s);
+		float pLong;
+		if (r > 0.0f) {
+			pLong = ClampF(0.65f - 0.5f * r, 0.15f, 0.60f);  // the closer to the last orgasm, the shorter
+		} else {
+			static constexpr float kBase[5] = { 0.50f, 0.30f, 0.65f, 0.40f, 0.55f };  // none, stoic, bold, shy, fierce
+			pLong = kBase[ClampI(arch, 0, 4)] + (t.plateau >= 3 ? 0.20f : 0.0f);      // held at the edge for a while: a long one
+		}
+		pLong = ClampF(pLong + v.longBias, 0.08f, 0.92f);
+		const bool isLong = RandFloat(0.0f, 1.0f) < pLong;
+		s.climaxKind = r > 0.0f ? (isLong ? kRapidLong : kRapidShort) : (isLong ? kStdLong : kStdShort);
+		s.climaxName = std::string(v.name) + "/" + ClimaxKindName(s.climaxKind);
+	}
+
 	void ApplyArc(Thread& t, Slot& s, RE::Actor* a, int idx, bool yieldMouth)
 	{
 		ReleaseOStimFace(s, a);
@@ -1131,7 +1252,7 @@ namespace Face::Engine::detail
 		ApplyOverwhelmFace(t, e, overwhelm, phrase, yieldMouth);
 		if (!usingLib) ApplyGroupConductor(t, e, idx, role, posRole, sub);
 		if (usingLib) ApplyEyeScalar(e);
-		else ApplyV2Controls(t, e, phrase, dom, yieldMouth, victim, react);
+		else ApplyV2Controls(t, e, dom == kClimax && s.climaxFromPool ? 2 : phrase, dom, yieldMouth, victim, react);  // a clip ripples on its own
 
 		// Director owns the whole face, but its pleasure presets were tuned as an overlay on OStim's
 		// own face, not as one: OStim's expression files run mood 0.7-1.0, brows 0.4-1.0 and mouth

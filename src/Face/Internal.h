@@ -109,6 +109,9 @@ namespace Face::Engine::detail
 	[[nodiscard]] int SelectDominant(Thread& t, const Slot& s, int enj, int raw);
 	// How close together this actor's last two orgasms were: 0 for the first, or when the gap was longer than the rapid window; 1 back to back.
 	[[nodiscard]] float RapidFactor(const Slot& s);
+	// Pick this orgasm's climax clip, once, at the orgasm: which of the fifteen faces, and whether it runs long or short as a standard or
+	// a rapid orgasm (Director.cpp). Sets the slot's climaxVariant/climaxKind/climaxName; ClimaxLength in Engine.cpp then sizes the window.
+	void PickClimaxClip(const Thread& t, Slot& s, int arch);
 	// The tension a run of rapid orgasms leaves in the face, 0..0.35: grows with each orgasm in the run, fades over the rapid window after the last.
 	[[nodiscard]] float Sensitivity(const Slot& s, float now);
 	[[nodiscard]] int PhrasePhase(Thread& t, int idx, int enjEff);
