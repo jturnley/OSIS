@@ -47,6 +47,10 @@ namespace Settings
 		// Director: each orgasm gets its own climax face from a pool of fifteen, picked by personality and how rapid the run is,
 		// instead of the one built-in template.
 		inline bool bClimaxPool = true;
+		// Director: faces of its own for the build-up to an orgasm - 22 in each of five stages - picked now and then beside OStim's pool
+		// for what the actor is doing, so nothing looks like it is repeating. The share is how often the pick is one of them.
+		inline bool bBuildupFaces = true;
+		inline float fBuildupShare = 0.7f;
 		inline float fBaseInterval = 3.0f;
 		inline float fIntervalJitter = 1.0f;
 		inline float fTransition = 0.5f;

@@ -41,6 +41,8 @@ namespace Settings
 				{ "Face", "fClimaxSeconds", &Face::fClimaxSeconds },
 				{ "Face", "fRapidOrgasmSeconds", &Face::fRapidOrgasmSeconds },
 				{ "Face", "bClimaxPool", &Face::bClimaxPool },
+				{ "Face", "bBuildupFaces", &Face::bBuildupFaces },
+				{ "Face", "fBuildupShare", &Face::fBuildupShare },
 				{ "Face", "fBaseInterval", &Face::fBaseInterval },
 				{ "Face", "fIntervalJitter", &Face::fIntervalJitter },
 				{ "Face", "fTransition", &Face::fTransition },
@@ -193,6 +195,7 @@ namespace Settings
 			Face::fDirectorGain = std::clamp(Face::fDirectorGain, 0.0f, 2.0f);
 			Face::fClimaxSeconds = std::clamp(Face::fClimaxSeconds, 4.0f, 30.0f);
 			Face::fRapidOrgasmSeconds = std::clamp(Face::fRapidOrgasmSeconds, 10.0f, 120.0f);
+			Face::fBuildupShare = std::clamp(Face::fBuildupShare, 0.0f, 1.0f);
 			Face::fBaseInterval = std::clamp(Face::fBaseInterval, 1.0f, 12.0f);
 			Face::fIntervalJitter = std::clamp(Face::fIntervalJitter, 0.0f, 4.0f);
 			Face::fTransition = std::clamp(Face::fTransition, 0.05f, 3.0f);
@@ -608,6 +611,8 @@ namespace Settings
 		fClimaxSeconds = 14.0f;
 		fRapidOrgasmSeconds = 40.0f;
 		bClimaxPool = true;
+		bBuildupFaces = true;
+		fBuildupShare = 0.7f;
 		bTakeOverFace = false;
 		bAnimeTongue = false;
 		bAnimeTongueFull = false;

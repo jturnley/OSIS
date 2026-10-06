@@ -380,6 +380,16 @@ namespace
 					"when it is the whole face: mood, brows and mouth during the pleasure phase come out smaller than OStim's would. 0 leaves them "
 					"as authored, 1.00 brings them up to OStim's amplitude at the same excitement, 2.00 well past it. Eyelids are not changed, "
 					"and climax, plateau, afterglow and distress faces are left as they are.");
+				Check("Own build-up faces (Director)", bBuildupFaces,
+					"Director only. Faces of its own for the build-up to an orgasm - 22 in each of five stages (anticipation, warm, rising, heightened, "
+					"the edge) - picked now and then beside OStim's expression pool for what the actor is doing, so nothing looks like it is "
+					"repeating. Each is a combination of eyes (including slow blinks and closed eyes), brows, mouth and mood, weighted by the "
+					"actor's personality and never one of the last eight. Consensual scenes only.");
+				if (bBuildupFaces) {
+					SliderF("Share of picks from the own faces", fBuildupShare, 0.0f, 1.0f, "%.2f",
+						"How often a build-up pick is one of the Director's own faces and not one from OStim's pool. 0 is OStim's only, 1 is the "
+						"Director's only. Where the scene gives no OStim pool, the own faces are always used.");
+				}
 				Check("Vary the climax face (Director)", bClimaxPool,
 					"Director only. Each orgasm gets its own face from a pool of fifteen (open-mouthed gasp, clenched, lip bitten, wide-eyed, rolled up, smiling, "
 					"snarl and so on), picked by the actor's personality and avoiding the one before; a run of rapid orgasms leans to the overwhelmed ones. "

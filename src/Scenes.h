@@ -79,6 +79,13 @@ namespace Scenes
 		float climaxVariantAt = -1.0f;  // the climaxStart the pick was made for
 		bool climaxFromPool = false;    // this beat's climax face came from the pool, not the built-in template
 		std::string climaxName;
+
+		// The Director's own build-up faces (Face/Buildup): the stage the last pick was made for, the option, and the last few options,
+		// which are not picked again.
+		int buildStage = -1;
+		int buildOption = -1;
+		std::array<int, 8> buildRecent{ -1, -1, -1, -1, -1, -1, -1, -1 };
+		int buildRecentPos = 0;
 		std::string jsonEvent;
 		float jsonUntil = 0.0f;
 

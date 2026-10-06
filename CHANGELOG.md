@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.0 beta 2 (plugin version 2.0.6) - in progress
+## 2.0 beta 2 (plugin version 2.0.7) - in progress
 
 ### Fixed
 - **Repeated orgasms held one actor's climax face for minutes.** In the 2.0 beta 1 probe Auri orgasmed every
@@ -58,6 +58,33 @@
   not scaled by the Strength setting or by personality: a face that shuts its eyes shuts them. The lids ease
   to their target in 0.35 s, not the pose's 0.8 s: in the 2.0.3 test a hard squeeze wrote 1.00 and rendered
   only 0.79 before a short clip began to open it again. The probe line shows `blink ours / rendered`.
+- **22 build-up faces in each of five stages, so nothing looks like it is repeating.** Until now the build-up was
+  OStim's expression pool for what the actor is doing (10 to 15 expressions, picked every few seconds), so a long
+  scene came back to the same faces. The Director now has faces of its own for the stages before the orgasm:
+  **anticipation** (under 25 excitement, or the lead-in), **warm** (25-49), **rising** (50-74), **heightened** (75 and
+  over) and **the edge** (held near the peak, the plateau). 110 in all. Each is a combination of four parts:
+  eyes (13: open, eye contact, wide, slow blink, half-lidded, heavy and looking down, closed, squeezed lightly or hard,
+  glancing left or right, drifting up, looking down shy), brows (10: neutral, raised, high, pleading, knit, furrowed,
+  lowered, uneven left or right, worried), mouth (14: relaxed, parted, wide, open, gasping, round, pouted, pressed,
+  lip bitten, smiling closed or open, breathing out, teeth showing, tongue behind the teeth) and mood (7: neutral,
+  happy, sad, surprise, puzzled, fear, anger). Any two options in a stage differ in at least two of the four. How much
+  of an option shows is set when it is picked, by the stage and the actor's excitement then, so the same option is
+  quiet early in its stage and fuller at the end of it.
+- **How they are picked.** Every few seconds, and when the build-up moves to a new stage, the pick is one of the own
+  faces some of the time (70% by default) and one of OStim's pool the rest, or only an own face where the scene gives
+  no pool. An own face is weighted by how well its parts suit the personality (a shy actor looks down, bites her lip
+  and closes her eyes more; a bold one opens the mouth, smiles and looks up; a stoic one keeps the mouth closed and
+  the brows still; a fierce one furrows and bares her teeth), and is never one of the last eight. Simulated over ten
+  minutes of a scene at one pick every 3-5 s: 76 to 93 different own faces used, and the same one comes back no
+  sooner than 30 s later, about a minute later usually.
+- **Slow blinks.** The face is updated every few seconds in the build-up, too seldom to draw a blink, so the output
+  layer draws them: a pulse down over a second or so, held, and up again, on top of whatever face is being worn, to
+  0.6-0.95 shut. The slow-blink faces always do it, twice in a pick, and one pick in four of any kind does. Natural
+  blinking carries on in between.
+- Settings (Face page, Director): **Own build-up faces** (`bBuildupFaces`, on) and **Share of picks from the own
+  faces** (`fBuildupShare`, 0.70; 0 is OStim's pool only, 1 the own faces only). With the own faces on, they also
+  play when OStim's pool is switched off. The probe's face label names the pick, for example
+  `Library/Own/warm:half_lid+pleading+smile_closed+happy`.
 - **A face update every 0.8 s during an orgasm,** not every three seconds, so a clip of 4-14 s is played in
   steps and not as two or three jumps. The tick after an orgasm is pulled forward to match. Back to the normal
   cadence when the climax ends. The face label in the probe names the clip, `Climax/lip_bite/rapid-short`, and

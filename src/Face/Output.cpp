@@ -93,6 +93,13 @@ namespace Face::Output
 			float restoreWorst = 0.0f;
 		};
 
+		struct BlinkPulse
+		{
+			float start = 0.0f;
+			float len = 0.0f;  // 0: free
+			float depth = 0.0f;
+		};
+
 		struct State
 		{
 			std::array<Channel, kPhonemes> ph{};
@@ -107,6 +114,9 @@ namespace Face::Output
 			bool reseedAll = true;
 			bool releasing = false;
 			bool exprUsed = false;
+			std::array<BlinkPulse, 3> pulse{};  // slow blinks queued or playing (PulseBlink)
+			bool pulseOn = false;
+			float blinkPose = 0.0f;             // the lid closure the pose itself asks for, which a pulse adds to and returns to
 			bool exprRelease = false;  // easing the mood back to zero, then stop writing it
 			bool reported = false;     // logged the first write
 			Probe probe;
@@ -379,6 +389,7 @@ namespace Face::Output
 			// The lids close as far as the face says: the strength setting and the personality scale how much of an expression
 			// shows, and a face that shuts the eyes should shut them (hard squeezed is the whole range's top, not a share of it).
 			const float v = e[16 + i] * (IsBlink(i) ? 1.0f : modStr);
+			if (IsBlink(i)) st->blinkPose = v;
 			if (IsGated(i) && v <= 0.0f && !st->mod[i].used) continue;
 			// Lids close and open quickly whatever the pose's own ease: at the pose's 0.8 s a short clip's hard squeeze reached only about
 			// 0.8 of shut before the clip began to open again (1.0 written, 0.79 rendered in the 2.0.3 test).
@@ -484,6 +495,25 @@ namespace Face::Output
 		return true;
 	}
 
+	void PulseBlink(RE::Actor* a, float depth, float seconds, float delay)
+	{
+		if (!a || depth <= 0.0f || seconds <= 0.0f) return;
+		std::scoped_lock l(g_lock);
+		auto* st = Get(a, true);
+		if (!st) return;
+		BlinkPulse* slot = nullptr;
+		for (auto& p : st->pulse) {
+			if (p.len <= 0.0f) {
+				slot = &p;
+				break;
+			}
+			if (!slot || p.start < slot->start) slot = &p;  // all busy: replace the oldest
+		}
+		slot->start = Scenes::Now() + std::max(0.0f, delay);
+		slot->len = seconds;
+		slot->depth = std::clamp(depth, 0.0f, 1.0f);
+	}
+
 	bool HasMouthOverride(RE::Actor* a)
 	{
 		std::scoped_lock l(g_lock);
@@ -503,6 +533,8 @@ namespace Face::Output
 		for (auto& c : st->expr) c.Set(0.0f, speed);
 		st->track.reset();
 		st->mouthFloor = 0.0f;
+		for (auto& p : st->pulse) p.len = 0.0f;
+		st->blinkPose = 0.0f;
 		st->suspended = false;
 		st->mouthOwned = true;
 		st->releasing = true;
@@ -711,6 +743,31 @@ namespace Face::Output
 			}
 		}
 		settled &= st.trackBlend <= 0.0f && st.mouthFloor <= 0.0f;
+		// Slow blinks (PulseBlink): the lids follow the pulse on top of whatever pose holds them, and go back to the pose when it ends.
+		{
+			float pv = 0.0f;
+			bool any = false;
+			const auto smooth = [](float x) {
+				x = std::clamp(x, 0.0f, 1.0f);
+				return x * x * (3.0f - 2.0f * x);
+			};
+			for (auto& p : st.pulse) {
+				if (p.len <= 0.0f) continue;
+				const float u = (now - p.start) / p.len;
+				if (u >= 1.0f) {
+					p.len = 0.0f;
+					continue;
+				}
+				any = true;
+				if (u < 0.0f) continue;  // not started yet
+				const float w = u < 0.40f ? smooth(u / 0.40f) : (u < 0.55f ? 1.0f : 1.0f - smooth((u - 0.55f) / 0.45f));
+				pv = std::max(pv, w * p.depth);
+			}
+			if (any || st.pulseOn) {
+				for (int i = kBlinkL; i <= kBlinkR; ++i) st.mod[i].Set(std::max(st.blinkPose, pv), 0.04f);
+				st.pulseOn = any;
+			}
+		}
 		for (int i = kBlinkL; i < kModifiers; ++i) {
 			auto& c = st.mod[i];
 			if (!c.used) continue;

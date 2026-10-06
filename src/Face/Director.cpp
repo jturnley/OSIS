@@ -9,6 +9,8 @@
 
 #include "Face/Internal.h"
 
+#include "Face/Buildup.h"
+
 #include "Papyrus.h"
 #include "Pulse.h"
 
@@ -465,12 +467,14 @@ namespace Face::Engine::detail
 		// picks, as in OStim itself. The output eases to each new target from wherever the face is, which is what
 		// keeps the transitions seamless. Returns false when there is nothing to play, and the caller falls back
 		// to the built-in templates.
-		bool LibraryPose(Thread& t, Slot& s, RE::Actor* a, int raw, int arch, Preset& out)
+		bool LibraryPose(Thread& t, Slot& s, RE::Actor* a, int raw, int arch, int stage, Preset& out)
 		{
 			if (!a || !t.meta || s.pos < 0) return false;
 			const auto resolved = Library::Resolve(*t.meta, s.pos);
-			const Library::Pool* pool = resolved.underlying;
-			if (!pool || pool->empty()) return false;
+			const Library::Pool* pool = S::bDirectorLibrary ? resolved.underlying : nullptr;
+			const bool havePool = pool && !pool->empty();
+			const bool ownOn = S::bBuildupFaces;
+			if (!havePool && !ownOn) return false;
 			const bool female = ActorSex(a) == 1;
 			// A scene whose data says nothing about what this actor is doing - an idle or transition node, or a scene
 			// whose author defined no actions - gets OStim's "default" pool, which is the mild idle one: in the 1.9.0
@@ -478,7 +482,7 @@ namespace Face::Engine::detail
 			// never passed 0.34. When the actor is clearly aroused in a node that is neither an idle nor a transition,
 			// borrow the pool OStim has for being stimulated (the same files its self-stimulation actions use) instead.
 			// In at 22 excitement, out again below 12, so it does not flicker between the two.
-			if (resolved.underlyingWhy == "default") {
+			if (havePool && resolved.underlyingWhy == "default") {
 				const bool idleNode = OStimData::HasAnySceneTag(*t.meta, OStimData::TagList{ "idle" }) || !t.meta->destination.empty();
 				s.libFallback = !idleNode && raw >= (s.libFallback ? 12 : 22);
 				if (s.libFallback) {
@@ -490,17 +494,64 @@ namespace Face::Engine::detail
 				s.libFallback = false;
 			}
 			const float now = Scenes::Now();
-			if (s.libPool != pool || now >= s.libNextPick) {
-				const Library::Expression* pick = PickWeighted(*pool, female, s.libLast, arch);
+			// A pick is made when the pool changes, every few seconds, and when the build-up moves to a new stage (the own faces are
+			// per stage). It is one of the Director's own faces some of the time, and one of OStim's pool the rest, or only the own
+			// faces where the scene gives no pool.
+			if (s.libPool != pool || now >= s.libNextPick || (ownOn && s.buildStage != stage)) {
 				s.libPool = pool;
 				s.libNextPick = now + RandFloat(2.5f, 5.0f);
-				if (pick) {
-					const float rel = t.maxSpeed >= 0 ? static_cast<float>(t.speed) / static_cast<float>(t.maxSpeed + 1) : 0.0f;
-					Library::ApplyTo(s.libState, pick->For(female), static_cast<float>(ClampI(raw, 0, 100)), rel, [] { return RandFloat(0.0f, 1.0f); },
-						s.libOvrMask);  // what an override owns is not the underlying pool's to set
-					s.libLast = pick;
-					s.libLastName = pick->file;
-					s.libHave = true;
+				s.buildStage = stage;
+				const bool own = ownOn && (!havePool || RandFloat(0.0f, 1.0f) < ClampF(S::fBuildupShare, 0.0f, 1.0f));
+				int ownOption = -1;
+				if (own) {
+					ownOption = Buildup::Pick(stage, arch, s.buildRecent.data(), static_cast<int>(s.buildRecent.size()));
+					if (ownOption >= 0) {
+						Buildup::Pose face;
+						Buildup::Build(ownOption, static_cast<float>(ClampI(raw, 0, 100)), MouthGate(), face);
+						// Every part of it, but what an override owns (the mouth, in an oral act) is not ours to set. The lids carry the blink too,
+						// and the mouth the Th and W phonemes, which OStim's own expressions never touch.
+						const int skip = s.libOvrMask;
+						if (!(skip & Library::kPhoneme)) for (int i = 0; i <= 15; ++i) s.libState[i] = face[i];
+						if (!(skip & Library::kBrow)) for (int i = 18; i <= 23; ++i) s.libState[i] = face[i];
+						if (!(skip & Library::kBall)) for (int i = 24; i <= 27; ++i) s.libState[i] = face[i];
+						if (!(skip & Library::kLid)) {
+							s.libState[16] = face[16];
+							s.libState[17] = face[17];
+							s.libState[28] = face[28];
+							s.libState[29] = face[29];
+						}
+						if (!(skip & Library::kMood)) {
+							s.libState[30] = face[30];
+							s.libState[31] = face[31];
+						}
+						s.buildOption = ownOption;
+						s.buildRecent[static_cast<std::size_t>(s.buildRecentPos++ % static_cast<int>(s.buildRecent.size()))] = ownOption;
+						s.libLast = nullptr;
+						s.libLastName = "Own/" + Buildup::Name(ownOption);
+						s.libHave = true;
+					}
+				}
+				if (ownOption < 0 && havePool) {
+					const Library::Expression* pick = PickWeighted(*pool, female, s.libLast, arch);
+					if (pick) {
+						const float rel = t.maxSpeed >= 0 ? static_cast<float>(t.speed) / static_cast<float>(t.maxSpeed + 1) : 0.0f;
+						// An own face left the Th and W phonemes and the lids' blink set, which OStim's expressions have no part for: clear
+						// them, or they would stay as they were until the next own face.
+						if (!(s.libOvrMask & Library::kPhoneme)) s.libState[14] = s.libState[15] = 0.0f;
+						if (!(s.libOvrMask & Library::kLid)) s.libState[16] = s.libState[17] = 0.0f;
+						Library::ApplyTo(s.libState, pick->For(female), static_cast<float>(ClampI(raw, 0, 100)), rel, [] { return RandFloat(0.0f, 1.0f); },
+							s.libOvrMask);  // what an override owns is not the underlying pool's to set
+						s.libLast = pick;
+						s.libLastName = pick->file;
+						s.buildOption = -1;
+						s.libHave = true;
+					}
+				}
+				// A slow blink now and then, on top of whatever face it is: always for the faces that blink slowly, and one pick in four
+				// for the rest. The face is updated every few seconds, so the output layer draws the blink itself.
+				if ((ownOption >= 0 && Buildup::SlowBlink(ownOption)) || RandFloat(0.0f, 1.0f) < 0.25f) {
+					Output::PulseBlink(a, RandFloat(0.60f, 0.95f), RandFloat(0.9f, 1.5f), RandFloat(0.2f, 1.8f));
+					if (ownOption >= 0 && Buildup::SlowBlink(ownOption)) Output::PulseBlink(a, RandFloat(0.60f, 0.95f), RandFloat(0.9f, 1.5f), RandFloat(2.2f, 3.4f));
 				}
 			}
 			if (!s.libHave) return false;
@@ -1226,8 +1277,8 @@ namespace Face::Engine::detail
 		// the parts it owns are not the underlying pool's to set.
 		const bool overriding = UpdateOralOverride(t, s, a, rawEnj);
 		Preset e{};
-		const bool usingLib = S::bDirectorLibrary && t.consent && (dom == kPleasure || dom == kAnticipation || dom == kPlateau) &&
-				LibraryPose(t, s, a, rawEnj, arch, e);
+		const bool usingLib = (S::bDirectorLibrary || S::bBuildupFaces) && t.consent && (dom == kPleasure || dom == kAnticipation || dom == kPlateau) &&
+				LibraryPose(t, s, a, rawEnj, arch, Buildup::StageFor(dom == kAnticipation, dom == kPlateau, enjPhase), e);
 		if (!usingLib) e = BasePreset(t, s, dom, enjPhase, victim, arch, seed, role, tone);
 		// The edge of the climax is played from the pool like the rest of the build-up, with the tension on top: eyes
 		// squeezed, brows drawn together. The template this phase used (Anger mood 0.4, mouth 0.2) rendered at about a

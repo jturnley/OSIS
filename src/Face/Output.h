@@ -103,6 +103,9 @@ namespace Face::Output
 	void SetMouthTrack(RE::Actor* a_actor, std::shared_ptr<const Envelope> a_envelope, float a_startRealTime, const TrackParams& a_params);
 	void ClearMouthTrack(RE::Actor* a_actor);
 	[[nodiscard]] bool HasMouthOverride(RE::Actor* a_actor);  // a lip-sync track is playing
+	// A slow blink on top of whatever holds the lids: down, held, up over `a_seconds`, to `a_depth` (0..1), starting `a_delay` seconds from now. A
+	// face that is updated every few seconds cannot draw a blink itself, so the output layer does, frame by frame.
+	void PulseBlink(RE::Actor* a_actor, float a_depth, float a_seconds, float a_delay = 0.0f);
 	// The phonemes as the face renders them right now, whoever wrote them. Main thread. False when the actor has no face data.
 	[[nodiscard]] bool ReadPhonemes(RE::Actor* a_actor, std::array<float, kPhonemes>& a_out);
 
