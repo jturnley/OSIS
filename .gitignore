@@ -8,3 +8,6 @@ tools/__pycache__/
 /mods/OStim Standalone Immersive Sex/
 /mods/OStim Standalone Immersive Sex (LoversLab)/
 /mods/*.zip
+
+# extracted voice lines (tools/extract_common_voice_lines.py)
+/voices_common/
