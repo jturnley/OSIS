@@ -243,8 +243,18 @@ Changes from the originals that you'll notice:
 The Director reads OStim's own facial expression files (every installed expression pack applies), picks from
 the pool OStim would use for what each actor is doing, and blends from one pick to the next, so there are no
 snaps. OStim's own face writer is switched off for the actors OSIS paints and given back when the scene ends.
-Picks are weighted by the actor's personality, and the build-up, plateau, climax and afterglow are played from
-the same pools. Assist and Enhanced (OSIS layered over OStim's own faces) are still on the Face page.
+Picks are weighted by the actor's personality. The build-up mixes OStim's pools with 110 faces of the Director's own
+(five stages of 22), and each orgasm is played as one of fifteen timed climax faces, shorter and tenser the closer it comes to the
+last. An actor OStim says is asleep has the eyes shut. Assist and Enhanced (OSIS layered over OStim's own faces) are still on the Face page.
+
+## Bodies and arousal
+
+The arousal morphs and body blush are set up for CBBE/3BA (GT Softbody sliders, Body Blushing textures). UBE bodies are found by their
+race (`00UBE_*`) and have rows of their own, with the UBE sliders and UBE blush regions; every row on the Arousal page has a body type.
+The UBE blush textures are not shipped: convert Body Blushing's to the UBE UV and put them in
+`Data/Textures/actors/Character/Overlays/CheeseBlushOverlays_UBE/`. Toe and finger curl work on any body that uses the stock skeleton.
+The morphs and blush follow the arousal during OStim scenes, and for the fade after them. "Also outside OStim scenes" (Arousal page,
+off by default) keeps them following an arousal mod's number all the time, which costs resources.
 
 ## Personalities
 
@@ -347,8 +357,10 @@ def assemble(build_dir, data_dirs, edition, without):
                     "> \"Probe faces\" on the Face page first and play for a minute.\n")
             known = ("\n## Known issues in this beta\n\n"
                      "- A one-frame blink of eyes, brows and mood can show when a scene moves to a new animation node.\n"
-                     "- PPA sometimes stops moving a penis for a few seconds and logs \"isn't managed by havok\" for the actor. Seen in\n"
-                     "  testing; the cause is not known.\n")
+                     "- PPA sometimes stops moving a penis for a few seconds and logs \"isn't managed by havok\" for the actor. Seen in testing; the cause is not known.\n"
+                     "- Lip-sync reads uncompressed WAV moans only: voice packs in .fuz or xWMA, and packs of spoken lines, are not lip-synced.\n"
+                     "- UBE: the blush textures are not shipped (convert Body Blushing's to the UBE UV) and the UBE slider values are a first estimate.\n"
+                     "- The personalities, the own build-up faces and the shaped body response are new and have had little play-testing.\n")
         submissive = ''
         if edition:  # the personality is in the full edition only
             submissive = ("\n- **Submissive** (this edition only): turned on by rough scenes, and accepts any kind of scene, forced or not,"

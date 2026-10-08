@@ -1,6 +1,11 @@
 # Changelog
 
-## 2.0 beta 2 (plugin version 2.0.9) - in progress
+## 2.0 beta 2 (plugin version 2.0.10)
+
+Beta 1's code level, plus what came out of testing it and of the first reports on the Nexus page. In short: climax faces that
+vary and end on time, 110 faces of its own for the build-up, nine personalities that are defined and play differently, a body
+response that no longer sits at its peak, UBE bodies, sleeping actors with their eyes shut, and a good deal less work done
+between scenes.
 
 ### Fixed
 - **Repeated orgasms held one actor's climax face for minutes.** In the 2.0 beta 1 probe Auri orgasmed every
@@ -248,7 +253,28 @@
 - The face is updated about every 0.8 s during an orgasm, so a languid blink is played in steps eased over that time,
   not frame by frame, and the flutter is a slow tremor rather than a fast one. The squint of several faces was
   lowered now that the lids themselves close.
-- Not yet run in the game.
+- This is a beta: see the known issues below.
+
+### Known issues
+- A one-frame blink of eyes, brows and mood can show when a scene moves to a new animation node. The source has not been identified.
+- PPA logs `Actor X isn't managed by havok?` and stops moving that penis for a few seconds now and then. Nothing in the OSIS or OStim
+  logs lines up with it; the cause is not known.
+- Lip-sync reads uncompressed WAV moans only. A voice pack in `.fuz` or xWMA, and packs of spoken lines rather than moans, are not
+  lip-synced (the mouth then follows the face alone). Not supported yet.
+- UBE: the blush textures are not shipped (convert Body Blushing's to the UBE UV and put them in the folder the UBE regions read), and
+  the UBE slider values are a first estimate.
+- Much of what is new here has had little play-testing: the personalities (the dominant's and crazed one's control of a partner's
+  climax, the stoic's muted body, the LoversLab submissive), the own build-up faces and the shaped body response. The log says what
+  they did: `Personality:` lines for who got what, and `Control:` lines for each stall, permit and forced climax.
+
+### Not yet in
+- Faces shaped by circumstances: first time, exhibition, relationship level, experience, time since last sex (the Director's goal 3).
+
+### Testing it
+- Install over a previous OSIS build or fresh; start a new save for testing. Send
+  `Documents/My Games/Skyrim Special Edition/SKSE/OSIS.log` with a report. For a face problem press "Probe faces" on the Face page
+  first and play for a minute: the log then says what OSIS wrote against what the game rendered, second by second.
+- With PPA installed, add `AccuratePenetration.log` from the same session.
 
 ## 2.0 beta 1 (plugin version 2.0.0)
 
