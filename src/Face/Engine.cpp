@@ -293,19 +293,46 @@ namespace Face::Engine
 			return -1;
 		}
 
+		// A number 0-99 from the actor's form id and a salt: the same for the same actor every time, and independent of another salt's, so
+		// two rolls on one actor do not move together.
+		int Percent(RE::Actor* a, std::uint32_t a_salt)
+		{
+			auto* b = a ? a->GetActorBase() : nullptr;
+			if (!b) return 0;
+			return static_cast<int>((((b->GetFormID() ^ a_salt) * 2654435761u) >> 8) % 100u);
+		}
+
+		// How an NPC's AI values sort. Measured on the 1,744 humanoid base-game NPCs that carry AI data of their own, the earlier rules made
+		// 47% stoic (every unaggressive commoner of average confidence) and 20% dominant (every bold fighter, and anyone with a low
+		// morality). A personality that changes how a scene plays - a dominant holds a partner's climax - cannot be the default for a fifth to
+		// a half of everyone. Now only the very aggressive and foolhardy lean dominant, and only a quarter of them; only the composed
+		// (unaggressive, confident) are stoic; and the rest are left to the weighted fallback below.
+		constexpr int kAIDominantPercent = 25;
+
 		int VanillaAIPersonality(RE::Actor* a)
 		{
 			auto* avo = a->AsActorValueOwner();
 			const float aggression = avo->GetActorValue(RE::ActorValue::kAggression);
 			const float confidence = avo->GetActorValue(RE::ActorValue::kConfidence);
-			const float morality = avo->GetActorValue(RE::ActorValue::kMorality);
 			if (aggression >= 3.0f) return Pers::kCrazed;  // frenzied
-			if (aggression >= 2.0f && confidence >= 2.0f) return 4;
-			if (confidence <= 0.0f) return Pers::kTimid;   // cowardly
-			if (confidence <= 1.0f) return 3;
-			if (aggression <= 0.0f && confidence >= 2.0f) return 1;
-			if (morality <= 1.0f && aggression >= 1.0f) return 4;
+			if (aggression >= 2.0f && confidence >= 3.0f && Percent(a, 0xA1D0u) < kAIDominantPercent) return Pers::kDominant;
+			if (confidence <= 0.0f) return Pers::kTimid;    // cowardly
+			if (confidence <= 1.0f) return Pers::kShy;
+			if (aggression <= 0.0f && confidence >= 3.0f) return Pers::kStoic;
 			return -1;
+		}
+
+		// For an actor nothing else has placed: balanced for over half, a few of each of the others, and few dominant (percent, summing to 100).
+		constexpr std::array<int, 5> kFallbackWeights{ 54, 8, 14, 20, 4 };  // balanced, stoic, vocal, shy, dominant
+
+		int FallbackPersonality(RE::Actor* a)
+		{
+			int roll = Percent(a, 0x5EEDu);
+			for (int i = 0; i < static_cast<int>(kFallbackWeights.size()); ++i) {
+				if (roll < kFallbackWeights[i]) return i;
+				roll -= kFallbackWeights[i];
+			}
+			return Pers::kBalanced;
 		}
 
 		void UpdatePlateau(Thread& t)
@@ -1296,7 +1323,7 @@ namespace Face::Engine
 				return extra;
 			}
 			source = "Seed";
-			return Seed(a) % 5;
+			return FallbackPersonality(a);
 		}
 
 		// Settle an actor's personality the first time it is needed, so it is the same in every scene and every load.

@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.0 beta 2 (plugin version 2.0.10)
+## 2.0 beta 2 (plugin version 2.0.11)
 
 Beta 1's code level, plus what came out of testing it and of the first reports on the Nexus page. In short: climax faces that
 vary and end on time, 110 faces of its own for the build-up, nine personalities that are defined and play differently, a body
@@ -219,6 +219,15 @@ between scenes.
     including `bPersonalityControl` (on) for the dominant and crazed control of the climax.
 
 ### Changed
+- **Who gets which personality is retuned, because it leaned far too hard on dominant** - and a dominant now holds a partner's
+  climax. The shipped SPID file gave every NPC one of four keywords, which put the whole population at about 50% shy, 25% vocal and
+  25% dominant, and no balanced, stoic, timid, wild or crazed at all. The file now hands out nothing (its lines are commented, with
+  notes on how to use them), so OSIS's own placement stands. That placement was lopsided too: measured on the 1,744 humanoid base-game
+  NPCs with AI data of their own, the AI rules made 47% stoic and 20% dominant, and the seed fallback made a further fifth of the rest
+  dominant. Now: only a very aggressive, foolhardy NPC leans dominant, and a quarter of those; only an unaggressive, confident NPC leans
+  stoic; the low-morality rule is gone; and the fallback is 54% balanced, 14% vocal, 20% shy, 8% stoic and 4% dominant. Simulated on
+  the base-game NPCs, with the 20% roll for timid, wild, crazed and submissive on top, dominant is about 6% of everyone. Actors already
+  pinned keep what they have; "Work every personality out again" settles them afresh.
 - **The arousal response no longer sits at its peak.** Each softbody morph, body-blush overlay and genital bend
   reached its maximum once the arousal level passed its own `full` threshold (0.35 to 0.7 for most of the table), the
   level was held at 0.9 while edging and eased to 1.0 at an orgasm, and the level lags excitement by a ten-second

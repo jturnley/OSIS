@@ -259,7 +259,7 @@ off by default) keeps them following an arousal mod's number all the time, which
 ## Personalities
 
 Each actor gets a personality (stoic, vocal, shy, dominant, timid, wild, crazed{submissive} or none) the first time a
-scene needs it, from the SPID distribution file, keywords, voice type or the actor's AI values. It is then kept in
+scene needs it, from a SPID keyword, its voice type, its AI values or a seeded roll (mostly balanced, few dominant; the shipped SPID file hands out none). It is then kept in
 your save, so it is the same in every scene and after every load. Set one yourself on the Personality page (the
 player's, or the NPC under the crosshair); "Work every personality out again" forgets the automatic ones.
 

@@ -667,7 +667,7 @@ namespace
 				g_dirty = true;
 			}
 			Check("SPID personality keywords", bSPIDPersonality,
-				"OSED_Personality_DISTR.ini hands NPCs Bashful/Bold/Soft/Fierce keywords; OSIS_Personality_Timid, _Wild and _Crazed (alias _Yandere)"
+				"A personality keyword SPID has put on an actor decides it (OSIS_Personality_Bashful, _Bold, _Soft, _Fierce, _Timid, _Wild and _Crazed (alias _Yandere)"
 #if !OSIS_LITE
 				" and _Submissive"
 #endif

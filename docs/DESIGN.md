@@ -98,6 +98,13 @@ orgasm:
 Living Skin's face blush uses `max(scene excitement ramp, Arousal::Flush)`, so the face and
 body flush together.
 
+## How a personality is placed
+`ResolvePersonality` (Engine.cpp), first match wins: a SPID `OSIS_Personality_*` keyword, a keyword another mod adds, the voice type's name,
+`VanillaAIPersonality`, the 20% roll for the newer types (`NewPersonalityRoll`), then `FallbackPersonality`. The AI rule and the fallback were
+retuned in 2.0.11 after measuring them on the base game's NPCs (`kAIDominantPercent` 25, `kFallbackWeights` 54/8/14/20/4): the earlier
+rules and the shipped SPID file made about a quarter of everyone dominant. `Percent(actor, salt)` is a form-id hash, so a roll is the
+same for the same actor every time and independent of another salt's. The shipped `OSIS_Personality_DISTR.ini` distributes nothing.
+
 ## Sleeping actors
 `IsSleeping` (Engine.cpp): the actor a `sleeping` action names, or, in a scene only tagged `sleeping`, the one most actions target. The Director's
 `SleepFace` replaces the composed face (lids shut via the blink channel, the rest slack) and skips gaze and headflow; the layer path sets the lids
