@@ -44,6 +44,9 @@ namespace Arousal
 			float excRate = 0.0f;   // how fast it is rising per second, smoothed
 			float boost = 0.0f;     // 1 during an orgasm, then fading: the full range shows only then
 			float shown = 1.0f;     // 0-1 share of each response's range that shows
+			float faceFlush = 0.0f; // a stoic's face flush for Skin: the same gate, at the peak share; others use level x flushMult
+			float blushGate = 1.0f; // 0-1 how much of the body blush shows: all of it, except for a stoic (the last seconds before an orgasm and the orgasm)
+			int pers = 0;           // the actor's personality, as of the last Target
 			std::string why = "arousal";
 			std::vector<float> applied;
 			std::uint32_t lastTick = 0;
@@ -83,7 +86,7 @@ namespace Arousal
 			bool matte;
 			bool genitals;
 			bool shaped;
-			float floorShown, ceilingShown, peakWindow;
+			float floorShown, ceilingShown, peakWindow, stoicRest, stoicPeak;
 		};
 
 		Snap CopySettings()
@@ -92,7 +95,7 @@ namespace Arousal
 			return { S::bEnabled && Settings::General::bEnabled, S::bAffectPlayer, S::bAffectNPCs, S::bOStimExcitement, S::bSceneFactors,
 				S::bPersonality, S::iSource, S::iMaxNPCs, S::fIntensity, S::fRadius, S::fRiseHalfLife, S::fFallHalfLife, S::fClimaxHold,
 				S::morphs, S::bBlush, S::iOverlayFirstSlot, S::iOverlaySlots, S::blushes, S::raceBlush, Settings::Skin::bMatteOverlays,
-				Settings::Body::bGenitals, S::bShapedResponse, S::fResponseFloor, S::fResponseCeiling, S::fPeakWindow };
+				Settings::Body::bGenitals, S::bShapedResponse, S::fResponseFloor, S::fResponseCeiling, S::fPeakWindow, S::fStoicRest, S::fStoicPeak };
 		}
 
 		float Ease(float level, float start, float full)
@@ -223,7 +226,7 @@ namespace Arousal
 			const float raceMult = BlushRaceMult(a, s);
 			for (size_t i = 0; i < active.size(); ++i) {
 				const auto* b = active[i];
-				const float alpha = std::clamp(b->max * Ease(st.level, b->start, b->full) * s.intensity * st.shown * st.flushMult * raceMult, 0.0f, 1.0f);
+				const float alpha = std::clamp(b->max * Ease(st.level, b->start, b->full) * s.intensity * st.shown * st.blushGate * st.flushMult * raceMult, 0.0f, 1.0f);
 				if (!std::isnan(st.blushAlpha[i]) && std::abs(alpha - st.blushAlpha[i]) <= 0.01f) continue;
 				Papyrus::SetOverlayAlpha(a, st.female, st.blushNodes[i], alpha);
 				st.blushAlpha[i] = alpha;
@@ -327,10 +330,11 @@ namespace Arousal
 				st.why = "climax";
 				riseMult = 0.15f;  // engorgement at orgasm is near-instant
 			}
+			st.pers = s.personality ? Face::Engine::Archetype(a) : 0;  // (with the personality setting off, everyone responds alike)
 			if (s.personality) {
-				switch (Face::Engine::Archetype(a)) {
+				switch (st.pers) {
 				case 1:  // stoic: slow to show, quick to settle, muted flush
-					riseMult *= 1.3f, fallMult *= 0.8f, st.flushMult = 0.8f;
+					riseMult *= 1.5f, fallMult *= 0.8f;  // not into it: slow to show, and quick to settle (Shape: minimal response, no blush)
 					break;
 				case 2:  // vocal: quick to engorge
 					riseMult *= 0.7f;
@@ -339,6 +343,19 @@ namespace Arousal
 					st.flushMult = 1.25f;
 					break;
 				case 4:  // dominant: firm, fast response
+					riseMult *= 0.85f;
+					break;
+				case Face::Engine::Pers::kTimid:  // like shy: flushes hard
+					st.flushMult = 1.25f;
+					break;
+				case Face::Engine::Pers::kSubmissive:  // quick to respond to a rough scene, flushes a little more
+					st.flushMult = 1.1f;
+					if (auto* th = Scenes::ThreadOf(a); th && th->active && (th->toneRough || th->toneForced)) riseMult *= 0.7f;
+					break;
+				case Face::Engine::Pers::kWild:  // really enjoys it: engorges quickly and stays aroused
+					riseMult *= 0.6f, fallMult *= 1.3f;
+					break;
+				case Face::Engine::Pers::kCrazed:  // firm, fast response, like dominant
 					riseMult *= 0.85f;
 					break;
 				default: break;
@@ -357,7 +374,12 @@ namespace Arousal
 		// seconds after it. Each morph still waits for its own start level, so the order they come in is as before.
 		float Shape(RE::Actor* a, ActorState& st, const Snap& s, float now, float dt)
 		{
-			if (!s.shaped) return 1.0f;
+			st.blushGate = 1.0f;
+			st.faceFlush = 0.0f;
+			// A stoic is not excited by sex: only purely physiological reactions, minimal, and the blush - the body's and the face's - only in the
+			// last seconds before an orgasm and in the orgasm itself, for a few seconds, then back to minimal and no blush. Whatever the shaping setting.
+			const bool stoic = st.pers == Face::Engine::Pers::kStoic;
+			if (!s.shaped && !stoic) return 1.0f;
 			float imminent = 0.0f;
 			if (auto* t = Scenes::ThreadOf(a); t && t->active) {
 				const float exc = std::clamp(static_cast<float>(Face::Engine::Excitement(a)) / 100.0f, 0.0f, 1.0f);
@@ -379,10 +401,22 @@ namespace Arousal
 			} else {
 				st.exc = st.excAt = st.excRate = 0.0f;
 			}
-			if (s.factors && now < st.climaxUntil) st.boost = 1.0f;
-			else if (dt > 0.0f) st.boost *= std::pow(0.5f, dt / 4.0f);
+			// Held at the edge by a dominant (or waiting for a partner): the orgasm is not about to come, however full the excitement is.
+			if (imminent > 0.0f && Face::Engine::IsClimaxHeld(a)) imminent = 0.0f;
+			// The orgasm itself: for the whole hold, or for a stoic the first four seconds of it, then it fades - fast for a stoic.
+			constexpr float kStoicOrgasmSeconds = 4.0f;
+			const bool inOrgasm = s.factors && now < st.climaxUntil && (!stoic || st.climaxUntil - now > std::max(0.0f, s.climaxHold - kStoicOrgasmSeconds));
+			if (inOrgasm) st.boost = 1.0f;
+			else if (dt > 0.0f) st.boost *= std::pow(0.5f, dt / (stoic ? 1.5f : 4.0f));
 			if (st.boost < 0.01f) st.boost = 0.0f;
 			const float level = std::clamp(st.level, 0.0f, 1.0f);
+			if (stoic) {
+				st.blushGate = std::max(imminent, st.boost);
+				st.faceFlush = st.blushGate * s.stoicPeak;
+				const float rest = s.stoicRest * std::clamp(level / 0.12f, 0.0f, 1.0f);
+				const float top = rest + std::max(0.0f, s.stoicPeak - rest) * imminent;
+				return std::max(top, st.boost * s.stoicPeak);
+			}
 			const float u = std::clamp(level / 0.9f, 0.0f, 1.0f);
 			const float curve = std::log1p(9.0f * u) / std::log(10.0f);  // 0.30 at a tenth of the way, 0.62 at a third, 0.85 at two thirds
 			float body = s.floorShown + (s.ceilingShown - s.floorShown) * curve;
@@ -436,6 +470,7 @@ namespace Arousal
 		if (!a) return 0.0f;
 		std::scoped_lock l(g_stateLock);
 		auto it = g_states.find(a->GetFormID());
+		if (it != g_states.end() && it->second.pers == Face::Engine::Pers::kStoic) return it->second.faceFlush;  // a stoic flushes only at the end and in the orgasm
 		return it != g_states.end() ? std::clamp(it->second.level * it->second.flushMult, 0.0f, 1.0f) : 0.0f;
 	}
 

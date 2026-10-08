@@ -46,6 +46,12 @@ namespace Papyrus
 	void IsObjectEquipped(RE::Actor* a_actor, const char* a_type, std::function<void(bool)> a_done);
 	void GetVoiceSetName(RE::FormID a_baseID, std::function<void(std::string)> a_done);
 	void SetExcitementMultiplier(RE::Actor* a_actor, float a_multiplier);
+	void ModifyExcitement(RE::Actor* a_actor, float a_amount);  // OActor.ModifyExcitement, not scaled by the actor's rate
+	// OActor.StallClimax / PermitClimax: an actor whose excitement is full waits, at 100, until it is permitted. The calls do nothing for an
+	// actor OStim has not yet put in a thread, so a caller that needs the stall repeats it.
+	void StallClimax(RE::Actor* a_actor);
+	void PermitClimax(RE::Actor* a_actor);
+	void ForceClimax(RE::Actor* a_actor);  // OActor.Climax with IgnoreStall: the climax happens now, stalled or not
 
 	// ---- vanilla actor head look
 	void SetLookAt(RE::Actor* a_actor, RE::TESObjectREFR* a_target);

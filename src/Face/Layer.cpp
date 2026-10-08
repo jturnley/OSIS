@@ -500,8 +500,9 @@ namespace Face::Engine::detail
 		const int raw = Raw(a);
 		const int enjEff = EffectiveIntensity(t, a);
 		std::string src;
-		const int arch = Archetype(a, &src);
-		s.arch = arch;
+		const int pers = Archetype(a, &src);
+		const int arch = BasePersonality(pers);  // the layer knows the original five; a newer type acts as the one it is built on
+		s.arch = pers;
 		s.archSource = src;
 		const int dom = SelectDominant(t, s, enjEff, raw);
 		const bool shy = arch == 3 || (S::bExposureAware && t.consent && IsNude(a) && raw < 72) || OBlushLikely(a, raw);
@@ -633,8 +634,9 @@ namespace Face::Engine::detail
 		const int raw = Raw(a);
 		const int seed = Seed(a);
 		std::string src;
-		const int arch = Archetype(a, &src);
-		s.arch = arch;
+		const int pers = Archetype(a, &src);
+		const int arch = BasePersonality(pers);
+		s.arch = pers;
 		s.archSource = src;
 		RE::Actor* partner = PrimaryPartner(t, s);
 		if (AhegaoYield()) {

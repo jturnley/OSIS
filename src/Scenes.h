@@ -40,6 +40,13 @@ namespace Scenes
 		std::string voiceName;
 		bool voiceRequested = false;
 		float excitementFactor = 1.0f;  // consent: our scale on OStim's excitement rate (1 = untouched)
+		// Personality control (Engine.cpp UpdateClimaxControl): this actor's climax is stalled by us, when we last said so, when to say
+		// permit a second time, and since when they have been held at the edge.
+		bool stallActive = false;
+		float stallIssuedAt = -100.0f;
+		float permitRepeatAt = 0.0f;
+		float holdSince = 0.0f;
+		float forcedAt = -100.0f;  // when we last made this actor climax (a partner's orgasm, or a dominant's): not again for a few seconds
 		bool broken = false;            // a victim who climaxed: vacant face for the rest of the thread
 		bool faced = false;             // OSED painted this face (handed back if faces are switched off)
 		bool victim = false;            // identified victim of a non-consensual scene (set by RefreshDerived)
@@ -183,6 +190,7 @@ namespace Scenes
 		bool victimKnown = false; // non-consent and at least one actor identified as the victim
 		std::vector<RE::FormID> spellVictims;  // started by the player's spell (SpellCast): the NPCs it hit, latched when the actors are first known
 		bool spellNonConsent = false;          // bSpellNonConsent and a spell victim is in the thread: they are the victims, everyone else an aggressor
+		bool acceptedBySubmissive = false;     // would be non-consent, but every victim is a submissive close to everyone else in it: plays as consensual
 		bool toneLoving = false;
 		bool sceneOral = false;
 		bool gasp = false;
@@ -227,7 +235,7 @@ namespace Scenes
 	{
 		int id;
 		std::string scene;
-		bool player, consent, rough, normal, orgasm, oral, spell;
+		bool player, consent, rough, normal, orgasm, oral, spell, accepted;
 		int speed, maxSpeed, afterglow, plateau;
 		float time;
 		std::string probe;

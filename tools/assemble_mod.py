@@ -248,10 +248,25 @@ the same pools. Assist and Enhanced (OSIS layered over OStim's own faces) are st
 
 ## Personalities
 
-Each actor gets a personality (stoic, vocal, shy, dominant or none) the first time a scene needs it, from the
-SPID distribution file, keywords, voice type or the actor's AI values. It is then kept in your save, so it is
-the same in every scene and after every load. Set one yourself on the Personality page (the player's, or the
-NPC under the crosshair); "Work every personality out again" forgets the automatic ones.
+Each actor gets a personality (stoic, vocal, shy, dominant, timid, wild, crazed{submissive} or none) the first time a
+scene needs it, from the SPID distribution file, keywords, voice type or the actor's AI values. It is then kept in
+your save, so it is the same in every scene and after every load. Set one yourself on the Personality page (the
+player's, or the NPC under the crosshair); "Work every personality out again" forgets the automatic ones.
+
+- **Stoic**: tolerates sex but isn't into it, and is waiting for the partner to be done. Slow to build, muted at the plateau and the
+  climax, nothing negative in it. Only physiological body reactions, minimal; no blush, face or body, until the last seconds before the
+  orgasm and during it, then it fades quickly.
+- **Shy**: uncomfortable with the idea of sex, though they enjoy it. Hesitation and guilt, overridden as they plateau and climax.
+- **Timid**: enjoys it a lot, but the closeness is too much. Eyes shut much of the time, an occasional peek at the partner.
+- **Vocal**: likes it a lot but has no control over themselves. Surprise, and loud voices.
+- **Wild**: enjoys every moment, the intimacy and the pleasure alike. Only positive reactions, and they try to maximise them.
+- **Dominant**: their own pleasure comes first, and the partner is a toy. Their partner's climax is held (OStim's climax stall)
+  until the dominant's own, and the two climax together.
+- **Crazed**: obsessed with the partner. Long, creepy eye contact; drives the partner up to climax as fast as it can and climaxes
+  with them, with a creepy look, every time they do.{submissive_note}
+
+Dominant and crazed control climaxes in consensual scenes only; "Dominant and crazed people control a partner's climax" on the
+Personality page turns it off.
 
 ## PPA - Procedural Penis Animations (optional)
 
@@ -331,11 +346,15 @@ def assemble(build_dir, data_dirs, edition, without):
                     "> `Documents/My Games/Skyrim Special Edition/SKSE/OSIS.log` with any report. For a face problem, press\n"
                     "> \"Probe faces\" on the Face page first and play for a minute.\n")
             known = ("\n## Known issues in this beta\n\n"
-                     "- Orgasms in quick succession keep the climax face on until they stop; handling for repeated orgasms is planned.\n"
                      "- A one-frame blink of eyes, brows and mood can show when a scene moves to a new animation node.\n"
                      "- PPA sometimes stops moving a penis for a few seconds and logs \"isn't managed by havok\" for the actor. Seen in\n"
                      "  testing; the cause is not known.\n")
+        submissive = ''
+        if edition:  # the personality is in the full edition only
+            submissive = ("\n- **Submissive** (this edition only): turned on by rough scenes, and accepts any kind of scene, forced or not,"
+                          " from someone with a relationship rank of 3 or 4 to everyone in it; it then plays as consensual.")
         f.write(README.replace('{edition}', edition).replace('{version}', version_text())
+                .replace('{submissive_note}', submissive).replace('{submissive}', ', submissive' if edition else '')
                 .replace('{beta}', beta).replace('{known}', known))  # edition is '' for the default download
 
     lines = [MARKER + ' on %s' % datetime.datetime.now().strftime('%Y-%m-%d %H:%M'),

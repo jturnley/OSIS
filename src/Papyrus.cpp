@@ -273,6 +273,26 @@ namespace Papyrus
 		CallStatic("OActor", "SetExcitementMultiplier", RE::MakeFunctionArguments(std::move(a_actor), std::move(a_multiplier)));
 	}
 
+	void ModifyExcitement(RE::Actor* a_actor, float a_amount)
+	{
+		CallStatic("OActor", "ModifyExcitement", RE::MakeFunctionArguments(std::move(a_actor), std::move(a_amount), false));
+	}
+
+	void StallClimax(RE::Actor* a_actor)
+	{
+		CallStatic("OActor", "StallClimax", RE::MakeFunctionArguments(std::move(a_actor)));
+	}
+
+	void PermitClimax(RE::Actor* a_actor)
+	{
+		CallStatic("OActor", "PermitClimax", RE::MakeFunctionArguments(std::move(a_actor)));
+	}
+
+	void ForceClimax(RE::Actor* a_actor)
+	{
+		CallStatic("OActor", "Climax", RE::MakeFunctionArguments(std::move(a_actor), true));
+	}
+
 	// ------------------------------------------------------------ head look
 	void SetLookAt(RE::Actor* a_actor, RE::TESObjectREFR* a_target)
 	{

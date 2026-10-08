@@ -313,6 +313,7 @@ namespace Skin
 	{
 		bool female = false;
 		if (!Paintable(b.actor, female)) return;
+		const bool stoic = Face::Engine::Archetype(b.actor) == Face::Engine::Pers::kStoic;  // (before the lock: Settings comes before this module's)
 		std::scoped_lock l(g_lock);
 		auto& st = Track(b.actor, female);
 		if (b.broken) {  // the victim checked out: tears keep coming, nothing else
@@ -354,7 +355,9 @@ namespace Skin
 				g_status = "blush yielded to OBlush";
 			} else {
 				// Face and body flush together: the softbody arousal level can carry the blush too.
-				const float ramp = std::max(std::clamp((enjoy - 0.15f) / 0.75f, 0.0f, 1.0f), Arousal::Flush(b.actor));
+				// A stoic is not excited by it: no blush from the excitement, only the arousal module's flush for the last seconds before an
+				// orgasm and the orgasm itself (Arousal::Shape).
+				const float ramp = stoic ? Arousal::Flush(b.actor) : std::max(std::clamp((enjoy - 0.15f) / 0.75f, 0.0f, 1.0f), Arousal::Flush(b.actor));
 				const float alpha = std::clamp(ramp * strength * StyleScalar(), 0.0f, 0.9f);
 				if (alpha > 0.03f) {
 					if (!st.on[kBlush] || std::abs(alpha - st.blushAlpha) > 0.02f) {

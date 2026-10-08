@@ -31,7 +31,47 @@ namespace Face::Engine
 	void SetTakenOverIDs(std::vector<RE::FormID> a_ids);
 
 	// personality
+	// 0-4 are the original five. The newer four are built on them: a new type uses `BasePersonality` - the original one it is closest to -
+	// wherever it has no rule of its own, so timid acts as a shy, wild as a vocal, crazed as a dominant and submissive as a balanced, and
+	// the code that is specific to the new type (eyes kept shut, a fixed stare, a faster build, accepting a rough scene) comes on top.
+	// Wild is built on vocal (the strength and tempo of someone who shows everything), crazed on dominant, timid and submissive on balanced.
+	namespace Pers
+	{
+		inline constexpr int kBalanced = 0, kStoic = 1, kVocal = 2, kShy = 3, kDominant = 4;
+		inline constexpr int kTimid = 5, kSubmissive = 6, kWild = 7, kCrazed = 8;
+		inline constexpr int kCount = 9;
+	}
+	[[nodiscard]] constexpr int BasePersonality(int a_arch)
+	{
+		switch (a_arch) {
+		case Pers::kTimid: return Pers::kBalanced;
+		case Pers::kWild: return Pers::kVocal;
+		case Pers::kCrazed: return Pers::kDominant;
+		case Pers::kSubmissive: return Pers::kBalanced;
+		default: return a_arch >= 0 && a_arch <= Pers::kDominant ? a_arch : Pers::kBalanced;
+		}
+	}
+	// Submissive is in the full edition only: the lite edition has no non-consent, which is what it is about.
+	[[nodiscard]] constexpr bool PersonalityAvailable(int a_arch)
+	{
+#if OSIS_LITE
+		if (a_arch == Pers::kSubmissive) return false;
+#endif
+		return a_arch >= 0 && a_arch < Pers::kCount;
+	}
+	// What the lite edition plays someone who is, or would be, a submissive as: a timid, the nearest thing it has (it enjoys it, but is
+	// uneasy with closeness). Everywhere a submissive could come from - a keyword, a voice, the roll, a save, an INI - goes through this.
+	[[nodiscard]] constexpr int EditionPersonality(int a_arch)
+	{
+#if OSIS_LITE
+		if (a_arch == Pers::kSubmissive) return Pers::kTimid;
+#endif
+		return a_arch;
+	}
 	[[nodiscard]] int Archetype(RE::Actor* a, std::string* a_source = nullptr);
+	// This actor's climax is being held by a dominant (UpdateClimaxControl): they wait at the edge, and the arousal response does not treat
+	// that as an orgasm about to come.
+	[[nodiscard]] bool IsClimaxHeld(RE::Actor* a);
 	[[nodiscard]] const char* PersonalityName(int a_arch);
 
 	// Consent: how the victim of a non-consensual scene reacts, from their personality.

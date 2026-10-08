@@ -5,6 +5,7 @@
 
 #include "Face/Buildup.h"
 
+#include "Face/Engine.h"
 #include "Face/Internal.h"
 
 namespace Face::Buildup
@@ -56,7 +57,7 @@ namespace Face::Buildup
 		constexpr Eyes kEyes[] = {
 			{ "open_soft", 0.08f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, false, { 1.00f, 1.30f, 0.80f, 1.00f, 1.00f } },
 			{ "eye_contact", 0.12f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, false, { 1.00f, 1.20f, 1.20f, 0.30f, 1.80f } },
-			{ "wide_attentive", 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, false, { 1.00f, 0.80f, 1.20f, 1.00f, 1.00f } },
+			{ "wide_attentive", 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, false, { 1.00f, 0.80f, 1.80f, 1.00f, 1.00f } },
 			{ "slow_blink", 0.15f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, true, { 1.00f, 1.20f, 1.20f, 1.00f, 0.80f } },
 			{ "half_lid", 0.40f, 0.20f, 0.00f, 0.00f, 0.00f, 0.00f, false, { 1.00f, 1.00f, 1.40f, 1.00f, 1.00f } },
 			{ "heavy_lid_down", 0.30f, 0.35f, 0.20f, 0.00f, 0.00f, 0.00f, false, { 1.00f, 1.00f, 1.20f, 1.20f, 1.00f } },
@@ -72,7 +73,7 @@ namespace Face::Buildup
 		constexpr Brows kBrows[] = {
 			{ "neutral", 0.00f, 0.00f, 0.00f, 0.00f, { 1.00f, 1.80f, 0.60f, 0.70f, 1.00f } },
 			{ "soft_raise", 0.25f, 0.25f, 0.00f, 0.00f, { 1.00f, 1.00f, 1.00f, 1.20f, 0.70f } },
-			{ "high_raise", 0.60f, 0.60f, 0.00f, 0.00f, { 1.00f, 0.50f, 1.60f, 1.00f, 1.00f } },
+			{ "high_raise", 0.60f, 0.60f, 0.00f, 0.00f, { 1.00f, 0.50f, 2.00f, 1.00f, 1.00f } },
 			{ "pleading", 0.22f, 0.22f, 0.35f, 0.00f, { 1.00f, 0.50f, 1.00f, 2.00f, 0.30f } },
 			{ "knit_light", 0.00f, 0.00f, 0.30f, 0.00f, { 1.00f, 1.20f, 1.00f, 1.00f, 1.20f } },
 			{ "furrow", 0.00f, 0.00f, 0.45f, 0.25f, { 1.00f, 1.30f, 0.80f, 0.90f, 1.80f } },
@@ -87,7 +88,7 @@ namespace Face::Buildup
 			{ "lips_parted", 0.15f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, { 1.00f, 1.30f, 1.00f, 1.00f, 1.00f } },
 			{ "parted_wide", 0.30f, 0.10f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, { 1.00f, 0.80f, 1.20f, 1.00f, 1.00f } },
 			{ "open", 0.45f, 0.20f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, { 1.00f, 0.60f, 1.80f, 0.80f, 1.20f } },
-			{ "wide_gasp", 0.25f, 0.55f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, { 1.00f, 0.40f, 1.80f, 0.60f, 1.20f } },
+			{ "wide_gasp", 0.25f, 0.55f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, { 1.00f, 0.40f, 2.20f, 0.60f, 1.20f } },
 			{ "round_o", 0.10f, 0.00f, 0.40f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, { 1.00f, 0.70f, 1.50f, 1.00f, 0.80f } },
 			{ "ooh_pout", 0.00f, 0.00f, 0.00f, 0.35f, 0.00f, 0.00f, 0.00f, 0.00f, 0.10f, { 1.00f, 0.50f, 1.50f, 1.10f, 0.70f } },
 			{ "pressed", 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.45f, 0.00f, 0.00f, { 1.00f, 1.80f, 0.50f, 1.30f, 1.20f } },
@@ -101,9 +102,9 @@ namespace Face::Buildup
 
 		constexpr Mood kMoods[] = {
 			{ "neutral", 7, 0.30f, { 1.00f, 1.80f, 0.50f, 0.80f, 1.00f } },
-			{ "happy", 10, 0.90f, { 1.00f, 0.80f, 1.60f, 0.80f, 0.80f } },
+			{ "happy", 10, 0.90f, { 1.00f, 0.80f, 1.40f, 0.80f, 0.80f } },
 			{ "sad", 11, 0.70f, { 1.00f, 0.80f, 0.60f, 1.80f, 0.40f } },
-			{ "surprise", 12, 0.60f, { 1.00f, 0.70f, 1.20f, 1.30f, 0.60f } },
+			{ "surprise", 12, 0.60f, { 1.00f, 0.70f, 2.20f, 1.30f, 0.60f } },
 			{ "puzzled", 13, 0.60f, { 1.00f, 1.30f, 0.80f, 1.20f, 0.80f } },
 			{ "fear", 9, 0.60f, { 1.00f, 0.80f, 0.50f, 1.80f, 0.40f } },
 			{ "anger", 8, 0.45f, { 1.00f, 1.00f, 0.70f, 0.20f, 2.20f } },
@@ -243,6 +244,108 @@ namespace Face::Buildup
 		}
 
 		float Clamp01(float x) { return std::clamp(x, 0.0f, 1.0f); }
+
+		// How well an option's parts suit one of the newer personalities, as a weight on the whole option. The affinities in the tables above are
+		// for the original five; a newer type takes those of the one it is built on (Engine::BasePersonality) and this on top.
+		float ExtraWeight(int pers, const Option& o)
+		{
+			float w = 1.0f;
+			switch (pers) {
+			case Engine::Pers::kStoic:  // tolerating it: lids low, the eyes elsewhere, neutral brows and a closed mouth; nothing wide, strained or soft
+				switch (o.eyes) {
+				case EyesHalfLid: w *= 1.8f; break;
+				case EyesHeavyLidDown: w *= 1.5f; break;
+				case EyesSlowBlink: w *= 1.6f; break;
+				case EyesOpenSoft: w *= 1.6f; break;
+				case EyesGlanceLeft: case EyesGlanceRight: w *= 1.8f; break;
+				case EyesLookDownShy: w *= 0.8f; break;
+				case EyesEyeContact: w *= 0.5f; break;
+				case EyesClosedSoft: w *= 0.5f; break;
+				case EyesLookUpDrift: w *= 0.4f; break;
+				case EyesWideAttentive: w *= 0.3f; break;
+				case EyesSqueezeLight: case EyesSqueezeHard: w *= 0.15f; break;
+				default: break;
+				}
+				switch (o.brows) {
+				case BrowsNeutral: w *= 2.5f; break;
+				case BrowsSoftRaise: w *= 0.8f; break;
+				case BrowsKnitLight: case BrowsLowered: w *= 0.5f; break;
+				case BrowsUnevenLeft: case BrowsUnevenRight: w *= 0.4f; break;
+				case BrowsFurrow: w *= 0.3f; break;
+				case BrowsHighRaise: w *= 0.2f; break;
+				case BrowsPleading: case BrowsWorried: w *= 0.15f; break;
+				default: break;
+				}
+				switch (o.mouth) {
+				case MouthClosedRelaxed: w *= 2.5f; break;
+				case MouthLipsParted: case MouthPressed: case MouthBreathOut: w *= 1.2f; break;
+				case MouthPartedWide: w *= 0.4f; break;
+				case MouthSmileClosed: case MouthSmileOpen: w *= 0.5f; break;
+				case MouthOpen: case MouthRoundO: case MouthOohPout: case MouthLipBite: w *= 0.3f; break;
+				case MouthTeethShow: case MouthTongueTeeth: w *= 0.2f; break;
+				case MouthWideGasp: w *= 0.1f; break;
+				default: break;
+				}
+				if (o.mood == MoodNeutral) w *= 3.0f;
+				else if (o.mood == MoodPuzzled) w *= 0.8f;
+				else if (o.mood == MoodHappy) w *= 0.5f;
+				else w *= 0.15f;  // sad, afraid, angry or surprised: not what a stoic is feeling
+				break;
+			case Engine::Pers::kTimid:  // eyes shut or nearly, looking down; never a stare
+				switch (o.eyes) {
+				case EyesClosedSoft: w *= 3.0f; break;
+				case EyesSqueezeLight: w *= 2.4f; break;
+				case EyesSqueezeHard: w *= 2.0f; break;
+				case EyesHeavyLidDown: w *= 2.2f; break;
+				case EyesHalfLid: w *= 1.8f; break;
+				case EyesSlowBlink: w *= 1.6f; break;
+				case EyesLookDownShy: w *= 1.8f; break;
+				case EyesEyeContact: w *= 0.15f; break;
+				case EyesWideAttentive: w *= 0.25f; break;
+				case EyesOpenSoft: w *= 0.7f; break;
+				default: break;
+				}
+				if (o.mouth == MouthLipBite || o.mouth == MouthPressed) w *= 1.4f;
+				if (o.mouth == MouthWideGasp || o.mouth == MouthTeethShow) w *= 0.5f;
+				if (o.mood == MoodHappy) w *= 1.5f;  // they enjoy it a lot
+				else if (o.mood == MoodSad || o.mood == MoodFear || o.mood == MoodPuzzled) w *= 0.5f;
+				break;
+			case Engine::Pers::kSubmissive:  // pleading brows, a lowered look, a soft mouth; nothing hard
+				if (o.brows == BrowsPleading) w *= 2.2f;
+				else if (o.brows == BrowsWorried) w *= 1.6f;
+				else if (o.brows == BrowsLowered || o.brows == BrowsFurrow) w *= 0.3f;
+				if (o.eyes == EyesLookDownShy) w *= 1.4f;
+				else if (o.eyes == EyesEyeContact) w *= 0.6f;
+				if (o.mouth == MouthLipBite || o.mouth == MouthLipsParted || o.mouth == MouthOohPout) w *= 1.3f;
+				break;
+			case Engine::Pers::kWild:  // open mouths and tongues, eyes rolling up, brows lifted: all of it showing
+				if (o.mouth == MouthOpen || o.mouth == MouthWideGasp || o.mouth == MouthSmileOpen || o.mouth == MouthTongueTeeth || o.mouth == MouthRoundO) w *= 1.8f;
+				else if (o.mouth == MouthClosedRelaxed || o.mouth == MouthPressed) w *= 0.3f;
+				if (o.eyes == EyesLookUpDrift) w *= 1.5f;
+				else if (o.eyes == EyesHalfLid || o.eyes == EyesSqueezeHard) w *= 1.3f;
+				if (o.brows == BrowsHighRaise) w *= 1.4f;
+				if (o.mood == MoodHappy) w *= 2.2f;  // nothing negative: always a positive reaction
+				else if (o.mood == MoodNeutral) w *= 0.5f;
+				else if (o.mood != MoodSurprise) w *= 0.2f;
+				break;
+			case Engine::Pers::kCrazed:  // a fixed, wide stare, brows low, a smile or teeth; the eyes never close or look away
+				switch (o.eyes) {
+				case EyesEyeContact: w *= 4.0f; break;
+				case EyesWideAttentive: w *= 3.5f; break;
+				case EyesOpenSoft: w *= 1.2f; break;
+				case EyesSqueezeLight: case EyesSqueezeHard: w *= 0.15f; break;
+				default: w *= 0.1f; break;  // every other eye option closes or turns away
+				}
+				if (o.brows == BrowsLowered || o.brows == BrowsFurrow || o.brows == BrowsKnitLight) w *= 2.0f;
+				else if (o.brows == BrowsPleading || o.brows == BrowsWorried) w *= 0.2f;
+				if (o.mouth == MouthSmileOpen || o.mouth == MouthTeethShow || o.mouth == MouthSmileClosed) w *= 2.2f;
+				else if (o.mouth == MouthLipBite) w *= 1.2f;
+				else if (o.mouth == MouthClosedRelaxed) w *= 0.6f;
+				break;
+			default: break;
+			}
+			return w;
+		}
 	}
 
 	int OptionCount() { return kOptionCount; }
@@ -271,7 +374,7 @@ namespace Face::Buildup
 
 	int Pick(int stage, int arch, const int* recent, int recentCount)
 	{
-		const int a = std::clamp(arch, 0, 4);
+		const int a = Engine::BasePersonality(arch);  // the affinity columns are the original five's
 		std::vector<std::pair<int, float>> candidates;
 		float total = 0.0f;
 		for (int pass = 0; pass < 2 && total <= 0.0f; ++pass) {
@@ -283,7 +386,7 @@ namespace Face::Buildup
 				if (pass == 0 && std::find(recent, recent + recentCount, i) != recent + recentCount) continue;
 				// How well the parts suit the personality, tempered: four parts multiply, and one very unlikely part
 				// should lower an option, not remove it.
-				const float w = std::sqrt(kEyes[o.eyes].aff[a] * kBrows[o.brows].aff[a] * kMouth[o.mouth].aff[a] * kMoods[o.mood].aff[a]);
+				const float w = std::sqrt(kEyes[o.eyes].aff[a] * kBrows[o.brows].aff[a] * kMouth[o.mouth].aff[a] * kMoods[o.mood].aff[a]) * ExtraWeight(arch, o);
 				candidates.emplace_back(i, w);
 				total += w;
 			}

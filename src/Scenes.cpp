@@ -420,7 +420,7 @@ namespace Scenes
 		std::scoped_lock l(g_lock);
 		std::vector<ThreadStatus> out;
 		for (auto& [id, t] : g_threads) {
-			ThreadStatus ts{ id, t.sceneID, t.hasPlayer, t.consent, t.toneRough, t.normalActive, t.orgasm, t.sceneOral, t.spellNonConsent, t.speed, t.maxSpeed,
+			ThreadStatus ts{ id, t.sceneID, t.hasPlayer, t.consent, t.toneRough, t.normalActive, t.orgasm, t.sceneOral, t.spellNonConsent, t.acceptedBySubmissive, t.speed, t.maxSpeed,
 				t.afterglow, t.plateau, t.start > 0.0f ? Now() - t.start : 0.0f, t.normalProbe, {} };
 			for (auto& s : t.slots) {
 				ts.slots.push_back({ s.name, s.faceOwner, s.mouthOwner, s.eyeOwner, s.headOwner, Face::Engine::PersonalityName(s.arch), s.archSource,

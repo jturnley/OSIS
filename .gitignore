@@ -11,3 +11,6 @@ tools/__pycache__/
 
 # extracted voice lines (tools/extract_common_voice_lines.py)
 /voices_common/
+
+# game voice lines pulled out for testing (tools/extract_character_voice.py)
+/voices_sample/

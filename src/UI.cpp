@@ -169,7 +169,24 @@ namespace
 		ig::TextDisabled("Changes apply immediately; Save makes them persist.");
 	}
 
-	constexpr const char* kPersonalities[] = { "Auto", "Balanced", "Stoic", "Vocal", "Shy", "Dominant" };
+	// Auto, then every personality by id (kPersonalityIds). Submissive is in the full edition only.
+#if OSIS_LITE
+	constexpr const char* kPersonalities[] = { "Auto", "Balanced", "Stoic", "Vocal", "Shy", "Dominant", "Timid", "Wild", "Crazed" };
+	constexpr int kPersonalityIds[] = { -1, 0, 1, 2, 3, 4, 5, 7, 8 };
+#else
+	constexpr const char* kPersonalities[] = { "Auto", "Balanced", "Stoic", "Vocal", "Shy", "Dominant", "Timid", "Submissive", "Wild", "Crazed" };
+	constexpr int kPersonalityIds[] = { -1, 0, 1, 2, 3, 4, 5, 6, 7, 8 };
+#endif
+	constexpr int kPersonalityCount = static_cast<int>(sizeof(kPersonalities) / sizeof(kPersonalities[0]));
+
+	int PersonalityIndex(int id)
+	{
+		id = Face::Engine::EditionPersonality(id);  // the lite edition shows a submissive as the timid it plays as
+		for (int i = 0; i < kPersonalityCount; ++i) {
+			if (kPersonalityIds[i] == id) return i;
+		}
+		return 0;
+	}
 	constexpr const char* kModes[] = { "Assist (OStim paints, OSED layers)", "Enhanced (stronger layer + headflow)", "Director (OSED owns the face)" };
 	constexpr const char* kProfiles[] = { "Subtle", "Normal", "Expressive" };
 	constexpr const char* kPresets[] = { "Recommended", "Subtle", "Cinematic", "Performance", "Minimal" };
@@ -225,7 +242,8 @@ namespace
 #if OSIS_LITE
 			const char* tone = t.rough ? "  [rough]" : "";
 #else
-			const char* tone = t.consent ? (t.rough ? "  [rough, consensual]" : "") : (t.spell ? "  [non-consent: spell]" : "  [non-consent]");
+			const char* tone = t.accepted ? "  [rough, accepted by a submissive]"
+			                              : (t.consent ? (t.rough ? "  [rough, consensual]" : "") : (t.spell ? "  [non-consent: spell]" : "  [non-consent]"));
 #endif
 			ig::Text("Thread %d%s  scene %s  speed %d/%d  %.0fs%s%s%s", t.id, t.player ? " (player)" : "", t.scene.empty() ? "<starting>" : t.scene.c_str(),
 				t.speed, t.maxSpeed, t.time, tone, t.orgasm ? "  [climax]" : "", t.normal ? "  [pre-animation]" : "");
@@ -628,15 +646,62 @@ namespace
 			std::scoped_lock l(Settings::lock);
 			using namespace Settings::Face;
 			ig::SeparatorText("Personality sources");
-			int player = iPlayerPersonality + 1;
-			if (ig::Combo("Player personality", &player, kPersonalities, 6)) {
-				iPlayerPersonality = player - 1;
+			int player = PersonalityIndex(iPlayerPersonality);
+			if (ig::Combo("Player personality", &player, kPersonalities, kPersonalityCount)) {
+				iPlayerPersonality = kPersonalityIds[player];
 				g_dirty = true;
 			}
-			Check("SPID personality keywords", bSPIDPersonality, "OSED_Personality_DISTR.ini hands NPCs Bashful/Bold/Soft/Fierce keywords.");
+			Check("SPID personality keywords", bSPIDPersonality,
+				"OSED_Personality_DISTR.ini hands NPCs Bashful/Bold/Soft/Fierce keywords; OSIS_Personality_Timid, _Wild and _Crazed (alias _Yandere)"
+#if !OSIS_LITE
+				" and _Submissive"
+#endif
+				" are read too.");
 			Check("Voice set shapes personality", bVoiceArchetype,
 				"An actor's voice type suggests a personality when nothing else has set one.");
 			Check("OBlush-aware shyness", bOBlushSync, "While OBlush has an actor blushing, the grammar treats them as shy.");
+			ig::SeparatorText("What each personality is");
+			ig::TextWrapped("Stoic: tolerates sex but isn't into it, and is waiting for the partner to be done: slow to build, muted at the plateau and the climax, "
+				"nothing negative in it. "
+				"Shy: uncomfortable with the idea of sex, though they enjoy it. Hesitation and guilt, overridden as they plateau and climax. "
+				"Timid: enjoys it a lot, but the closeness is too much: eyes shut much of the time, an occasional peek at the partner. "
+				"Vocal: likes it a lot but has no control over themselves: surprise, and loud voices. "
+				"Wild: enjoys every moment, the intimacy and the pleasure alike, with only positive reactions, and tries to maximise them. "
+				"Dominant: their own pleasure comes first and the partner is a toy; the partner's climax is held until the dominant's own. "
+				"Crazed: obsessed with the partner: long creepy eye contact, drives them up to climax as fast as it can, and climaxes with them, "
+				"with a creepy look, every time they do."
+#if !OSIS_LITE
+				" Submissive: turned on by rough scenes, and accepts any kind of scene, forced or not, from someone with a relationship rank of 3 or 4 "
+				"to everyone in it - it then plays as consensual."
+#endif
+			);
+			SliderF("Share of the newer types", fNewPersonalityShare, 0.0f, 1.0f, "%.2f",
+				"Where nothing else places someone (no SPID keyword, voice type or AI value), this share of people get a timid, "
+#if !OSIS_LITE
+				"submissive, "
+#endif
+				"wild or crazed personality instead of one of the first five. It only matters when an actor's personality is first settled.");
+			Check("Personality changes how fast excitement builds", bPersonalityExcitement,
+				"Wild people build faster than OStim's own rate, stoic ones slower"
+#if !OSIS_LITE
+				", and submissive ones in a rough scene"
+#endif
+				". It scales OStim's excitement rate for that actor, for the length of the scene.");
+			SliderF("Wild: excitement rate", fWildExcitementMult, 0.5f, 2.0f, "%.2f", "Times OStim's rate for a wild actor.");
+			SliderF("Stoic: excitement rate", fStoicExcitementMult, 0.3f, 1.0f, "%.2f", "Times OStim's rate for a stoic actor, who is not into it.");
+#if !OSIS_LITE
+			SliderF("Submissive: excitement rate in rough scenes", fSubmissiveRoughMult, 0.5f, 2.0f, "%.2f",
+				"Times OStim's rate for a submissive actor in a rough scene, or in one they accepted.");
+#endif
+			ig::SeparatorText("Dominant and crazed: control of the climax");
+			Check("Dominant and crazed people control a partner's climax", bPersonalityControl,
+				"A dominant holds their partner's climax (OStim's stall: the partner waits at the edge) until the dominant's own, and the two climax together. "
+				"A crazed one builds their partner's excitement up fast and climaxes with them every time they do. Consensual scenes only, and the "
+				"player is held like anyone else when their partner is a dominant. Off leaves the climaxes to OStim.");
+			SliderF("Longest a partner is held at the edge (s)", fControlMaxHold, 20.0f, 600.0f, "%.0f",
+				"The dominant lets them go after this long at the edge if they have not climaxed themselves.");
+			SliderF("Dominant: excitement rate", fDominantExcitementMult, 0.5f, 2.0f, "%.2f", "Times OStim's rate for a dominant: their own pleasure comes first.");
+			SliderF("Crazed: partner's excitement rate", fCrazedDriveMult, 1.0f, 4.0f, "%.2f", "Times OStim's rate for whoever a crazed actor is with (not a dominant).");
 		}
 		ig::TextWrapped("Each actor's personality is worked out the first time a scene needs it and then kept in your save game, "
 			"so it is the same in every scene and after every load - the SPID roll is not. What you set below always wins.");
@@ -648,12 +713,12 @@ namespace
 		ig::SeparatorText("Crosshair NPC");
 		ig::TextWrapped("Aim at an NPC (or select one in the console), then pick a personality. Auto works it out afresh and pins that.");
 		static int pick = 0;
-		ig::Combo("##npcpers", &pick, kPersonalities, 6);
+		ig::Combo("##npcpers", &pick, kPersonalities, kPersonalityCount);
 		ig::SameLine();
 		if (ig::Button("Set")) OnGame([p = pick]() {
 			auto* a = TestTarget();
 			if (!a) return Papyrus::Notify("OSIS: aim at an NPC, select one in the console, or start a scene");
-			Face::Engine::SetNpcPersonality(a, p - 1);
+			Face::Engine::SetNpcPersonality(a, kPersonalityIds[p]);
 			std::string src;
 			const int arch = Face::Engine::Archetype(a, &src);
 			Papyrus::Notify(std::format("{}: {} ({})", a->GetDisplayFullName(), Face::Engine::PersonalityName(arch), src));
@@ -912,7 +977,7 @@ namespace
 				"An orgasm pushes to full engorgement for the hold time; edging holds high; afterwards the level eases back to the reported arousal, never to zero.");
 			SliderF("Climax hold (s)", fClimaxHold, 0.0f, 30.0f, "%.0f",
 				"Seconds at full engorgement after an orgasm before it starts easing back.");
-			Check("Personality shapes the response", bPersonality, "Vocal/dominant engorge faster, stoic slower; shy flushes harder.");
+			Check("Personality shapes the response", bPersonality, "Vocal, dominant, crazed and wild engorge faster, stoic slower; shy and timid flush harder.");
 
 			ig::SeparatorText("Physiological response");
 			SliderF("Engorgement half-life (s)", fRiseHalfLife, 1.0f, 120.0f, "%.0f",
@@ -935,6 +1000,12 @@ namespace
 					"The lift from the ceiling to the top begins this many seconds before the orgasm, as estimated from how fast OStim excitement is "
 					"rising. Full only once the orgasm happens. With no scene there is no orgasm to wait for, so the ceiling holds.");
 			}
+			SliderF("Stoic: response at rest", fStoicRest, 0.0f, 0.6f, "%.2f",
+				"A stoic is not excited by sex: only purely physiological reactions show, and this is the share of each range that does. "
+				"A stoic blushes - the face and the body alike - only in the last seconds before the orgasm and during it.");
+			SliderF("Stoic: response at the peak", fStoicPeak, 0.0f, 0.95f, "%.2f",
+				"The most a stoic's body shows, in the last seconds before an orgasm and for the first four seconds of it; it then falls "
+				"back to the rest level within a few seconds, and the blush goes with it.");
 		}
 		ig::SeparatorText("Affected actors");
 		const auto rows = Arousal::Snapshot();

@@ -1,6 +1,6 @@
 # Changelog
 
-## 2.0 beta 2 (plugin version 2.0.8) - in progress
+## 2.0 beta 2 (plugin version 2.0.9) - in progress
 
 ### Fixed
 - **Repeated orgasms held one actor's climax face for minutes.** In the 2.0 beta 1 probe Auri orgasmed every
@@ -92,6 +92,76 @@
 - Settings (Face page, Director): **Vary the climax face** (`bClimaxPool`, on; off gives the one built-in
   template back), **Climax face length** (`fClimaxSeconds`, 14 s, for an orgasm on its own) and **Rapid orgasm
   window** (`fRapidOrgasmSeconds`, 40 s).
+- **The personalities are defined, and four are new** (timid, submissive, wild, crazed; the old five are none, stoic,
+  vocal, shy, dominant) and **stoic is redefined**. Each is built on the nearest original one for what it has no rule of its own for (wild on
+  vocal, crazed on dominant, timid and submissive on balanced) and adds its own on top:
+  - **Stoic** (the opposite of wild) - tolerates sex but is not into it, and is waiting for the partner to be done. It is not
+    unpleasant or painful and they do not hate it: there is nothing negative in it, just no interest. Excitement builds 0.7
+    times as fast as OStim's own rate (`fStoicExcitementMult`), and what shows lags well behind it (20 behind, against 12
+    before) and is muted, to 65% in the build-up and 45% at the plateau and the climax (the mouth, brows, squint, lids and the
+    strength of the mood). Moods are neutral (three times as likely) and never sad, afraid, angry or disgusted; the build-up
+    faces are low lids, glances aside, neutral brows and a closed mouth, and the lids sit a little low whatever the pick. They
+    look at the partner one beat in four and are elsewhere otherwise. The climax is the quietest of all, silent and breathless
+    (36% and 26%), the lips a little apart and the eyes a little narrowed, no longer clenched with the brows drawn in; they
+    moan far less (70% of the beats that would) and are hard to overwhelm.
+    **The body is muted as well: only purely physiological reactions.** A stoic is not excited by sex, so the softbody
+    morphs and the genital bend show a minimal share of their range (18%, `fStoicRest`) through the build-up, whatever the
+    arousal level, and nothing blushes through the build-up (the excitement is left out of the face's blush, Living Skin's and the
+    arousal level's). The blush, the face's and the body's alike, shows only in the very last part of the plateau - the last seconds before the orgasm, the same window as the lift - and in
+    the orgasm itself, and the morphs lift then to 70% (`fStoicPeak`) at most. The orgasm lasts four seconds of that, then it
+    subsides quickly (half-life 1.5 s against 4) to minimal reactions and no blush: the blush is at 0.70 of its range at the
+    orgasm, 0.28 a second after it ends, 0.03 three seconds after and gone by eight. The level still builds slowly (1.5 times
+    the delay) behind it. Sliders for both on the Arousal page.
+  - **Shy** - uncomfortable with the idea of sex, though they enjoy it. Hesitation and guilt, overridden as they plateau
+    and climax. A conflict that is 1 at the start, fades to 0 by 80 excitement and is gone at the plateau and the
+    climax (0.4 again in the afterglow): worried brows, pressed lips, a small mouth, eyes down, a sad mood, the gaze
+    and the head turned away; then pleasure, whatever the pick had, and a gaze that meets the partner. A shy climax
+    is a release (overwhelmed, wide-eyed, cry out, gasp) and no longer a clenched one.
+  - **Timid** - enjoys it a lot, but the closeness is too much. The eyes are shut a lot of the time from the start (lids
+    35% shut in the lead-in, 60-90% after, 92% at the edge, blink and squint together) and one beat in eight they peek:
+    the lids open and the gaze goes to the partner. A positive mood, no anger or disgust; the build-up and climax faces with
+    the eyes shut are weighted up (smiling, long moan, overwhelmed and lip bite at the climax).
+  - **Vocal** - likes it a lot but has no control over themselves. Their reactions trend to surprise (the surprise mood,
+    brows up, wide eyes, in the picks and as an overlay from 35 excitement), the mouth opens wider and moans more often,
+    60% of beats against 35%, and a fifth louder. The sound itself is OStim's: OSIS cannot change its volume.
+  - **Wild** - enjoys every moment, the intimacy and the pleasure alike. Nothing negative: whatever fear, sadness, doubt,
+    anger or disgust a pick carries becomes a smile, and the smile grows with the pleasure; the gaze stays on the partner.
+    They try to maximise it: excitement builds 1.3 times as fast as OStim's own rate (`fWildExcitementMult`), the faces
+    are 10% stronger than a vocal's and run ahead of the excitement (+8), and the arousal response comes in faster and
+    stays. The laughing, cry out, long moan and eyes rolled climaxes.
+  - **Dominant** - their own pleasure comes first, and the partner is a toy to watch. A smug, narrowed look with one brow
+    up, a smirk when the partner is at the edge, held or climaxing, and a steady gaze on them. **Their partner's climax
+    is held until the dominant's own**: OStim's `StallClimax` keeps the partner waiting at the edge (excitement full)
+    until the dominant climaxes, and they climax together. Failing that, after `fControlMaxHold` (150 s) at the edge
+    the dominant lets them go. The dominant builds 1.25 times as fast (`fDominantExcitementMult`). Consensual scenes
+    only; the player is held like anyone else when their partner is a dominant.
+  - **Crazed** - obsessed with the partner. A fixed, wide stare: lids open, no squint, brows low and drawn in, a smile with
+    anger behind it; the gaze and head stay on the partner through the climax, and the breathing is hard, with shorter
+    cycles and the mouth open between the moans. **It drives the partner's excitement up to make them climax as fast as
+    it can** (2.5 times OStim's rate, `fCrazedDriveMult`; a dominant partner is not driven), **and climaxes with them every
+    time they do**: its own climax is stalled until the partner's, and comes with it (`OActor.Climax`). On each of the
+    partner's climaxes it gives the creepy look: the full smile, the brows low, the eyes wide. As a victim it never
+    cowers: it glares.
+  - **Submissive** (**LoversLab edition only**) is turned on by rough scenes: 1.35 times OStim's excitement rate in a rough
+    scene (`fSubmissiveRoughMult`), the arousal response comes in faster, the brows draw together and lift, surrender
+    as soon as it is building, the climaxes that read as giving in (overwhelmed, pained, cry out, eyes rolled).
+    **It accepts any means of sexual encounter - a scene tagged forced, rape or rough, or the player's spell - as long as
+    its relationship rank is 3 (ally) or 4 (lover) with everyone else in the scene**: such a scene is played as
+    consensual, with no distress faces, no victim reaction, no tears and no scene lock, and the Status page and the log
+    say it was accepted. If any victim in the scene is not a submissive that close to everyone, it stays non-consensual.
+  - **Held actors do not look as if they are about to climax.** An actor held at the edge stays at the arousal ceiling
+    (65%) rather than being lifted to 95%, since the orgasm is not near, and the lift and the orgasm follow when they
+    are let go.
+  - **How they are given out.** A personality is still settled once and kept. SPID keywords
+    `OSIS_Personality_Timid`, `_Wild`, `_Crazed` (alias `_Yandere`) and `_Submissive`, a voice type with
+    timid, wild, crazed or submissive in its name, a cowardly AI value (timid) and a frenzied one (crazed) place people
+    first; where nothing does, `fNewPersonalityShare` (20%) of people roll one of the new types from their form id
+    (timid 6%, submissive 6%, wild 5%, crazed 3% of everyone). **The lite edition has no submissive, so everything that
+    would make one - the keyword, the voice type, the roll, a save or INI from the full edition - gives a timid there**
+    (the same people roll the same in both: timid 12% in the lite edition). Everyone already pinned keeps what they have;
+    "Work every personality out again" settles them afresh.
+    The Personality page describes all of them, lists them for the player and the crosshair NPC, and has the settings,
+    including `bPersonalityControl` (on) for the dominant and crazed control of the climax.
 
 ### Changed
 - **The arousal response no longer sits at its peak.** Each softbody morph, body-blush overlay and genital bend

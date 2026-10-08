@@ -110,6 +110,17 @@ namespace Settings
 				{ "Face", "bSPIDPersonality", &Face::bSPIDPersonality },
 				{ "Face", "bOBlushSync", &Face::bOBlushSync },
 				{ "Face", "iPlayerPersonality", &Face::iPlayerPersonality },
+				{ "Face", "fNewPersonalityShare", &Face::fNewPersonalityShare },
+				{ "Face", "bPersonalityExcitement", &Face::bPersonalityExcitement },
+				{ "Face", "fWildExcitementMult", &Face::fWildExcitementMult },
+				{ "Face", "fStoicExcitementMult", &Face::fStoicExcitementMult },
+				{ "Face", "bPersonalityControl", &Face::bPersonalityControl },
+				{ "Face", "fControlMaxHold", &Face::fControlMaxHold },
+				{ "Face", "fCrazedDriveMult", &Face::fCrazedDriveMult },
+				{ "Face", "fDominantExcitementMult", &Face::fDominantExcitementMult },
+#if !OSIS_LITE
+				{ "Face", "fSubmissiveRoughMult", &Face::fSubmissiveRoughMult },
+#endif
 
 				{ "Body", "bEnabled", &Body::bEnabled },
 				{ "Body", "fStrength", &Body::fStrength },
@@ -185,6 +196,8 @@ namespace Settings
 				{ "Arousal", "fResponseFloor", &Arousal::fResponseFloor },
 				{ "Arousal", "fResponseCeiling", &Arousal::fResponseCeiling },
 				{ "Arousal", "fPeakWindow", &Arousal::fPeakWindow },
+				{ "Arousal", "fStoicRest", &Arousal::fStoicRest },
+				{ "Arousal", "fStoicPeak", &Arousal::fStoicPeak },
 				{ "Arousal", "bBlush", &Arousal::bBlush },
 				{ "Arousal", "iOverlayFirstSlot", &Arousal::iOverlayFirstSlot },
 				{ "Arousal", "iOverlaySlots", &Arousal::iOverlaySlots },
@@ -206,7 +219,14 @@ namespace Settings
 			Face::iProfile = std::clamp(Face::iProfile, 0, 2);
 			Face::fStyle = std::clamp(Face::fStyle, 0.0f, 2.0f);
 			Face::fEyeStrength = std::clamp(Face::fEyeStrength, 0.0f, 1.5f);
-			Face::iPlayerPersonality = std::clamp(Face::iPlayerPersonality, -1, 4);
+			Face::iPlayerPersonality = std::clamp(Face::iPlayerPersonality, -1, 8);
+			Face::fNewPersonalityShare = std::clamp(Face::fNewPersonalityShare, 0.0f, 1.0f);
+			Face::fWildExcitementMult = std::clamp(Face::fWildExcitementMult, 0.5f, 2.0f);
+			Face::fStoicExcitementMult = std::clamp(Face::fStoicExcitementMult, 0.3f, 1.0f);
+			Face::fSubmissiveRoughMult = std::clamp(Face::fSubmissiveRoughMult, 0.5f, 2.0f);
+			Face::fControlMaxHold = std::clamp(Face::fControlMaxHold, 20.0f, 600.0f);
+			Face::fCrazedDriveMult = std::clamp(Face::fCrazedDriveMult, 1.0f, 4.0f);
+			Face::fDominantExcitementMult = std::clamp(Face::fDominantExcitementMult, 0.5f, 2.0f);
 			Face::fNCAutoInterval = std::clamp(Face::fNCAutoInterval, 5.0f, 120.0f);
 			if (Face::fAnimeEnd > Face::fAnimeStart) Face::fAnimeEnd = Face::fAnimeStart;
 			Body::iCurlAxis = std::clamp(Body::iCurlAxis, 0, 2);
@@ -226,6 +246,8 @@ namespace Settings
 			Arousal::fResponseFloor = std::clamp(Arousal::fResponseFloor, 0.0f, 1.0f);
 			Arousal::fResponseCeiling = std::clamp(Arousal::fResponseCeiling, Arousal::fResponseFloor, 0.95f);
 			Arousal::fPeakWindow = std::clamp(Arousal::fPeakWindow, 1.0f, 30.0f);
+			Arousal::fStoicRest = std::clamp(Arousal::fStoicRest, 0.0f, 0.6f);
+			Arousal::fStoicPeak = std::clamp(Arousal::fStoicPeak, Arousal::fStoicRest, 0.95f);
 			Arousal::iOverlayFirstSlot = std::max(0, Arousal::iOverlayFirstSlot);
 			Arousal::iOverlaySlots = std::clamp(Arousal::iOverlaySlots, 0, 32);
 			LipSync::fAttack = std::clamp(LipSync::fAttack, 0.005f, 0.5f);
@@ -626,6 +648,15 @@ namespace Settings
 		bTongueLife = false;
 		bSPIDPersonality = true;
 		bOBlushSync = true;
+		fNewPersonalityShare = 0.20f;
+		bPersonalityExcitement = true;
+		fWildExcitementMult = 1.30f;
+		fStoicExcitementMult = 0.70f;
+		fSubmissiveRoughMult = 1.35f;
+		bPersonalityControl = true;
+		fControlMaxHold = 150.0f;
+		fCrazedDriveMult = 2.5f;
+		fDominantExcitementMult = 1.25f;
 		fAnimeStart = 85.0f;
 		fAnimeEnd = 70.0f;
 

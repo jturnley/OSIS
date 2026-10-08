@@ -83,8 +83,9 @@ The target is the highest of:
 - 0.7 during afterglow;
 - 1.0 for `fClimaxHold` seconds after an orgasm.
 
-Personality scales the response rates (stoic slower; vocal and dominant faster) and the
-flush strength (shy 1.25, stoic 0.8). After a climax the level eases back to the reported
+Personality scales the response rates (stoic slower; vocal, dominant, crazed and wild faster, wild also
+slower to fall back; a submissive faster in a rough scene; a stoic slower still) and the flush strength (shy and timid 1.25, stoic 0.8,
+submissive 1.1). After a climax the level eases back to the reported
 arousal and never snaps to zero.
 
 Two fixes carried over from Softbody Arousal 2.0, which reset actors to zero around
@@ -96,6 +97,24 @@ orgasm:
 
 Living Skin's face blush uses `max(scene excitement ramp, Arousal::Flush)`, so the face and
 body flush together.
+
+## Personalities
+Nine ids (`Face::Engine::Pers`): 0 balanced, 1 stoic, 2 vocal, 3 shy, 4 dominant, 5 timid, 6 submissive (full edition only), 7 wild,
+8 crazed. The lite edition has no submissive: `EditionPersonality` turns a 6 into a timid (5) wherever one could come in (SPID keyword, voice
+token, the new-type roll, a stored or INI value, the UI combo), so the same actor rolls the same in both editions bar that. `BasePersonality` maps a newer type to the original it is built on (wild to vocal, crazed to dominant, timid and
+submissive to balanced), which the original rules in the Director see (`arch`); the newer rules and the picks see the full id
+(`pers`). Stoic (1) is the opposite of wild: slower excitement (`fStoicExcitementMult`), a muted face (`ApplyPersonalityFace`, 0.65 / 0.45), neutral moods, a quiet climax, and a muted body (`Arousal::Shape`: `fStoicRest` / `fStoicPeak`, face and body blush gated to the last seconds before and during the orgasm - `Arousal::Flush` returns the gate for Skin, which ignores the excitement ramp for a stoic - which fades with a 1.5 s half-life). Where each shows: `MoodAffinity`, `Buildup::Pick` (`ExtraWeight`), the climax pool's `suits[9]`, `ApplyPersonalityFace`
+(shy's conflict, timid's lids and peeks, vocal's surprise, the dominant's smirk, wild's smile, crazed's stare and creepy look,
+submissive's brows), `SetGaze`, `ApplyHeadflow`, `Breathe`, and the excitement rates in `UpdateExcitementRates`.
+
+**Control of the climax** (`UpdateClimaxControl`, `OnOrgasm`, consensual scenes with `bPersonalityControl`): a dominant's partners
+get `OActor.StallClimax` (OStim holds a stalled actor at 100, `awaitingOrgasm`, and climaxes it when it is permitted), said again
+every 4 s because OStim ignores it for an actor it has not put in a thread yet. They are permitted while a dominant is climaxing,
+and `OnOrgasm` of the dominant forces (`OActor.Climax` with IgnoreStall) any partner at 80 or more, so they climax together; after
+`fControlMaxHold` seconds at the edge (`holdSince`, from 97) the dominant lets them go. A crazed actor is stalled the other way
+round: its own climax waits for a partner's, and the partner's `OnOrgasm` forces it (`forcedAt` stops a force from re-forcing).
+Excitement rates: a crazed actor scales everyone else but a dominant by `fCrazedDriveMult`, a dominant scales themselves by
+`fDominantExcitementMult`. A held actor is not "imminent" for the arousal response (`IsClimaxHeld`).
 
 ## Consent
 - Decided per thread from the scene's tags, recomputed on every scene change (`RefreshDerived`):
@@ -141,6 +160,13 @@ body flush together.
   and an NPC who joined without being cast on (a follower who asked to join). Scene changes can't
   make a spell-started thread consensual. In a consensual scene a joiner is consensual like
   everyone else.
+- **A submissive accepts it** (full edition, `SubmissivesAccept`): a scene that would be non-consensual - tagged
+  forced, rape or aggressive, or started by the player's spell - is played as consensual when every victim (whoever
+  the scene's roles name, everyone if they name nobody) has the submissive personality and a relationship rank of 3
+  (ally) or 4 (lover) with everyone else in the thread. `Thread::acceptedBySubmissive` is set, `consent` becomes true,
+  `toneForced` stays as the tags say, and so no distress grammar, victim reaction, tears or scene lock follow. It is
+  logged when it starts and when it stops, and shown on the Status page. One victim who is not such a person leaves
+  the whole scene non-consensual.
 - A non-consensual scene gets distress faces (hard gate: even at climax), guardrails, no
   anime/tongue. Nobody in the scene gets blush or saliva. Faces are role-aware:
   - **Victim**: reacts by personality (`VictimReaction`):
@@ -152,6 +178,9 @@ body flush together.
     | Vocal | panic | fear, mouth open (crying out), eyes down, head turned away |
     | Stoic | numb | restrained sadness, closed mouth, eyes down, head turned away |
     | Balanced | sad → fear | sadness at low excitement, fear from 45, open-mouthed fear from 90 |
+    | Timid | fear | as shy |
+    | Wild, Crazed | defiance | as dominant: glaring, no tears |
+    | Submissive (a scene it does not accept) | sad → fear | as balanced |
 
     Everyone but a defiant victim gets welling eyes, averted gaze, the brace head-turn and tears.
   - **Aggressor** (everyone else, once a victim is identified): anger, lowered brows, narrowed

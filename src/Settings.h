@@ -115,7 +115,22 @@ namespace Settings
 
 		inline bool bSPIDPersonality = true;
 		inline bool bOBlushSync = true;
-		inline int iPlayerPersonality = -1;   // -1 auto, 0 balanced, 1 stoic, 2 vocal, 3 shy, 4 dominant
+		inline int iPlayerPersonality = -1;   // -1 auto, 0 balanced, 1 stoic, 2 vocal, 3 shy, 4 dominant, 5 timid, 6 submissive (full edition only), 7 wild, 8 crazed
+		// Where nothing else says (no SPID keyword, voice or AI value), this share of people get one of the newer personalities
+		// (timid, submissive, wild, crazed) instead of one of the first five.
+		inline float fNewPersonalityShare = 0.20f;
+		// Wild people build excitement faster, and submissive ones in a rough scene: a multiplier on OStim's own rate.
+		inline bool bPersonalityExcitement = true;
+		inline float fWildExcitementMult = 1.30f;
+		inline float fStoicExcitementMult = 0.70f;  // a stoic is not into it: the opposite of wild
+		inline float fSubmissiveRoughMult = 1.35f;
+		// Dominant and crazed people control a partner's climax. A dominant holds the partner at the edge until the dominant's own climax (or this
+		// many seconds at the edge), and builds faster themselves; a crazed one builds the partner's excitement up fast and climaxes with them,
+		// whenever they do. Consensual scenes only.
+		inline bool bPersonalityControl = true;
+		inline float fControlMaxHold = 150.0f;
+		inline float fCrazedDriveMult = 2.5f;
+		inline float fDominantExcitementMult = 1.25f;
 	}
 
 	// ---------------------------------------------------------------- body (toe / hand)
@@ -249,6 +264,8 @@ namespace Settings
 		inline bool bShapedResponse = true;
 		inline float fResponseFloor = 0.30f;    // the share of the range shown as soon as the actor is aroused
 		inline float fResponseCeiling = 0.65f;  // the most shown through the build-up, until the last seconds
+		inline float fStoicRest = 0.18f;        // a stoic: the share of the range shown at rest - purely physiological, minimal
+		inline float fStoicPeak = 0.70f;        // a stoic: the most that shows, in the last seconds before an orgasm and during it
 		inline float fPeakWindow = 6.0f;        // seconds before the orgasm, as estimated from how fast excitement is rising, that the lift begins
 
 		inline bool bBlush = true;

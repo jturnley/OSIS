@@ -140,6 +140,28 @@ namespace Face::Engine
 				if (!a) continue;
 				float want = 1.0f;
 				if (S::bConsentExcitement && !t.consent && anyVictim) want = IsSubmissive(t, s) ? S::fVictimExcitementMult : S::fAggressorExcitementMult;
+				// Wild people really enjoy it: they build faster; a stoic is not into it and builds slowly. A submissive builds faster in a rough scene, or in one they have accepted.
+				if (S::bPersonalityExcitement && t.consent) {
+					const int pers = Archetype(a);
+					if (pers == Pers::kWild) want *= S::fWildExcitementMult;
+					else if (pers == Pers::kStoic) want *= S::fStoicExcitementMult;  // not very into it: builds slowly
+#if !OSIS_LITE
+					else if (pers == Pers::kSubmissive && (t.toneRough || t.toneForced)) want *= S::fSubmissiveRoughMult;
+#endif
+				}
+				// Control: a dominant's own pleasure comes first, so they build faster; a crazed one drives everyone else up (not a dominant,
+				// who is not driven) to make them climax as fast as it can.
+				if (S::bPersonalityControl && t.consent) {
+					const int pers = Archetype(a);
+					bool others = false, crazedOther = false;
+					for (auto& o : t.slots) {
+						if (&o == &s || !o.Get()) continue;
+						others = true;
+						crazedOther = crazedOther || Archetype(o.Get()) == Pers::kCrazed;
+					}
+					if (pers == Pers::kDominant && others) want *= S::fDominantExcitementMult;
+					else if (crazedOther && pers != Pers::kCrazed && pers != Pers::kDominant) want *= S::fCrazedDriveMult;
+				}
 				want = ClampF(want, 0.05f, 4.0f);  // OStim divides by the rate to time the climax: never zero
 				if (std::abs(want - s.excitementFactor) < 0.001f) continue;
 				const RE::FormID id = a->GetFormID();
@@ -162,6 +184,70 @@ namespace Face::Engine
 			}
 		}
 
+		// ---- personality control of climaxes
+		// A dominant's partner is a toy: their climax is stalled (OActor.StallClimax: they wait at the edge, excitement full) until the dominant
+		// lets them, which is the dominant's own climax - then they climax together - or, failing that, fControlMaxHold seconds at the edge.
+		// A crazed one is the other way round: their own climax waits for their partner's, and comes with it, every time (OnOrgasm). Consensual
+		// scenes only. OStim ignores a stall for an actor it has not put in a thread yet, so it is said again every few seconds.
+		void UpdateClimaxControl(Thread& t)
+		{
+			const float now = Scenes::Now();
+			const bool on = S::bPersonalityControl && t.consent && t.slots.size() >= 2;
+			std::vector<int> pers(t.slots.size(), -1);
+			for (std::size_t i = 0; i < t.slots.size(); ++i) {
+				if (auto* a = t.slots[i].Get()) pers[i] = Archetype(a);
+			}
+			for (std::size_t i = 0; i < t.slots.size(); ++i) {
+				auto& s = t.slots[i];
+				auto* a = s.Get();
+				if (!a) continue;
+				bool want = false;
+				if (on) {
+					bool dominantOther = false, dominantClimaxing = false, partnerOther = false, partnerClimaxing = false;
+					for (std::size_t j = 0; j < t.slots.size(); ++j) {
+						if (j == i || !t.slots[j].Get()) continue;
+						if (pers[j] == Pers::kDominant) {
+							dominantOther = true;
+							dominantClimaxing = dominantClimaxing || t.slots[j].climaxing;
+						}
+						if (pers[j] != Pers::kCrazed) {
+							partnerOther = true;
+							partnerClimaxing = partnerClimaxing || t.slots[j].climaxing;
+						}
+					}
+					if (pers[i] != Pers::kDominant && dominantOther) {
+						want = !dominantClimaxing && !s.climaxing;
+						// Held at the edge: the clock for how long they are made to wait.
+						if (want && s.holdSince <= 0.0f && Raw(a) >= 97) s.holdSince = now;
+						if (want && s.holdSince > 0.0f && now - s.holdSince > S::fControlMaxHold) {
+							want = false;  // the dominant lets them, in the end
+							s.holdSince = 0.0f;
+							logger::info("Control: {:08X} {} held {:.0f}s at the edge: the dominant lets them go", a->GetFormID(), a->GetDisplayFullName(), S::fControlMaxHold);
+						}
+					} else if (pers[i] == Pers::kCrazed && partnerOther) {
+						want = !partnerClimaxing && !s.climaxing;
+					}
+				}
+				if (!want) s.holdSince = 0.0f;
+				if (want) {
+					if (!s.stallActive) logger::info("Control: {:08X} {} ({}) climax held", a->GetFormID(), a->GetDisplayFullName(), PersonalityName(pers[i]));
+					s.stallActive = true;
+					if (now - s.stallIssuedAt >= 4.0f) {
+						Papyrus::StallClimax(a);
+						s.stallIssuedAt = now;
+					}
+				} else if (s.stallActive) {
+					s.stallActive = false;
+					Papyrus::PermitClimax(a);
+					s.permitRepeatAt = now + 2.5f;  // said once more, in case OStim had not yet taken the first
+					logger::info("Control: {:08X} {} climax permitted", a->GetFormID(), a->GetDisplayFullName());
+				} else if (s.permitRepeatAt > 0.0f && now >= s.permitRepeatAt) {
+					Papyrus::PermitClimax(a);
+					s.permitRepeatAt = 0.0f;
+				}
+			}
+		}
+
 		std::string VoiceName(RE::Actor* a)
 		{
 			std::scoped_lock l(g_dataLock);
@@ -176,7 +262,11 @@ namespace Face::Engine
 			auto any = [&](std::initializer_list<const char*> toks) {
 				return std::ranges::any_of(toks, [&](const char* t) { return v.find(t) != std::string::npos; });
 			};
-			if (any({ "shy", "timid", "bashful" })) return 3;
+			if (any({ "timid", "meek" })) return Pers::kTimid;
+			if (any({ "crazed", "yandere", "insane" })) return Pers::kCrazed;
+			if (any({ "wild", "feral" })) return Pers::kWild;
+			if (any({ "submissive" })) return EditionPersonality(Pers::kSubmissive);
+			if (any({ "shy", "bashful" })) return 3;
 			if (any({ "soft", "gentle", "sweet" })) return 3;
 			if (any({ "excited", "vocal", "sensitive" })) return 2;
 			if (any({ "needy", "passion", "high" })) return 2;
@@ -196,6 +286,10 @@ namespace Face::Engine
 			if (HasKeywordEditorID(a, "OSED_Personality_Bashful") || HasKeywordEditorID(a, "OSED_Personality_Soft")) return 3;
 			if (HasKeywordEditorID(a, "OSED_Personality_Bold")) return 2;
 			if (HasKeywordEditorID(a, "OSED_Personality_Fierce")) return 4;
+			if (HasKeywordEditorID(a, "OSIS_Personality_Timid")) return Pers::kTimid;
+			if (HasKeywordEditorID(a, "OSIS_Personality_Wild")) return Pers::kWild;
+			if (HasKeywordEditorID(a, "OSIS_Personality_Crazed") || HasKeywordEditorID(a, "OSIS_Personality_Yandere")) return Pers::kCrazed;
+			if (HasKeywordEditorID(a, "OSIS_Personality_Submissive")) return EditionPersonality(Pers::kSubmissive);
 			return -1;
 		}
 
@@ -205,7 +299,9 @@ namespace Face::Engine
 			const float aggression = avo->GetActorValue(RE::ActorValue::kAggression);
 			const float confidence = avo->GetActorValue(RE::ActorValue::kConfidence);
 			const float morality = avo->GetActorValue(RE::ActorValue::kMorality);
+			if (aggression >= 3.0f) return Pers::kCrazed;  // frenzied
 			if (aggression >= 2.0f && confidence >= 2.0f) return 4;
+			if (confidence <= 0.0f) return Pers::kTimid;   // cowardly
 			if (confidence <= 1.0f) return 3;
 			if (aggression <= 0.0f && confidence >= 2.0f) return 1;
 			if (morality <= 1.0f && aggression >= 1.0f) return 4;
@@ -1132,6 +1228,20 @@ namespace Face::Engine
 	// ---- personality
 	namespace
 	{
+		// One of the newer personalities for someone nothing else has placed, rolled from a hash of the actor's form so the same person
+		// always rolls the same: fNewPersonalityShare of them get one (timid 30, submissive 30, wild 25, crazed 15 in a hundred of those;
+		// the lite edition's submissives are timid, so the same people roll the same everywhere bar that), the rest -1 and fall to the
+		// original five.
+		int NewPersonalityRoll(RE::Actor* a)
+		{
+			auto* b = a ? a->GetActorBase() : nullptr;
+			if (!b || S::fNewPersonalityShare <= 0.0f) return -1;
+			const std::uint32_t h = (b->GetFormID() * 2654435761u) >> 8;
+			if (static_cast<float>(h % 1000u) / 1000.0f >= S::fNewPersonalityShare) return -1;
+			const int pick = static_cast<int>((h / 1000u) % 100u);
+			return EditionPersonality(pick < 30 ? Pers::kTimid : (pick < 60 ? Pers::kSubmissive : (pick < 85 ? Pers::kWild : Pers::kCrazed)));
+		}
+
 		// What the rules alone give for this actor, with nothing pinned. The caller holds Settings::lock.
 		int ResolvePersonality(RE::Actor* a, std::string& source)
 		{
@@ -1152,6 +1262,10 @@ namespace Face::Engine
 			if (int v = VanillaAIPersonality(a); v >= 0) {
 				source = "Vanilla AI";
 				return v;
+			}
+			if (const int extra = NewPersonalityRoll(a); extra >= 0) {
+				source = "Seed (new type)";
+				return extra;
 			}
 			source = "Seed";
 			return Seed(a) % 5;
@@ -1183,14 +1297,14 @@ namespace Face::Engine
 			return 0;
 		}
 		std::scoped_lock l(Settings::lock);
-		if (a->IsPlayerRef() && S::iPlayerPersonality >= 0 && S::iPlayerPersonality <= 4) {
+		if (const int chosen = EditionPersonality(S::iPlayerPersonality); a->IsPlayerRef() && PersonalityAvailable(chosen)) {
 			src("Player set");
-			return S::iPlayerPersonality;
+			return chosen;
 		}
 		if (const int stored = StoredPersonality(a); stored >= 0) {
 			src((stored & kPinnedFlag) ? "Pinned" : (a->IsPlayerRef() ? "Player set" : "Player set (NPC)"));
-			const int arch = stored & 0xFF;
-			return arch <= 4 ? arch : 0;
+			const int arch = EditionPersonality(stored & 0xFF);  // a save from the full edition can hold a submissive, which the lite edition plays as a timid
+			return PersonalityAvailable(arch) ? arch : 0;
 		}
 		std::string why;
 		const int arch = ResolvePersonality(a, why);
@@ -1206,7 +1320,10 @@ namespace Face::Engine
 		case 2: return Reaction::kPanic;     // vocal
 		case 3: return Reaction::kFear;      // shy
 		case 4: return Reaction::kDefiance;  // dominant
-		default: return Reaction::kBalanced;
+		case Pers::kTimid: return Reaction::kFear;
+		case Pers::kWild: return Reaction::kDefiance;
+		case Pers::kCrazed: return Reaction::kDefiance;  // never cowers: it glares
+		default: return Reaction::kBalanced;             // balanced, and submissive when it does not accept the scene
 		}
 	}
 
@@ -1233,6 +1350,12 @@ namespace Face::Engine
 		case 2: return "Vocal";
 		case 3: return "Shy";
 		case 4: return "Dominant";
+		case Pers::kTimid: return "Timid";
+#if !OSIS_LITE
+		case Pers::kSubmissive: return "Submissive";
+#endif
+		case Pers::kWild: return "Wild";
+		case Pers::kCrazed: return "Crazed";
 		default: return "Balanced";
 		}
 	}
@@ -1248,7 +1371,7 @@ namespace Face::Engine
 	int GetNpcPersonality(RE::Actor* a)
 	{
 		const int stored = StoredPersonality(a);
-		return stored >= 0 && !(stored & kPinnedFlag) ? stored : -1;  // only what the player chose
+		return stored >= 0 && !(stored & kPinnedFlag) ? EditionPersonality(stored) : -1;  // only what the player chose
 	}
 
 	void SetNpcPersonality(RE::Actor* a, int arch)
@@ -1256,7 +1379,7 @@ namespace Face::Engine
 		if (!a || a->IsPlayerRef() || !IsHuman(a) || a->IsChild()) return;
 		std::scoped_lock l(g_dataLock);
 		if (arch < 0) g_npcPersonality.erase(a->GetFormID());
-		else g_npcPersonality[a->GetFormID()] = ClampI(arch, 0, 4);
+		else g_npcPersonality[a->GetFormID()] = PersonalityAvailable(EditionPersonality(arch)) ? EditionPersonality(arch) : 0;
 	}
 
 	// Forget every personality OSIS settled on by itself - the player's included - so they are worked out again
@@ -1353,6 +1476,32 @@ namespace Face::Engine
 		g_takenOver = { ids.begin(), ids.end() };
 	}
 
+#if !OSIS_LITE
+	namespace
+	{
+		// A submissive person accepts any means of sexual encounter - a rough or forced scene, the player's spell - from someone they are
+		// close to: a relationship rank of 3 (ally) or 4 (lover) to everyone else in it. A scene that would be non-consensual is not if every
+		// victim is such a person. The victims are whoever the scene's roles name, or everyone when they name nobody.
+		bool SubmissivesAccept(Thread& t)
+		{
+			bool anyVictim = false;
+			for (auto& s : t.slots) anyVictim = anyVictim || (s.Get() && IsSubmissive(t, s));
+			bool any = false;
+			for (auto& s : t.slots) {
+				auto* a = s.Get();
+				if (!a || (anyVictim && !IsSubmissive(t, s))) continue;
+				any = true;
+				if (Archetype(a) != Pers::kSubmissive) return false;
+				for (auto& o : t.slots) {
+					auto* b = o.Get();
+					if (b && b != a && RelationshipRank(a, b) < 3) return false;
+				}
+			}
+			return any;
+		}
+	}
+#endif
+
 	// ---- lifecycle
 	void RefreshDerived(Thread& t, bool sceneChanged)
 	{
@@ -1383,6 +1532,14 @@ namespace Face::Engine
 		// Only while one of the spell's victims is still in the thread.
 		t.spellNonConsent = S::bSpellNonConsent && std::ranges::any_of(t.slots, [&](const Slot& s) { return t.SpellVictim(s); });
 		t.consent = !(t.toneForced && S::bAggressorGrammar) && !t.spellNonConsent;
+		const bool wasAccepted = t.acceptedBySubmissive;
+		t.acceptedBySubmissive = !t.consent && SubmissivesAccept(t);
+		if (t.acceptedBySubmissive) t.consent = true;
+		if (t.acceptedBySubmissive != wasAccepted) {
+			logger::info("Consent: thread {} {}", t.id,
+				t.acceptedBySubmissive ? "would be non-consensual, but its victim(s) are submissive and close to everyone in it: playing it as consensual"
+									   : "is no longer accepted by a submissive");
+		}
 #endif
 		t.victimKnown = false;
 		if (!t.consent) {
@@ -1452,12 +1609,40 @@ namespace Face::Engine
 		t.gasp = false;
 	}
 
+	bool IsClimaxHeld(RE::Actor* a)
+	{
+		auto* t = Scenes::ThreadOf(a);
+		auto* s = t ? t->Find(a) : nullptr;
+		return s && s->stallActive;
+	}
+
 	void OnOrgasm(Thread& t, RE::Actor* a)
 	{
 		std::scoped_lock l(Settings::lock);
 		auto* s = t.Find(a);
 		if (!s) return;
 		Pulse::Climax(a, t.id);
+		s->holdSince = 0.0f;
+		// A dominant's climax is the partner's permission, and they climax with it; a crazed one climaxes with their partner, whenever they do.
+		if (S::bPersonalityControl && t.consent && t.slots.size() >= 2) {
+			const int mine = Archetype(a);
+			const float at = Scenes::Now();
+			for (auto& o : t.slots) {
+				auto* b = o.Get();
+				if (&o == s || !b || at - o.forcedAt < 6.0f || o.climaxing) continue;
+				const int theirs = Archetype(b);
+				const bool partnerOfDominant = mine == Pers::kDominant && theirs != Pers::kDominant && o.stallActive && Raw(b) >= 80;
+				const bool crazedWithPartner = theirs == Pers::kCrazed && mine != Pers::kCrazed;
+				if (!partnerOfDominant && !crazedWithPartner) continue;
+				o.forcedAt = at;
+				o.stallActive = false;
+				o.holdSince = 0.0f;
+				Papyrus::PermitClimax(b);
+				Papyrus::ForceClimax(b);
+				logger::info("Control: {:08X} {} climaxes with {} ({})", b->GetFormID(), b->GetDisplayFullName(), a->GetDisplayFullName(),
+					partnerOfDominant ? "the dominant lets them" : "crazed, with their partner");
+			}
+		}
 		// This actor's orgasm, timed on its own (see SelectDominant): how long since their last decides how long the climax
 		// face lasts and whether an afterglow follows.
 		const float now = Scenes::Now();
@@ -1494,6 +1679,7 @@ namespace Face::Engine
 		if (!t.active) return;
 		RefreshDerived(t, false);
 		UpdateExcitementRates(t);
+		UpdateClimaxControl(t);
 		++t.tick;
 		if (t.leadin && SceneTime(t) > 3.0f) t.leadin = false;
 		// Afterglow is counted in beats, and every orgasm event re-arms it. In a long scene with

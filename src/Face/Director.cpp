@@ -44,7 +44,7 @@ namespace Face::Engine::detail
 		int ArchTempo(int arch)
 		{
 			if (arch == 2) return 12;
-			if (arch == 1) return -12;
+			if (arch == 1) return -20;  // stoic: what shows lags well behind the excitement
 			return 0;
 		}
 
@@ -54,6 +54,19 @@ namespace Face::Engine::detail
 			if (arch == 2) return 1.25f;
 			if (arch == 4) return 1.1f;
 			return 1.0f;
+		}
+
+		// What the newer personalities add to their original one's tempo and face strength (the rest of what they do is in ApplyPersonalityFace).
+		int PersTempo(int pers) { return pers == Pers::kWild ? 8 : 0; }
+
+		float PersStrength(int pers)
+		{
+			switch (pers) {
+			case Pers::kTimid: return 0.9f;
+			case Pers::kWild: return 1.1f;
+			case Pers::kCrazed: return 1.15f;
+			default: return 1.0f;
+			}
 		}
 
 		// ---- the climax clips
@@ -85,40 +98,40 @@ namespace Face::Engine::detail
 			Eyes eyes;
 			float tremor;    // how much the face ripples through the aftershocks, 0..1
 			float longBias;  // added to the chance this face runs long
-			float suits[5];  // weight by personality: none, stoic, bold, shy, fierce
+			float suits[9];  // weight by personality: none, stoic, bold, shy, fierce, timid, submissive, wild, crazed
 		};
 
 		constexpr ClimaxVariant kClimaxVariants[] = {
 			{ "gasp", 10, 0.35f, 0.70f, 0.55f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.85f, 0.15f, 0.55f, 0.00f, 0.00f,
-				false, false, true, kSoften, kHard, 0.60f, -0.10f, { 1.00f, 0.80f, 1.20f, 1.00f, 0.90f } },
+				false, false, true, kSoften, kHard, 0.60f, -0.10f, { 1.00f, 0.60f, 1.80f, 1.40f, 0.90f, 0.90f, 1.20f, 1.00f, 0.30f } },
 			{ "cry_out", 12, 0.50f, 0.35f, 0.20f, 0.75f, 0.30f, 0.00f, 0.00f, 0.00f, 0.00f, 0.30f, 0.70f, 0.00f, 0.00f, 0.60f,
-				false, false, false, kSoften, kHeavy, 0.50f, 0.05f, { 1.00f, 0.30f, 2.00f, 0.60f, 1.20f } },
+				false, false, false, kSoften, kHeavy, 0.50f, 0.05f, { 1.00f, 0.10f, 2.60f, 1.60f, 1.20f, 1.00f, 1.60f, 2.20f, 0.50f } },
 			{ "clenched", 8, 0.30f, 0.10f, 0.00f, 0.00f, 0.00f, 0.55f, 0.00f, 0.20f, 0.00f, 0.90f, 0.00f, 0.60f, 0.35f, 0.00f,
-				false, false, true, kHold, kHard, 0.70f, 0.00f, { 1.00f, 2.00f, 0.40f, 1.20f, 1.60f } },
+				false, false, true, kHold, kHard, 0.70f, 0.00f, { 1.00f, 0.80f, 0.20f, 0.40f, 1.60f, 0.50f, 0.60f, 0.30f, 0.80f } },
 			{ "lip_bite", 11, 0.35f, 0.08f, 0.00f, 0.00f, 0.00f, 0.00f, 0.10f, 0.55f, 0.20f, 0.60f, 0.25f, 0.40f, 0.00f, 0.00f,
-				false, false, false, kSoften, kTight, 0.30f, 0.00f, { 1.00f, 1.20f, 0.30f, 2.20f, 0.30f } },
+				false, false, false, kSoften, kTight, 0.30f, 0.00f, { 1.00f, 0.50f, 0.10f, 0.80f, 0.30f, 1.40f, 1.60f, 0.60f, 0.60f } },
 			{ "silent", 7, 0.30f, 0.15f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.30f, 0.10f, 0.20f, 0.00f, 0.00f,
-				false, true, false, kSlack, kLanguid, 0.20f, -0.20f, { 1.00f, 2.40f, 0.20f, 1.40f, 0.50f } },
+				false, true, false, kSlack, kLanguid, 0.20f, -0.20f, { 1.00f, 3.00f, 0.05f, 0.30f, 0.50f, 0.60f, 0.80f, 0.10f, 0.40f } },
 			{ "wide_eyed", 12, 1.00f, 0.30f, 0.00f, 0.55f, 0.15f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 1.00f, 0.00f, 0.00f, 0.00f,
-				true, false, false, kSmile, kOpen, 0.40f, -0.10f, { 1.00f, 0.60f, 0.80f, 2.00f, 0.40f } },
+				true, false, false, kSmile, kOpen, 0.40f, -0.10f, { 1.00f, 0.30f, 1.60f, 2.00f, 0.40f, 0.15f, 1.00f, 1.20f, 2.20f } },
 			{ "eyes_rolled", 10, 0.30f, 0.55f, 0.20f, 0.00f, 0.10f, 0.00f, 0.00f, 0.00f, 0.00f, 0.35f, 0.45f, 0.00f, 0.00f, 0.85f,
-				false, false, false, kSlack, kHeavy, 0.50f, 0.10f, { 1.00f, 0.30f, 1.80f, 0.60f, 1.00f } },
+				false, false, false, kSlack, kHeavy, 0.50f, 0.10f, { 1.00f, 0.10f, 1.80f, 1.00f, 1.00f, 0.80f, 1.60f, 2.00f, 0.20f } },
 			{ "smiling", 10, 0.85f, 0.45f, 0.00f, 0.00f, 0.00f, 0.30f, 0.00f, 0.00f, 0.00f, 0.75f, 0.20f, 0.00f, 0.00f, 0.00f,
-				false, false, false, kSmile, kClosed, 0.30f, 0.10f, { 1.00f, 0.50f, 1.80f, 0.50f, 0.80f } },
+				false, false, false, kSmile, kClosed, 0.30f, 0.10f, { 1.00f, 0.30f, 1.80f, 0.80f, 1.40f, 2.00f, 1.20f, 1.80f, 2.40f } },
 			{ "intense", 8, 0.35f, 0.25f, 0.00f, 0.00f, 0.00f, 0.10f, 0.00f, 0.00f, 0.00f, 0.55f, 0.00f, 0.35f, 0.45f, 0.00f,
-				false, false, false, kHold, kOpen, 0.20f, 0.05f, { 1.00f, 1.40f, 0.60f, 0.30f, 2.20f } },
+				false, false, false, kHold, kOpen, 0.20f, 0.05f, { 1.00f, 0.10f, 0.60f, 0.30f, 2.20f, 0.10f, 0.20f, 0.80f, 3.00f } },
 			{ "long_moan", 11, 0.40f, 0.20f, 0.65f, 0.00f, 0.50f, 0.00f, 0.00f, 0.00f, 0.00f, 0.50f, 0.35f, 0.45f, 0.00f, 0.00f,
-				false, false, false, kSoften, kClosed, 0.40f, 0.25f, { 1.00f, 0.20f, 2.20f, 0.50f, 0.80f } },
+				false, false, false, kSoften, kClosed, 0.40f, 0.25f, { 1.00f, 0.10f, 2.20f, 1.40f, 0.80f, 2.00f, 1.40f, 2.20f, 0.30f } },
 			{ "overwhelmed", 9, 0.45f, 0.60f, 0.40f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.70f, 0.30f, 0.65f, 0.00f, 0.00f,
-				false, false, true, kHold, kFlutter, 0.90f, 0.00f, { 1.00f, 0.60f, 1.00f, 1.80f, 0.80f } },
+				false, false, true, kHold, kFlutter, 0.90f, 0.00f, { 1.00f, 0.10f, 1.60f, 2.20f, 0.80f, 1.60f, 2.00f, 1.00f, 0.30f } },
 			{ "pained", 11, 0.55f, 0.35f, 0.00f, 0.00f, 0.00f, 0.15f, 0.35f, 0.00f, 0.00f, 0.70f, 0.55f, 0.60f, 0.00f, 0.00f,
-				false, false, true, kSoften, kTight, 0.60f, 0.00f, { 1.00f, 1.20f, 0.50f, 1.80f, 0.50f } },
+				false, false, true, kSoften, kTight, 0.60f, 0.00f, { 1.00f, 0.10f, 0.50f, 0.80f, 0.50f, 0.40f, 2.00f, 0.30f, 0.20f } },
 			{ "breathless", 7, 0.30f, 0.35f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.15f, 0.20f, 0.25f, 0.00f, 0.00f, 0.25f,
-				false, true, false, kSlack, kLanguid, 0.30f, -0.10f, { 1.00f, 1.60f, 0.60f, 1.40f, 0.60f } },
+				false, true, false, kSlack, kLanguid, 0.30f, -0.10f, { 1.00f, 2.20f, 0.60f, 1.00f, 0.60f, 1.00f, 1.20f, 0.40f, 0.60f } },
 			{ "snarl", 14, 0.45f, 0.30f, 0.00f, 0.00f, 0.00f, 0.40f, 0.00f, 0.00f, 0.00f, 0.75f, 0.00f, 0.30f, 0.55f, 0.00f,
-				false, false, false, kHold, kOpen, 0.40f, 0.00f, { 1.00f, 0.40f, 0.80f, 0.10f, 2.20f } },
+				false, false, false, kHold, kOpen, 0.40f, 0.00f, { 1.00f, 0.05f, 0.80f, 0.10f, 2.20f, 0.05f, 0.05f, 0.80f, 2.60f } },
 			{ "laughing", 10, 0.70f, 0.65f, 0.25f, 0.00f, 0.00f, 0.20f, 0.00f, 0.00f, 0.00f, 0.70f, 0.50f, 0.00f, 0.00f, 0.00f,
-				false, false, false, kSmile, kFlutter, 0.80f, 0.05f, { 1.00f, 0.20f, 1.80f, 0.60f, 0.60f } },
+				false, false, false, kSmile, kFlutter, 0.80f, 0.05f, { 1.00f, 0.05f, 1.80f, 0.80f, 0.60f, 0.50f, 0.50f, 2.40f, 2.40f } },
 		};
 		constexpr int kClimaxVariantCount = static_cast<int>(sizeof(kClimaxVariants) / sizeof(kClimaxVariants[0]));
 
@@ -142,7 +155,7 @@ namespace Face::Engine::detail
 			float total = 0.0f;
 			for (int i = 0; i < kClimaxVariantCount; ++i) {
 				const auto& v = kClimaxVariants[i];
-				float w = v.suits[ClampI(arch, 0, 4)];
+				float w = v.suits[ClampI(arch, 0, Pers::kCount - 1)];
 				if (rapid) w *= v.intense ? 1.8f : (v.calm ? 0.5f : 1.0f);
 				// A change, always, and the one before that is held back too: with only the last excluded, a face the personality favours
 				// came back every other orgasm (long moan and gasp alternated five times running in the 2.0.5 test).
@@ -276,9 +289,9 @@ namespace Face::Engine::detail
 		// The pick for this orgasm, once, at the orgasm: the face, and whether it runs long or short as a standard or rapid orgasm. Long is
 		// likelier for a bold actor, after a long hold at the edge and for faces that suit it (a long moan); a rapid orgasm is likelier short
 		// the closer it comes to the last.
-		bool ClimaxVariantPose(Thread& t, Slot& s, int arch, float m, Preset& e)
+		bool ClimaxVariantPose(Thread& t, Slot& s, float m, Preset& e)
 		{
-			if (s.climaxVariant < 0 || s.climaxVariantAt != s.climaxStart || s.climaxKind < 0) PickClimaxClip(t, s, arch);
+			if (s.climaxVariant < 0 || s.climaxVariantAt != s.climaxStart || s.climaxKind < 0) PickClimaxClip(t, s, s.arch);  // s.arch: the full personality, not the one it is built on
 			const auto& v = kClimaxVariants[ClampI(s.climaxVariant, 0, kClimaxVariantCount - 1)];
 			const bool rapid = s.climaxKind == kRapidLong || s.climaxKind == kRapidShort;
 			const float length = std::max(0.5f, s.climaxUntil - s.climaxStart);
@@ -414,22 +427,30 @@ namespace Face::Engine::detail
 		// expression ids: 0-6 the dialogue set (angry, fear, happy, sad, surprise, puzzled, disgust), 7 neutral,
 		// 8-14 the same seven as moods. The pools are OStim's and say nothing about who is wearing them, so a pick was
 		// random: in the 1.9.2 test a bold actor spent 59% of a scene on Puzzled and 40% on dSad, and a fierce one 56%
-		// on dFear and 37% on dSad. Personalities: 0 none (everything equally likely), 1 stoic, 2 bold, 3 shy, 4 fierce.
+		// on dFear and 37% on dSad. Personalities: 0 none (everything equally likely), 1 stoic, 2 bold, 3 shy, 4 fierce, then 5 timid, 6 submissive, 7 wild, 8 crazed.
 		float MoodAffinity(int arch, int mood)
 		{
-			if (mood == 7) return arch == 1 ? 1.5f : 1.0f;
+			if (mood == 7) return arch == 1 ? 3.0f : (arch == Pers::kWild ? 0.6f : (arch == Pers::kCrazed ? 0.7f : 1.0f));
 			const int kind = mood >= 8 ? mood - 8 : mood;  // 0 angry 1 fear 2 happy 3 sad 4 surprise 5 puzzled 6 disgust (mood ids 8-14 are the dialogue ids 0-6 plus 8)
 			//                            angry fear  happy sad   surprise puzzled disgust
-			static constexpr float kStoic[7]  = { 0.8f, 0.4f, 1.0f, 0.6f, 0.6f, 1.0f, 0.4f };
-			static constexpr float kBold[7]   = { 1.0f, 0.3f, 2.0f, 0.3f, 1.6f, 0.5f, 0.3f };
-			static constexpr float kShy[7]    = { 0.15f, 1.3f, 1.5f, 1.2f, 1.2f, 1.5f, 0.15f };
-			static constexpr float kFierce[7] = { 2.0f, 0.15f, 1.2f, 0.15f, 1.2f, 0.3f, 0.6f };
+			static constexpr float kStoic[7]  = { 0.10f, 0.10f, 0.5f, 0.15f, 0.3f, 0.6f, 0.10f };  // stoic: not into it, not unhappy with it: neutral
+			static constexpr float kBold[7]   = { 0.6f, 0.4f, 1.6f, 0.3f, 2.6f, 0.5f, 0.3f };   // vocal: surprise at their own reactions
+			static constexpr float kShy[7]    = { 0.15f, 1.4f, 1.2f, 1.5f, 0.9f, 1.5f, 0.15f };  // conflicted: sad, afraid, unsure
+			static constexpr float kFierce[7] = { 1.2f, 0.15f, 2.0f, 0.15f, 0.5f, 0.3f, 0.8f };   // dominant: smug, amused, watching
+			static constexpr float kTimid[7]  = { 0.10f, 0.4f, 1.8f, 0.4f, 1.2f, 0.4f, 0.10f };    // enjoys it a lot: it is the closeness, not the sex
+			static constexpr float kSub[7]    = { 0.10f, 0.9f, 1.4f, 1.2f, 1.2f, 0.9f, 0.10f };   // happy, sad, surprised: giving in
+			static constexpr float kWild[7]   = { 0.3f, 0.10f, 2.6f, 0.05f, 1.3f, 0.10f, 0.10f };  // every moment is good: nothing negative
+			static constexpr float kCrazed[7] = { 1.6f, 0.10f, 2.0f, 0.10f, 0.8f, 0.2f, 0.3f };   // a smile with anger behind it
 			if (kind < 0 || kind > 6) return 1.0f;
 			switch (arch) {
 			case 1: return kStoic[kind];
 			case 2: return kBold[kind];
 			case 3: return kShy[kind];
 			case 4: return kFierce[kind];
+			case Pers::kTimid: return kTimid[kind];
+			case Pers::kSubmissive: return kSub[kind];
+			case Pers::kWild: return kWild[kind];
+			case Pers::kCrazed: return kCrazed[kind];
 			default: return 1.0f;
 			}
 		}
@@ -566,7 +587,7 @@ namespace Face::Engine::detail
 				s.climaxFromPool = false;
 				if (S::bClimaxPool && t.consent) {
 					Preset v{};
-					if (ClimaxVariantPose(t, s, arch, m, v)) return v;
+					if (ClimaxVariantPose(t, s, m, v)) return v;
 				}
 				auto e = Build(12, 1.0f, 0.6f * m, 0.4f * m, 0.75f, 0.65f, 0.0f, 0.0f);
 				if (S::bClimaxChoreo) {
@@ -650,11 +671,9 @@ namespace Face::Engine::detail
 
 		void ClimaxType(Preset& e, int arch)
 		{
-			if (arch == 1 || arch == 3) {
+			if (arch == 1) {
 				Mul(e, 0, 0.3f);
 				Mul(e, 11, 0.3f);
-				Add2(e, 20, 0.20f);
-				Add2(e, 28, 0.10f);
 			} else if (arch == 2) {
 				Add(e, 0, 0.25f);
 				Add(e, 11, 0.20f);
@@ -899,7 +918,8 @@ namespace Face::Engine::detail
 			}
 			int threshold = 90;
 			if (arch == 2 || arch == 3) threshold -= 5;
-			else if (arch == 1 || arch == 4) threshold += 5;
+			else if (arch == 4) threshold += 5;
+			else if (arch == 1) threshold += 15;  // a stoic is hard to overwhelm
 			if (posRole == -1) threshold -= 3;
 			else if (posRole == 1) threshold += 3;
 			if (dom == kClimax && rawEnj >= 82) cur += 0.30f + StyleValue() * 0.04f;
@@ -1014,6 +1034,180 @@ namespace Face::Engine::detail
 			}
 		}
 
+		// Swap a mood that clashes with the personality for one that fits (the pools and templates are not written for who is wearing them).
+		// `clashing` is a bit mask over MoodAffinity's kinds: 0 angry 1 fear 2 happy 3 sad 4 surprise 5 puzzled 6 disgust.
+		void SwapClashingMood(Preset& e, unsigned clashing, int replacement, float minStrength)
+		{
+			const int mood = static_cast<int>(e[30]);
+			if (mood == 7 || mood < 0 || mood > 14) return;
+			const int kind = mood >= 8 ? mood - 8 : mood;
+			if ((clashing & (1u << kind)) == 0) return;
+			e[30] = static_cast<float>(replacement);
+			e[31] = std::max(e[31], minStrength);
+		}
+
+		// Whether somebody else in the thread is in the middle of an orgasm.
+		bool AnyoneElseClimaxing(const Thread& t, const Slot& s)
+		{
+			for (const auto& o : t.slots) {
+				if (&o != &s && o.climaxing) return true;
+			}
+			return false;
+		}
+
+		// Whether somebody else is at the edge, held there, or climaxing: what a dominant watches for, the effect they have.
+		bool PartnerReacting(const Thread& t, const Slot& s)
+		{
+			for (const auto& o : t.slots) {
+				if (&o == &s || !o.Get()) continue;
+				if (o.climaxing || o.stallActive || o.raw >= 90) return true;
+			}
+			return false;
+		}
+
+		// Shy: uncomfortable with the idea of sex, though they enjoy it. Hesitation and guilt, strongest at the start, fading as the excitement
+		// rises and gone - overridden - by the plateau and the climax; a little embarrassment comes back in the afterglow. 0..1.
+		float ShyConflict(int dom, int enj)
+		{
+			if (dom == kAfterglow) return 0.4f;
+			if (dom == kPlateau || dom == kClimax || dom == kDistress) return 0.0f;
+			return ClampF(1.0f - (static_cast<float>(enj) - 20.0f) / 60.0f, 0.0f, 1.0f);
+		}
+
+		// Timid: the closeness is what they cannot face, so the eyes are shut a lot of the time and now and then, one beat in eight, they peek.
+		bool TimidPeeking(const Thread& t, int seed) { return (t.tick + seed) % 8 == 0; }
+
+		// What each personality does to the face itself, on top of whatever the pool or a template gave. Their weights in the picks (moods,
+		// build-up faces, climax faces) do most of the work; this is what no pick can say. It runs after the eye scalar, so the eyes are not
+		// scaled down with the rest. Consensual scenes only: a victim's face is the distress grammar's.
+		void ApplyPersonalityFace(Thread& t, Slot& s, Preset& e, int pers, int dom, int enj, int seed)
+		{
+			if (!t.consent) return;
+			const bool building = dom == kPleasure || dom == kAnticipation || dom == kPlateau;
+			const float heat = ClampF(static_cast<float>(enj) / 100.0f, 0.2f, 1.0f);
+			constexpr unsigned kNotHappy = (1u << 0) | (1u << 1) | (1u << 3) | (1u << 5) | (1u << 6);  // angry, fear, sad, puzzled, disgust
+			switch (pers) {
+			case Pers::kStoic: {
+				// Tolerates it; not into it, and waiting for the partner to be done. Not unhappy, not in pain: nothing negative. What shows is muted,
+				// most of all at the plateau and the climax; the lids a little low, the eyes drifting off.
+				const float mute = (dom == kPlateau || dom == kClimax) ? 0.45f : 0.65f;
+				for (int i = 0; i < 16; ++i) e[i] *= mute;
+				for (int i = 18; i <= 23; ++i) e[i] *= mute;
+				e[16] *= mute;  // (lids that squeeze shut included)
+				e[17] *= mute;
+				e[28] *= mute;
+				e[29] *= mute;
+				e[31] *= mute;
+				SwapClashingMood(e, (1u << 0) | (1u << 1) | (1u << 3) | (1u << 6), 7, 0.3f);
+				if (building || dom == kAfterglow) {
+					e[16] = e[17] = std::max(e[16], 0.18f);
+					Add(e, (seed % 2) == 0 ? 25 : 26, 0.20f);
+				}
+				break;
+			}
+			case Pers::kShy: {
+				// Conflicted: the brows worried, the lips pressed, the mouth small, the eyes down, the mood sad while the guilt is strong.
+				const float c = ShyConflict(dom, enj);
+				if (c <= 0.0f) {
+					// Overridden: at the plateau and the climax it is pleasure, whatever the pick had.
+					if (building) SwapClashingMood(e, kNotHappy, 10, 0.5f);
+					break;
+				}
+				Add2(e, 20, 0.25f * c);
+				Add2(e, 22, 0.18f * c);
+				Add2(e, 28, 0.08f * c);
+				Add(e, 2, 0.30f * c);
+				Mul(e, 0, 1.0f - 0.5f * c);
+				Add(e, 24, 0.35f * c);
+				if (c > 0.45f) {
+					e[30] = 11.0f;
+					e[31] = 0.15f + 0.55f * c;
+				}
+				break;
+			}
+			case Pers::kTimid: {
+				// Eyes shut a lot of the time, from the start - it is not the excitement that does it, it is the closeness - and a peek at the
+				// partner now and then (SetGaze looks at them for it). The blink channel is the only thing that closes the lids; squint narrows them.
+				if (!building && dom != kAfterglow) break;
+				if (building) SwapClashingMood(e, (1u << 0) | (1u << 6), 10, 0.5f);  // they enjoy it a lot: no anger or disgust
+				float close = dom == kAnticipation ? 0.35f : 0.60f + 0.30f * ClampF((static_cast<float>(enj) - 20.0f) / 60.0f, 0.0f, 1.0f);
+				if (dom == kPlateau) close = 0.92f;
+				if (dom == kAfterglow) close = 0.55f;
+				if (building && TimidPeeking(t, seed)) {
+					e[16] = e[17] = 0.0f;
+					e[24] = e[25] = e[26] = e[27] = 0.0f;
+					e[28] *= 0.3f;
+					e[29] *= 0.3f;
+				} else {
+					close = std::max(close, e[16]);
+					e[16] = e[17] = close;
+					Add2(e, 28, 0.20f * close);
+				}
+				break;
+			}
+			case Pers::kVocal:
+				// No control over themselves: what shows is surprise at their own reactions, and nothing guarded.
+				if (building && enj >= 35) {
+					SwapClashingMood(e, kNotHappy, 12, 0.6f);
+					Add2(e, 22, 0.15f * heat);
+					e[28] *= 0.7f;
+					e[29] *= 0.7f;
+				}
+				break;
+			case Pers::kDominant: {
+				// Their own pleasure first, and the partner is something to watch: a smug, narrowed look with one brow up, which grows into a smirk
+				// when the partner is at the edge, held there or climaxing - the effect they have.
+				if (!building) break;
+				const bool react = PartnerReacting(t, s);
+				SwapClashingMood(e, (1u << 1) | (1u << 3) | (1u << 5), 10, react ? 0.8f : 0.45f);
+				Add(e, 22, (react ? 0.40f : 0.25f) * heat);
+				Add2(e, 28, react ? 0.18f : 0.10f);
+				if (react) Add(e, 5, 0.30f);
+				break;
+			}
+			case Pers::kWild:
+				// Every moment of it is good, and they make the most of it: never fear, sadness or doubt; a smile that grows with the pleasure.
+				if (building) {
+					SwapClashingMood(e, kNotHappy, 10, 0.6f);
+					e[5] = std::max(e[5], 0.18f * heat);
+				}
+				break;
+			case Pers::kCrazed: {
+				// A fixed, wide stare: lids open, no squint, the brows low and drawn in; the mood a smile with anger behind it, nothing soft. When
+				// the partner climaxes (and so does the crazed, with them) it becomes the creepy look: the smile at full, the brows lower.
+				const bool creepy = AnyoneElseClimaxing(t, s) || dom == kClimax;
+				if (!building && !creepy) break;
+				// (Most of the own faces in the middle stages have the eyes closed or glancing: the pick favours the open ones, this is the rest.)
+				e[16] = e[17] = 0.0f;
+				e[24] = e[25] = e[26] = e[27] = 0.0f;
+				e[28] *= creepy ? 0.1f : 0.2f;
+				e[29] *= creepy ? 0.1f : 0.2f;
+				e[22] *= 0.4f;
+				e[23] *= 0.4f;
+				Add2(e, 18, (creepy ? 0.40f : 0.28f) * heat);
+				Add2(e, 20, (creepy ? 0.20f : 0.12f) * heat);
+				if (creepy) {
+					e[30] = 10.0f;
+					e[31] = 1.0f;
+					e[5] = std::max(e[5], 0.5f);
+				} else {
+					SwapClashingMood(e, (1u << 1) | (1u << 3) | (1u << 5) | (1u << 6), ((t.tick / 8 + seed) % 10) < 3 ? 8 : 10, 0.6f);
+				}
+				break;
+			}
+			case Pers::kSubmissive:
+				// In a rough scene they accepted: the brows come together and lift, the lids narrow - pleading, and taking it.
+				if (building && (t.toneRough || t.toneForced)) {
+					Add2(e, 20, 0.22f * heat);
+					Add2(e, 22, 0.12f * heat);
+					Add2(e, 28, 0.10f * heat);
+					SwapClashingMood(e, (1u << 0) | (1u << 6), 11, 0.5f);
+				}
+				break;
+			default: break;
+			}
+		}
+
 		void ApplyV2Controls(Thread& t, Preset& e, int phase, int dom, bool yieldMouth, bool victim, Reaction react)
 		{
 			if (S::bPhraseGrammar) ApplyPhraseEnvelope(e, phase, dom, yieldMouth);
@@ -1032,11 +1226,11 @@ namespace Face::Engine::detail
 		{
 			SetOwners(s, s.faceOwner, "Climax mouth", "Climax eyes", s.headOwner);
 			const int tremor = (t.tick % 2) * 6;
-			if (arch == 1 || arch == 3) {  // stoic / shy: clenched, bitten
+			if (arch == 1) {  // stoic: muted - the lips a little apart, the eyes a little narrowed, nothing strained (a shy one's guilt is overridden by now: it is a release)
 				ResetPh(a, 0.5f);
-				SetPh(a, 2, 18 + tremor, 0.5f);
-				SetMod(a, 28, EyeValue(ClampI(82 + tremor, 0, 95)), 0.4f);
-				SetMod(a, 29, EyeValue(ClampI(82 - tremor, 0, 95)), 0.4f);
+				SetPh(a, 0, 8 + tremor / 2, 0.5f);
+				SetMod(a, 28, EyeValue(ClampI(30 + tremor, 0, 95)), 0.5f);
+				SetMod(a, 29, EyeValue(ClampI(30 - tremor, 0, 95)), 0.5f);
 				return;
 			}
 			int wide = arch == 4 ? 60 : (arch == 2 ? 88 : 80);
@@ -1083,6 +1277,9 @@ namespace Face::Engine::detail
 
 	void SetGaze(Thread& t, Slot& s, RE::Actor* a, RE::Actor* partner)
 	{
+		// Crazed: a fixed stare at the partner, through the climax too, whenever the head can follow it. (A non-consensual scene keeps the rules below.)
+		const int pers = Archetype(a);
+		if (t.consent && partner && pers == Pers::kCrazed && NaturalGazeAngle(a, partner)) return LookAt(a, partner);
 		if (t.orgasm) return ClearLook(a);  // break gaze, lose focus at climax
 		if (!t.consent) {
 			// A frightened, panicked or numb victim never looks at the other actor; a defiant one
@@ -1090,7 +1287,16 @@ namespace Face::Engine::detail
 			if (FaceVictim(t, s) && VictimReaction(Archetype(a)) != Reaction::kDefiance) return ClearLook(a);
 			if (S::bGazeConsentOnly) return ClearLook(a);
 		}
-		if (Archetype(a) == 3) return ClearLook(a);  // shy: avert
+		if (pers == Pers::kShy && ShyConflict(s.dom, s.enj) > 0.35f) return ClearLook(a);  // shy: avert while the hesitation lasts; overridden by the plateau
+		if (pers == Pers::kStoic) {  // stoic: not engaged; a look at the partner now and then, otherwise elsewhere
+			if ((t.tick + Seed(a)) % 4 == 0 && partner && NaturalGazeAngle(a, partner)) return LookAt(a, partner);
+			return ClearLook(a);
+		}
+		if (pers == Pers::kTimid) {  // timid: the eyes are shut; a peek at the partner now and then
+			if (TimidPeeking(t, Seed(a)) && partner && NaturalGazeAngle(a, partner)) return LookAt(a, partner);
+			return ClearLook(a);
+		}
+		if ((pers == Pers::kWild || pers == Pers::kDominant) && partner && NaturalGazeAngle(a, partner)) return LookAt(a, partner);  // the partner is what they are here for
 		if (partner && NaturalGazeAngle(a, partner)) {
 			if (RandInt(0, 4) == 0) ClearLook(a);  // ~20%: a natural glance away
 			else LookAt(a, partner);
@@ -1111,6 +1317,11 @@ namespace Face::Engine::detail
 			ClearLook(a);
 			s.headOwner = "Animation head";
 			Pulse::Emit("SLED_Headflow", t.id, a, 0.0f);
+			return;
+		}
+		if (s.arch == Pers::kCrazed && t.consent && dom != kDistress && dom != kAfterglow) {
+			// The head stays on the partner, through the climax: no throat arch, no look away when overwhelmed.
+			s.headOwner = "Fixed stare";
 			return;
 		}
 		const float side = ((idx + Seed(a)) % 2) == 0 ? -55.0f : 55.0f;
@@ -1138,7 +1349,7 @@ namespace Face::Engine::detail
 			LookAtOffset(s, a, side * 0.20f, 0.0f, 108.0f + style * 12.0f);
 			s.headOwner = "Overwhelm unfocus";
 			Pulse::Emit("SLED_Headflow", t.id, a, 5.0f);
-		} else if (t.consent && arch == 3 && (phrase == 0 || phrase == 4 || scenario == 6)) {
+		} else if (t.consent && arch == 3 && ShyConflict(dom, s.enj) > 0.2f && (phrase == 0 || phrase == 4 || scenario == 6)) {  // shy, while the hesitation lasts
 			LookAtOffset(s, a, side, 0.0f, 84.0f + style * 6.0f);
 			s.headOwner = "Shy turn-away";
 			Pulse::Emit("SLED_Headflow", t.id, a, 4.0f);
@@ -1238,8 +1449,8 @@ namespace Face::Engine::detail
 		if (r > 0.0f) {
 			pLong = ClampF(0.65f - 0.5f * r, 0.15f, 0.60f);  // the closer to the last orgasm, the shorter
 		} else {
-			static constexpr float kBase[5] = { 0.50f, 0.30f, 0.65f, 0.40f, 0.55f };  // none, stoic, bold, shy, fierce
-			pLong = kBase[ClampI(arch, 0, 4)] + (t.plateau >= 3 ? 0.20f : 0.0f);      // held at the edge for a while: a long one
+			static constexpr float kBase[Pers::kCount] = { 0.50f, 0.30f, 0.65f, 0.40f, 0.55f, 0.35f, 0.50f, 0.75f, 0.55f };  // none, stoic, bold, shy, fierce, timid, submissive, wild, crazed
+			pLong = kBase[ClampI(arch, 0, Pers::kCount - 1)] + (t.plateau >= 3 ? 0.20f : 0.0f);                              // held at the edge for a while: a long one
 		}
 		pLong = ClampF(pLong + v.longBias, 0.08f, 0.92f);
 		const bool isLong = RandFloat(0.0f, 1.0f) < pLong;
@@ -1253,8 +1464,10 @@ namespace Face::Engine::detail
 		const int enjEff = EffectiveIntensity(t, a);
 		const int seed = Seed(a);
 		std::string archSource;
-		const int arch = Archetype(a, &archSource);
-		s.arch = arch;
+		const int pers = Archetype(a, &archSource);
+		// The original five's rules below see the personality a newer one is built on; its own rules (the picks, ApplyPersonalityFace, the gaze) see `pers`.
+		const int arch = BasePersonality(pers);
+		s.arch = pers;
 		s.archSource = archSource;
 		RE::Actor* partner = PrimaryPartner(t, s);
 		const bool sub = IsSubmissive(t, s);
@@ -1265,9 +1478,10 @@ namespace Face::Engine::detail
 		// 1) DOMINANT
 		const int rawEnj = Raw(a);
 		const int dom = SelectDominant(t, s, enjEff, rawEnj);
-		const int enjPhase = ClampI(enjEff + ArchTempo(arch), 0, 130);
+		const int enjPhase = ClampI(enjEff + ArchTempo(arch) + PersTempo(pers), 0, 130);
 		const int posRole = S::bPositionalDomSub ? PositionRole(t, s) : 0;
-		const int tone = S::bRichEmotions && dom == kPleasure ? PleasureTone(t, a, partner, enjPhase, arch, role, posRole) : 0;
+		int tone = S::bRichEmotions && dom == kPleasure ? PleasureTone(t, a, partner, enjPhase, arch, role, posRole) : 0;
+		if (tone == 0 && dom == kPleasure && pers == Pers::kSubmissive && enjPhase >= 40) tone = 4;  // surrender, as soon as it is building
 		const int phrase = PhrasePhase(t, idx, enjEff);
 		const int scenario = ScenarioCode(t, dom, enjEff, role, tone, posRole);
 		const float overwhelm = UpdateOverwhelmMeter(t, s, a, dom, rawEnj, arch, posRole, yieldMouth);
@@ -1278,7 +1492,7 @@ namespace Face::Engine::detail
 		const bool overriding = UpdateOralOverride(t, s, a, rawEnj);
 		Preset e{};
 		const bool usingLib = (S::bDirectorLibrary || S::bBuildupFaces) && t.consent && (dom == kPleasure || dom == kAnticipation || dom == kPlateau) &&
-				LibraryPose(t, s, a, rawEnj, arch, Buildup::StageFor(dom == kAnticipation, dom == kPlateau, enjPhase), e);
+				LibraryPose(t, s, a, rawEnj, pers, Buildup::StageFor(dom == kAnticipation, dom == kPlateau, enjPhase), e);
 		if (!usingLib) e = BasePreset(t, s, dom, enjPhase, victim, arch, seed, role, tone);
 		// The edge of the climax is played from the pool like the rest of the build-up, with the tension on top: eyes
 		// squeezed, brows drawn together. The template this phase used (Anger mood 0.4, mouth 0.2) rendered at about a
@@ -1346,6 +1560,7 @@ namespace Face::Engine::detail
 		if (!usingLib) ApplyGroupConductor(t, e, idx, role, posRole, sub);
 		if (usingLib) ApplyEyeScalar(e);
 		else ApplyV2Controls(t, e, dom == kClimax && s.climaxFromPool ? 2 : phrase, dom, yieldMouth, victim, react);  // a clip ripples on its own
+		ApplyPersonalityFace(t, s, e, pers, dom, enjPhase, seed);
 
 		// Director owns the whole face, but its pleasure presets were tuned as an overlay on OStim's
 		// own face, not as one: OStim's expression files run mood 0.7-1.0, brows 0.4-1.0 and mouth
@@ -1365,7 +1580,7 @@ namespace Face::Engine::detail
 		}
 
 		// 5) EMIT + gaze
-		const float prof = ProfileScale() * ArchStrength(arch);
+		const float prof = ProfileScale() * ArchStrength(arch) * PersStrength(pers);
 		const float jit = RandFloat(0.92f, 1.08f);
 		// A pool's values are OStim's own, so Strength is taken relative to its default (0.85): the default
 		// plays them at their authored size, and the slider still scales them.
@@ -1381,7 +1596,7 @@ namespace Face::Engine::detail
 		// preset leaves the mouth to it then. This used to read !bBreathing - true exactly when the
 		// breath clock is off and nothing else holds the mouth - so with default settings the
 		// climax preset's own open mouth, and a ring gag's, were thrown away and never shown.
-		const bool clenched = dom == kClimax && (arch == 1 || arch == 3);
+		const bool clenched = dom == kClimax && arch == 1;
 		const bool breathHoldsMouth = !yieldMouth && S::bBreathing && ((dom == kClimax && !gagC && !clenched) || gagR);
 		// A pool changes slowly, so it also moves slowly: a longer ease than the templates need.
 		const float ease = usingLib ? std::max(S::fTransition, 0.9f) : (dom == kClimax && s.climaxFromPool ? std::max(S::fTransition, 0.8f) : S::fTransition);
@@ -1433,7 +1648,9 @@ namespace Face::Engine::detail
 		}
 		const int enjEff = EffectiveIntensity(t, a);
 		const int seed = Seed(a);
-		const int arch = Archetype(a);
+		const int pers = Archetype(a);
+		const int arch = BasePersonality(pers);
+		const bool crazed = pers == Pers::kCrazed && t.consent;  // hard breathing, and a stare that is not narrowed
 
 		if (s.climaxing) return ClimaxMouth(t, s, a, arch);
 
@@ -1457,13 +1674,16 @@ namespace Face::Engine::detail
 		if (enjEff >= 92) cyc = 2;
 		else if (enjEff >= 72) cyc = 3;
 		else if (enjEff < 40) cyc = 5;
+		if (crazed && cyc > 2) --cyc;  // hard breathing: shorter cycles
 		const int base = t.tick + idx * 2 + seed;
 		const int p = base % cyc;
 		const int cycleIdx = base / cyc;
 
 		const int vchance = std::max(0, enjEff + 8);
 		bool vocal = ((seed * 7 + cycleIdx * 13) % 100) < vchance;
-		if (arch == 2 || arch == 4) vocal = vocal || ((seed * 5 + cycleIdx * 11) % 100) < 35;
+		if (pers == Pers::kVocal) vocal = vocal || ((seed * 5 + cycleIdx * 11) % 100) < 60;
+		else if (arch == 2 || arch == 4) vocal = vocal || ((seed * 5 + cycleIdx * 11) % 100) < 35;
+		else if (pers == Pers::kStoic && vocal && ((seed * 3 + cycleIdx * 7) % 100) < 70) vocal = false;
 		else if ((arch == 1 || arch == 3) && vocal && ((seed * 3 + cycleIdx * 7) % 100) < 35) vocal = false;
 
 		float af = 0.45f;
@@ -1478,8 +1698,9 @@ namespace Face::Engine::detail
 			const int peak = ClampI(basePeak - 12 + varr, 14, 72);
 			val = ClampI(static_cast<int>(static_cast<float>(peak) * af), 0, 72);
 			if (enjEff >= 85) val = ClampI(val + (t.tick % 2) * 5, 0, 76);  // quiver near climax
+			if (pers == Pers::kVocal) val = ClampI(val * 6 / 5, 0, 80);          // vocal: loud, with no control over it
 		} else {
-			val = ClampI(static_cast<int>(6.0f * af), 0, 8);
+			val = crazed ? ClampI(static_cast<int>(16.0f * af), 0, 18) : ClampI(static_cast<int>(6.0f * af), 0, 8);  // crazed: panting, mouth open between the moans
 		}
 
 		const int lidFloor = t.consent && enjEff >= 50 ? ClampI(12 + (enjEff - 50) / 3, 0, 38) : 0;
@@ -1512,7 +1733,7 @@ namespace Face::Engine::detail
 			int eye = ph == 1 ? ClampI((val * 12) / 10, 0, 92) : ClampI((val * 9) / 10, 0, 85);
 			if (val < 8) eye = 0;
 			eye = std::max(eye, lidFloor);
-			ApplyEyeSquint(a, eye, seed);
+			ApplyEyeSquint(a, crazed ? eye / 4 : eye, seed);
 			if (p == 2 && val >= 45) {
 				const int bp = ClampI((val - 45) / 2, 0, 16);
 				SetMod(a, 22, BrowValue(bp), 0.55f);
@@ -1528,7 +1749,7 @@ namespace Face::Engine::detail
 			} else {
 				ResetPh(a, 0.6f);
 			}
-			ApplyEyeSquint(a, ClampI(std::max(lidFloor, 10), 0, 40), seed);
+			ApplyEyeSquint(a, crazed ? 3 : ClampI(std::max(lidFloor, 10), 0, 40), seed);
 		}
 	}
 }
