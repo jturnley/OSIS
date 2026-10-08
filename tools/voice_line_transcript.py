@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# UNSUPPORTED helper, not part of the OSIS mod. Read tools/README.md first: what you make with it, and every consequence, is yours alone.
 """Text transcript of the common voice lines that extract_common_voice_lines.py writes.
 
 The spoken text is not in the audio; it is in the INFO records of the plugins (NAM1 responses,
