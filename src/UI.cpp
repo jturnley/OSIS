@@ -483,13 +483,23 @@ namespace
 				"Once started they hold until excitement falls below this. Keep it under the start value, or the face flickers "
 				"on and off at the boundary.");
 			Check("Tongue at the peak (anime style)", bAnimeTongue,
-				"The tongue comes out at the peak of a consensual scene. Needs Style above 1.5, and nothing else holding the mouth.");
+				"The tongue comes out at the peak of a consensual scene, for female actors. Needs Style above 1.5, and nothing else holding the mouth.");
 			Check("Full tongue mode", bAnimeTongueFull,
 				"Out sooner and for longer: from excitement 90 rather than 95, held about twice as long, and able to happen "
 				"again after half the wait.");
 			Check("Tongue life (rare small pulses)", bTongueLife,
 				"Occasional small tongue flashes between the peaks, not only at them. Needs the peak tongue above, and runs "
 				"the face on a faster tick.");
+			if ((bAnimeTongue || bTongueLife || bAnimeTongueFull) && fStyle < 1.5f) {
+				ig::TextColored(kWarn, "The tongue options need Style above 1.5 and Style is %.2f, so no tongue will come out.", fStyle);
+				ig::SameLine();
+				if (ig::Button("Set Style to 1.6")) {
+					fStyle = 1.6f;
+					g_dirty = true;
+				}
+				ig::SetItemTooltip("Style 1.5 and above turns on the anime accents the tongue belongs to: stronger eyes and a fuller mouth as well. "
+					"The tongue is for female actors in a consensual scene, with nothing else holding the mouth.");
+			}
 			Check("Leave faces to Ahegao Expressions if it is installed", bAhegaoAutoYield,
 				"On by default. Ahegao Expressions drives the whole face on its own schedule - its tongue can come out at half "
 				"arousal - so sharing a face with it only produces a fight. It also paints its own face blush, which competes "

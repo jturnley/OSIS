@@ -34,6 +34,9 @@
     can use a lot of resources). Off, morphs and body blush exist only while a scene runs, and for the fade after it. On, the body follows
     the arousal all the time, as Softbody Arousal did, so a body is at its resting look before a scene starts. Anyone who relied on that
     turns it on.
+- **The tongue never came out** ("I enabled the tongue, but it never appears"). The tongue options need Style above 1.5, and Style is 0 by default, so
+  ticking them did nothing, silently. The Face page now says so beside them and has a button to set Style to 1.6. The tongue is also only for
+  female actors in a consensual scene, with nothing else holding the mouth, which the tooltip now says.
 - **PPA's mouth dropped out for the climax on a blowjob** (reported on the beta 1 page: "every time during climax the PPA
   disables for that part, then returns when the climax is over"). While PPA has an actor's mouth, OSIS's faces already
   keep their hands off it, but the lip-sync did not: a moan's phonemes are written over whatever the mouth is doing, and
