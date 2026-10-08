@@ -612,6 +612,14 @@ namespace LipSync
 				++g_stats.mouthBusy;
 				continue;
 			}
+			// PPA is playing its mouth preset on this actor (a blowjob). A moan's phonemes are written over whatever the
+			// mouth is doing, and the climax moan is the loudest and longest of them, so PPA's mouth dropped out for it
+			// and came back after. Its mouth is its own for as long as it has it.
+			if (s && s->ppaYield) {
+				Face::Output::ClearMouthTrack(owner);
+				++g_stats.mouthBusy;
+				continue;
+			}
 			// An ahegao mod owns this face; leave its mouth alone entirely.
 			if (s && s->tongueOut && !s->tongueOn) {
 				++g_stats.tongueOut;
@@ -671,7 +679,7 @@ namespace LipSync
 			g_lastMatch = std::format("{} ({:.1f} s clip)", owner->GetDisplayFullName(), env->Duration());
 		}
 		if (g_stats.clips && now - g_stats.windowStart >= 10.0f) {
-			logger::info("Lip-sync: {} moan-clip polls in the last 10 s: {} lip-synced, {} mouth busy (oral/dialogue/override), {} tongue out, {} not in a scene, {} with no owning actor, {} already played out",
+			logger::info("Lip-sync: {} moan-clip polls in the last 10 s: {} lip-synced, {} mouth busy (oral/dialogue/override/PPA), {} tongue out, {} not in a scene, {} with no owning actor, {} already played out",
 				g_stats.clips, g_stats.matched, g_stats.mouthBusy, g_stats.tongueOut, g_stats.notInScene, g_stats.noOwner, g_stats.spent);
 			g_stats = PollStats{};
 			g_stats.windowStart = now;

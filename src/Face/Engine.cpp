@@ -635,6 +635,9 @@ namespace Face::Engine
 			const bool candidate = a && S::bYieldMouthToPPA && OverridesAreOurs() && PPA::DrivesMouth() && t.meta && s.pos >= 0 &&
 				OStimData::FindAnyActionForActor(*t.meta, s.pos, T().actionMouthPenetrated) >= 0;
 			if (!candidate) {
+				if (s.ppaYield && a) {
+					logger::info("PPA: {} is no longer giving a blowjob in this scene node ({}); the Director has the mouth back", a->GetDisplayFullName(), t.sceneID);
+				}
 				s.ppaYield = false;
 				s.ppaGaveUp = false;
 				s.ppaSeen = false;

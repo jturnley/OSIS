@@ -15,6 +15,13 @@
   7.0, 5.2, 7.7 s and then 3.5 s for the 7 s cadence (long form), or 4.9, 4.9, 4.9, 3.6, 4.9 and 2.5 s (short form),
   never more than half the gap, so the face always has the other half to come back down,
   where it used to run through.
+- **PPA's mouth dropped out for the climax on a blowjob** (reported on the beta 1 page: "every time during climax the PPA
+  disables for that part, then returns when the climax is over"). While PPA has an actor's mouth, OSIS's faces already
+  keep their hands off it, but the lip-sync did not: a moan's phonemes are written over whatever the mouth is doing, and
+  the climax moan is the loudest and longest, so it replaced PPA's mouth for its length. Lip-sync now leaves the mouth
+  of an actor PPA is driving alone, and drops any clip it had on them. The log also says when an actor stops giving a
+  blowjob in the current scene node (`PPA: ... is no longer giving a blowjob`), which is the other way the mouth can
+  change hands at a climax; if the mouth still drops out, that line and the one after it show which it was.
 
 ### Added
 - **Faces shaped by the time between orgasms and their number.** An orgasm that comes within the rapid window
