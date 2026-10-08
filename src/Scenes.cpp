@@ -415,6 +415,9 @@ namespace Scenes
 
 	bool InAnyScene(RE::Actor* a) { return ThreadOf(a) != nullptr; }
 
+	// Like the others, under Scenes::Lock() (the caller holds it).
+	bool AnyActive() { return !g_threads.empty(); }
+
 	std::vector<ThreadStatus> Snapshot()
 	{
 		std::scoped_lock l(g_lock);

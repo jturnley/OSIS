@@ -98,6 +98,13 @@ orgasm:
 Living Skin's face blush uses `max(scene excitement ramp, Arousal::Flush)`, so the face and
 body flush together.
 
+## Cost of the arousal module
+`Arousal::Tick` (every `fInterval` s) follows the player and up to `iMaxNPCs` NPCs, scene or not. What it may not do is work for nothing: texture
+existence is cached (`FsUtil::TextureExistsCached`), body-blush regions are built only once one has a non-zero alpha and taken down after 10 s
+without, a repaint happens only when the rows or the 3D change or `Overlays::NodeHolds` finds a painted node no longer showing our texture, the
+followed NPC set is sticky (`Gather`), and an arousal mod is queried every 5th tick outside a scene. `bOutsideScenes` (off by default; the page warns about its cost when on) confines it to scenes and
+the fade (`fFallHalfLife` x 3) after them; with no arousal mod it is confined to those regardless.
+
 ## Body types
 Arousal morph rows and blush regions carry a `type` (`Settings::Arousal::BodyType`: any, CBBE/3BA, UBE). `IsUBE` in `Arousal.cpp` reads the
 race: an editor ID starting `00ube_`, or a name ending ` UBE` (UBE_AllRace.esp's 18 races), and `BodyMatch` keeps each row to its body. UBE

@@ -223,6 +223,7 @@ namespace Scenes
 	[[nodiscard]] Thread* PlayerThread();
 	[[nodiscard]] Thread* ThreadOf(RE::Actor* a_actor);
 	[[nodiscard]] bool InAnyScene(RE::Actor* a_actor);
+	[[nodiscard]] bool AnyActive();  // an OStim scene is running
 
 	// UI snapshot
 	struct SlotStatus

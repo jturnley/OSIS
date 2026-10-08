@@ -5,6 +5,10 @@
 
 #pragma once
 
+#include <chrono>
+#include <mutex>
+#include <unordered_map>
+
 #include <cwctype>
 
 // Filesystem helpers for walking Data\ folders that belong to other mods.
@@ -58,6 +62,30 @@ namespace FsUtil
 		path.append(a_relative);
 		RE::BSResourceNiBinaryStream stream(path);
 		return stream.good();
+	}
+
+	// TextureExists, remembered. Opening a resource stream is a lookup in the archives or a file open (and one more hop through the virtual
+	// file system under Mod Organizer), and the overlay code asked about every texture of every actor every second. A texture that is there
+	// stays there for the session; one that is not is asked about again after half a minute, in case it was installed meanwhile.
+	inline bool TextureExistsCached(std::string_view a_relative)
+	{
+		struct Entry
+		{
+			bool exists;
+			std::chrono::steady_clock::time_point at;
+		};
+		static std::mutex lock;
+		static std::unordered_map<std::string, Entry> cache;
+		const auto now = std::chrono::steady_clock::now();
+		std::string key(a_relative);
+		{
+			std::scoped_lock l(lock);
+			if (const auto it = cache.find(key); it != cache.end() && (it->second.exists || now - it->second.at < std::chrono::seconds(30))) return it->second.exists;
+		}
+		const bool exists = TextureExists(a_relative);
+		std::scoped_lock l(lock);
+		cache[std::move(key)] = { exists, now };
+		return exists;
 	}
 
 	struct WalkStats

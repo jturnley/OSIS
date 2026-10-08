@@ -27,4 +27,9 @@ namespace Overlays
 
 	// For the Status page: "3 of 12 taken by other mods".
 	[[nodiscard]] std::string Report(RE::Actor* a_actor, bool a_face, int a_total, const std::vector<std::string>& a_ours);
+
+	// Whether the named overlay node (e.g. "Body [Ovl7]") on this actor is showing a_texture, which is how a caller checks that what it painted is
+	// still there instead of painting it again to be sure. nullopt when the actor's 3D is not loaded (no way to tell); false when the node is
+	// gone or shows something else.
+	[[nodiscard]] std::optional<bool> NodeHolds(RE::Actor* a_actor, const std::string& a_node, const std::string& a_texture);
 }

@@ -960,6 +960,17 @@ namespace
 			Check("Enabled", bEnabled, "The same switch as Arousal on the General page.");
 			Check("Affect player", bAffectPlayer, "Drive the player's own morphs and body blush.");
 			Check("Affect nearby NPCs", bAffectNPCs, "Drive NPCs around the player too, within the limits below.");
+			Check("Also outside OStim scenes", bOutsideScenes,
+				"On: the body follows the arousal all the time, as Softbody Arousal did (an arousal mod's number for the player and the NPCs near them), so a body "
+				"is already at its resting look when a scene starts. Off (the default): morphs and body blush only exist while an OStim scene is running, "
+				"and for the fade after it, and everything is put back after that.");
+			if (bOutsideScenes) {
+				ig::TextColored(kWarn, "Warning: this can use a lot of resources.");
+				ig::TextWrapped("It keeps the player and up to %d nearby NPCs updated all the time you play, scene or not: body morphs, and the body "
+				                "blush's overlays, which the renderer draws as extra copies of each body. That can cost CPU and GPU and cause stutters, "
+				                "most with a crowd about, many RaceMenu body overlay slots, or a heavy body mesh. If the game stutters between scenes, "
+				                "turn this off, or lower the NPC limit below.", iMaxNPCs);
+			}
 			ComboI("Arousal source", iSource, kSources, 4,
 				"Where the arousal number comes from. Auto takes OSL Aroused if it is installed, then SLO Aroused NG, then "
 				"OStim excitement on its own. The Status page says which was found.");

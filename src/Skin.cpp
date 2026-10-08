@@ -137,7 +137,7 @@ namespace Skin
 				g_status = std::format("no texture for effect {}", effect);
 				return;
 			}
-			if (!FsUtil::TextureExists(path)) {
+			if (!FsUtil::TextureExistsCached(path)) {
 				if (g_missing.insert(path).second) {
 					logger::warn("Living Skin: texture not found, that overlay is skipped: {}", path);
 				}

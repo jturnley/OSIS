@@ -57,6 +57,8 @@ namespace Arousal
 			std::vector<std::string> blushNodes;
 			std::vector<std::string> blushTextures;
 			std::vector<float> blushAlpha;
+			std::vector<std::string> blushWanted;  // the rows the table asked for, before the free slots cut the list: what a change is measured against
+			float blushIdleSince = 0.0f;       // when every painted row last dropped to nothing; they are taken down after a while
 			const void* last3D = nullptr;
 		};
 
@@ -67,6 +69,7 @@ namespace Arousal
 		std::unordered_set<std::string> g_missingBlush;  // texture paths already warned about
 		bool g_warnedSlots = false;
 		float g_lastTick = 0.0f;
+		float g_lastSceneSeen = -1.0e9f;  // when an OStim scene was last running, for the fade-out after it
 		float g_nextTick = 0.0f;
 		constexpr float kLoadGrace = 6.0f;  // seconds after a load before the first overlay work
 		int g_bodyOverlays = 6;
@@ -76,7 +79,7 @@ namespace Arousal
 
 		struct Snap
 		{
-			bool enabled, player, npcs, ostim, factors, personality;
+			bool enabled, player, npcs, ostim, factors, personality, outside;
 			int source, maxNPCs;
 			float intensity, radius, rise, fall, climaxHold;
 			std::vector<S::Morph> morphs;
@@ -94,7 +97,7 @@ namespace Arousal
 		{
 			std::scoped_lock l(Settings::lock);
 			return { S::bEnabled && Settings::General::bEnabled, S::bAffectPlayer, S::bAffectNPCs, S::bOStimExcitement, S::bSceneFactors,
-				S::bPersonality, S::iSource, S::iMaxNPCs, S::fIntensity, S::fRadius, S::fRiseHalfLife, S::fFallHalfLife, S::fClimaxHold,
+				S::bPersonality, S::bOutsideScenes, S::iSource, S::iMaxNPCs, S::fIntensity, S::fRadius, S::fRiseHalfLife, S::fFallHalfLife, S::fClimaxHold,
 				S::morphs, S::bBlush, S::iOverlayFirstSlot, S::iOverlaySlots, S::blushes, S::raceBlush, Settings::Skin::bMatteOverlays,
 				Settings::Body::bGenitals, S::bShapedResponse, S::fResponseFloor, S::fResponseCeiling, S::fPeakWindow, S::fStoicRest, S::fStoicPeak };
 		}
@@ -176,6 +179,8 @@ namespace Arousal
 			st.blushNodes.clear();
 			st.blushTextures.clear();
 			st.blushAlpha.clear();
+			st.blushWanted.clear();
+			st.blushIdleSince = 0.0f;
 		}
 
 		void ApplyBlush(RE::Actor* a, ActorState& st, const Snap& s)
@@ -195,25 +200,65 @@ namespace Arousal
 			// render black over the body, which reads as a shader bug.
 			std::erase_if(active, [](const S::Blush* b) {
 				const auto path = BlushTexture(*b);
-				if (FsUtil::TextureExists(path)) return false;
+				if (FsUtil::TextureExistsCached(path)) return false;
 				if (g_missingBlush.insert(path).second) {
 					logger::warn("Arousal: body blush texture not found, that row is skipped: {}", path);
 				}
 				return true;
 			});
-			std::vector<std::string> textures;
-			for (const auto* b : active) textures.push_back(BlushTexture(*b));
+			std::vector<std::string> wanted;
+			for (const auto* b : active) wanted.push_back(BlushTexture(*b));
 
 			const void* root = a->Get3D();
-			if (textures.empty()) {
+			if (wanted.empty()) {
 				if (!st.blushNodes.empty()) ClearBlush(a, st);
 				st.last3D = root;
 				return;
 			}
-			// Rebuild on config or 3D change, and periodically so anything dropped heals.
-			constexpr std::uint32_t kRefreshTicks = 10;
-			if (textures != st.blushTextures || root != st.last3D || g_tick % kRefreshTicks == 0) {
+
+			// How much of each region should show now, worked out first. Every painted region is a copy of the body for the renderer, and an actor
+			// spends most of its time with nothing to show (the regions start at 0.25 to 0.55 of the response), so none is built until one has
+			// something to show, and they come down again once all of them have been at nothing for a while.
+			const float raceMult = BlushRaceMult(a, s);
+			std::vector<float> target(active.size());
+			float shownMost = 0.0f;
+			for (size_t i = 0; i < active.size(); ++i) {
+				const auto* b = active[i];
+				target[i] = std::clamp(b->max * Ease(st.level, b->start, b->full) * s.intensity * st.shown * st.blushGate * st.flushMult * raceMult, 0.0f, 1.0f);
+				shownMost = std::max(shownMost, target[i]);
+			}
+			constexpr float kNothing = 0.005f;
+			constexpr float kIdleHold = 10.0f;
+			const float now = Scenes::Now();
+			if (shownMost < kNothing) {
+				if (st.blushNodes.empty()) {
+					st.last3D = root;
+					return;
+				}
+				if (st.blushIdleSince <= 0.0f) {
+					st.blushIdleSince = now;
+				} else if (now - st.blushIdleSince >= kIdleHold) {
+					ClearBlush(a, st);
+					st.last3D = root;
+					return;
+				}
+			} else {
+				st.blushIdleSince = 0.0f;
+			}
+
+			// Paint again when the rows or the 3D change. Every so often look at the body to see that what was painted is still there, rather than
+			// painting it all again to be sure: that was a burst of overlay work, for every actor, every ten seconds.
+			constexpr std::uint32_t kCheckTicks = 10;
+			bool rebuild = wanted != st.blushWanted || root != st.last3D;
+			if (!rebuild && g_tick % kCheckTicks == 0) {
+				for (size_t i = 0; i < st.blushNodes.size() && !rebuild; ++i) {
+					const auto holds = Overlays::NodeHolds(a, st.blushNodes[i], st.blushTextures[i]);
+					rebuild = holds && !*holds;
+				}
+			}
+			if (rebuild) {
 				st.last3D = root;
+				std::vector<std::string> textures = wanted;
 				Papyrus::AddOverlays(a);
 				// Which slots are actually free on this actor, rather than the configured run:
 				// ODF, an ahegao mod or a hand-painted overlay may be sitting in them.
@@ -222,7 +267,6 @@ namespace Arousal
 					std::min(have, s.firstSlot + s.slots), textures);
 				if (claimed.size() < textures.size()) {
 					textures.resize(claimed.size());
-					active.resize(claimed.size());
 					if (!g_warnedSlots) {
 						g_warnedSlots = true;
 						logger::warn("Arousal: only {} body overlay slot(s) free of {}; some blush rows are not painted",
@@ -240,15 +284,14 @@ namespace Arousal
 				for (size_t i = nodes.size(); i < st.blushNodes.size(); ++i) Papyrus::ClearOverlay(a, st.female, st.blushNodes[i]);
 				st.blushNodes = std::move(nodes);
 				st.blushTextures = std::move(textures);
-				st.blushAlpha.assign(active.size(), std::numeric_limits<float>::quiet_NaN());
+				st.blushWanted = std::move(wanted);
+				st.blushAlpha.assign(st.blushNodes.size(), std::numeric_limits<float>::quiet_NaN());
 			}
-			const float raceMult = BlushRaceMult(a, s);
-			for (size_t i = 0; i < active.size(); ++i) {
-				const auto* b = active[i];
-				const float alpha = std::clamp(b->max * Ease(st.level, b->start, b->full) * s.intensity * st.shown * st.blushGate * st.flushMult * raceMult, 0.0f, 1.0f);
-				if (!std::isnan(st.blushAlpha[i]) && std::abs(alpha - st.blushAlpha[i]) <= 0.01f) continue;
-				Papyrus::SetOverlayAlpha(a, st.female, st.blushNodes[i], alpha);
-				st.blushAlpha[i] = alpha;
+			const size_t painted = std::min({ target.size(), st.blushNodes.size(), st.blushAlpha.size() });
+			for (size_t i = 0; i < painted; ++i) {
+				if (!std::isnan(st.blushAlpha[i]) && std::abs(target[i] - st.blushAlpha[i]) <= 0.01f) continue;
+				Papyrus::SetOverlayAlpha(a, st.female, st.blushNodes[i], target[i]);
+				st.blushAlpha[i] = target[i];
 			}
 		}
 
@@ -279,7 +322,12 @@ namespace Arousal
 			{
 				RE::Actor* a;
 				float d;
+				bool tracked;
 			};
+			// Anyone already followed keeps their place until they are well out of range, instead of giving it up to whoever walks a
+			// little closer: with a crowd about, the nearest few change every second, and each change was a body being rebuilt (morphs and
+			// overlays set, a model weight update) for the newcomer and taken down for the one displaced.
+			const float keepRadius = s.radius * 1.25f;
 			std::vector<Cand> cands;
 			const auto origin = player->GetPosition();
 			for (auto& h : RE::ProcessLists::GetSingleton()->highActorHandles) {
@@ -287,9 +335,10 @@ namespace Arousal
 				auto* a = ptr.get();
 				if (!a || a == player || !Eligible(a) || std::ranges::find(out, a) != out.end()) continue;
 				const float d = a->GetPosition().GetDistance(origin);
-				if (d <= s.radius) cands.push_back({ a, d });
+				const bool tracked = g_states.contains(a->GetFormID());
+				if (d <= (tracked ? keepRadius : s.radius)) cands.push_back({ a, d, tracked });
 			}
-			std::ranges::sort(cands, {}, &Cand::d);
+			std::ranges::sort(cands, [](const Cand& x, const Cand& y) { return x.tracked != y.tracked ? x.tracked : x.d < y.d; });
 			for (size_t i = 0; i < cands.size() && i < static_cast<size_t>(s.maxNPCs); ++i) out.push_back(cands[i].a);
 			return out;
 		}
@@ -464,6 +513,7 @@ namespace Arousal
 		std::scoped_lock l(g_stateLock);
 		g_states.clear();
 		g_lastTick = 0.0f;
+		g_lastSceneSeen = -1.0e9f;
 		// Loading a save is when the engine installs 3D for a cell full of actors and every
 		// overlay mod piles work onto RaceMenu at once. Nothing of ours is urgent in that window,
 		// so stay out of it: the first tick waits, rather than adding to the queue.
@@ -511,16 +561,22 @@ namespace Arousal
 		const float dt = g_lastTick <= 0.0f ? 0.0f : std::clamp(now - g_lastTick, 0.0f, 5.0f);
 		g_lastTick = now;
 
+		std::scoped_lock sl(Scenes::Lock());
 		const Snap s = CopySettings();
 		const int source = ActiveSource();
-		const bool haveSignal = source != Settings::Arousal::kAuto || s.ostim;
-		if (!s.enabled || !haveSignal || Compat::Disabled(Compat::kArousal)) {
+		const bool inScene = Scenes::AnyActive();
+		if (inScene) g_lastSceneSeen = now;
+		// A scene's arousal fades over a few half-lives afterwards, and that goes on after the scene has ended.
+		const bool live = inScene || now - g_lastSceneSeen < std::max(30.0f, s.fall * 3.0f);
+		// With no arousal mod the only signal is OStim's excitement, and that exists only in a scene (and the fade after it).
+		const bool haveSignal = source != Settings::Arousal::kAuto || (s.ostim && live);
+		if (!s.enabled || !haveSignal || (!s.outside && !live) || Compat::Disabled(Compat::kArousal)) {
+			// Not now. Bodies that were being followed are put back; with nothing followed, this costs nothing.
 			ClearAllNow();
 			return;
 		}
 
 		++g_tick;
-		std::scoped_lock sl(Scenes::Lock());
 		std::scoped_lock l(g_stateLock);
 		for (auto* a : Gather(s)) {
 			auto& st = g_states[a->GetFormID()];
@@ -543,7 +599,10 @@ namespace Arousal
 			st.lastTick = g_tick;
 			st.lastSeen = now;
 
-			RequestArousal(a, source);  // lands before the next tick
+			// An arousal mod's number moves slowly outside a scene, so it is asked for every few ticks there, staggered by actor, instead of
+			// every tick for everyone; in a scene it is every tick. The first reading is asked for at once.
+			constexpr std::uint32_t kIdleAskTicks = 5;
+			if (!st.haveArousal || Scenes::InAnyScene(a) || (g_tick + a->GetFormID()) % kIdleAskTicks == 0) RequestArousal(a, source);  // lands before the next tick
 
 			float riseMult, fallMult;
 			st.target = Target(a, st, s, now, riseMult, fallMult);

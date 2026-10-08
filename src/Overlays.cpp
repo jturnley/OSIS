@@ -79,6 +79,20 @@ namespace Overlays
 		return slots;
 	}
 
+	std::optional<bool> NodeHolds(RE::Actor* a, const std::string& a_node, const std::string& a_texture)
+	{
+		auto* root = a ? a->Get3D(false) : nullptr;
+		if (!root) return std::nullopt;
+		auto* node = root->GetObjectByName(RE::BSFixedString(a_node));
+		auto* geom = node ? node->AsGeometry() : nullptr;
+		if (!geom) return false;
+		auto* shader = geom->lightingShaderProp_cast();
+		auto* material = shader ? static_cast<RE::BSLightingShaderMaterialBase*>(shader->material) : nullptr;
+		if (!material || !material->textureSet) return false;
+		const char* path = material->textureSet->GetTexturePath(RE::BSTextureSet::Texture::kDiffuse);
+		return path && !a_texture.empty() && Lower(path).contains(Lower(a_texture));
+	}
+
 	std::string Report(RE::Actor* a, bool face, int total, const std::vector<std::string>& ours)
 	{
 		if (!a) return "no actor";

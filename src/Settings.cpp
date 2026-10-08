@@ -181,6 +181,7 @@ namespace Settings
 				{ "Arousal", "bEnabled", &Arousal::bEnabled },
 				{ "Arousal", "bAffectPlayer", &Arousal::bAffectPlayer },
 				{ "Arousal", "bAffectNPCs", &Arousal::bAffectNPCs },
+				{ "Arousal", "bOutsideScenes", &Arousal::bOutsideScenes },
 				{ "Arousal", "iSource", &Arousal::iSource },
 				{ "Arousal", "bOStimExcitement", &Arousal::bOStimExcitement },
 				{ "Arousal", "bSceneFactors", &Arousal::bSceneFactors },

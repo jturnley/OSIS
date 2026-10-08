@@ -15,6 +15,25 @@
   7.0, 5.2, 7.7 s and then 3.5 s for the 7 s cadence (long form), or 4.9, 4.9, 4.9, 3.6, 4.9 and 2.5 s (short form),
   never more than half the gap, so the face always has the other half to come back down,
   where it used to run through.
+- **Stutters with the mod on and no scene running** (reported on the beta 1 page: "it still stutters if it's enabled", "perpetually applying
+  its effects during gameplay"; and, in scenes, the GPU load with Body Blushing at 12 overlay slots). The arousal module follows the player and
+  the six nearest NPCs all the time, and the body blush it kept up did a great deal of needless work. Found and fixed:
+  - The blush texture check opened a resource stream for every region of every followed actor **every second**. It is now remembered (a texture that
+    is there stays there; one that is missing is asked about again after 30 s).
+  - Every region was painted again - `AddOverlays`, then texture, tint and matte for each - **every ten seconds** for every actor, "so anything
+    dropped heals". It now reads the actor's overlay nodes to see whether what it painted is still there, and paints again only when something is not.
+  - With fewer free overlay slots than regions (RaceMenu's default is six and the blush starts at slot 6, so one slot was free), the list was cut
+    to fit and then compared with the uncut list, which always differed: it was painted **again every second**, for ever.
+  - Regions were built, one copy of the body each for the renderer, while the response was at nothing, which is most of the time (they start at
+    0.25 to 0.55 of the response). None is built until one has something to show, and they come down after ten seconds of nothing.
+  - With a crowd about, the six nearest NPCs changed every second, each change building a body (morphs, overlays, a model weight update) and
+    taking another down. Anyone already followed now keeps their place until they are 25% beyond the range.
+  - An arousal mod's number was asked for, for everyone, every second; outside a scene it is now asked for every five seconds, staggered.
+  - With no arousal mod there is nothing to follow outside a scene, and now nothing is (the fade after a scene still runs).
+  - New setting **Also outside OStim scenes** (Arousal page, `bOutsideScenes`, **off by default**, with a warning on the page when it is on: it
+    can use a lot of resources). Off, morphs and body blush exist only while a scene runs, and for the fade after it. On, the body follows
+    the arousal all the time, as Softbody Arousal did, so a body is at its resting look before a scene starts. Anyone who relied on that
+    turns it on.
 - **PPA's mouth dropped out for the climax on a blowjob** (reported on the beta 1 page: "every time during climax the PPA
   disables for that part, then returns when the climax is over"). While PPA has an actor's mouth, OSIS's faces already
   keep their hands off it, but the lip-sync did not: a moan's phonemes are written over whatever the mouth is doing, and
