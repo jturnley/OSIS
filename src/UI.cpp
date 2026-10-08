@@ -206,6 +206,7 @@ namespace
 	}
 
 	constexpr const char* kBodySexes[] = { "Any body", "Female only", "Male only" };
+	constexpr const char* kBodyTypes[] = { "Any body type", "CBBE / 3BA", "UBE" };
 	constexpr const char* kTongueModes[] = { "Hold the jaw open, stop lip-sync", "Hold the jaw open, keep lip-syncing", "Ignore" };
 	constexpr const char* kVoiceModes[] = { "Silent", "Breathing only", "Full (help, lines, scream)" };
 	constexpr const char* kResponderModes[] = { "Nobody", "Guards", "Guards and allies" };
@@ -1045,6 +1046,8 @@ namespace
 					"read the other way round.");
 				ComboI("Body", m.sex, kBodySexes, 3, "CBBE/3BA slider names mean nothing on a male body, so the stock rows are female "
 					"only. Add rows set to Male if your male body has morphs worth driving.");
+				ComboI("Body type", m.type, kBodyTypes, 3, "UBE has its own sliders and its own UV map. A row set to CBBE / 3BA or to UBE only touches that body, "
+					"which is how one table serves both; Any applies to every body.");
 				if (m.full <= m.start) m.full = std::min(1.0f, m.start + 0.01f);
 				if (ig::Button("Remove")) removeAt = static_cast<int>(i);
 				ig::PopID();
@@ -1065,6 +1068,15 @@ namespace
 				morphs = Settings::Arousal::DefaultMorphs();
 				g_dirty = true;
 			}
+			ig::SameLine();
+			if (ig::Button("Add the UBE rows")) {
+				for (auto& u : Settings::Arousal::UbeMorphs()) {
+					if (std::ranges::none_of(morphs, [&](const auto& m) { return m.name == u.name && m.type == u.type; })) morphs.push_back(std::move(u));
+				}
+				g_dirty = true;
+			}
+			ig::SetItemTooltip("Adds UBE's own sliders (NipplesPerkiness, AreolaErection, ClitorisErection and so on), set to UBE bodies only, to a table that has none. "
+				"They are a first estimate: tune them in the game.");
 		}
 		SaveBar();
 	}
@@ -1078,7 +1090,8 @@ namespace
 			std::scoped_lock l(Settings::lock);
 			using namespace Settings::Arousal;
 			Check("Enable body blushing", bBlush,
-				"Needs Body Blushing (iAmChe) installed for the textures, unless every row below points at your own.");
+				"Needs Body Blushing (iAmChe) installed for the textures, unless every row below points at your own. UBE bodies use their own rows (below), "
+				"from textures on UBE's UV map.");
 			SliderI("First slot", iOverlayFirstSlot, 0, 31, "Slots below this are left for other overlay mods.");
 			SliderI("Slots to use", iOverlaySlots, 0, 16,
 				"How many regions can show at once. Each takes one body overlay slot, so this is also how many slots are claimed.");
@@ -1110,6 +1123,8 @@ namespace
 				}
 				ComboI("Body", b.sex, kBodySexes, 3, "Body Blushing's textures are painted on the female UV, so the stock rows are "
 					"female only. A male body needs its own textures: add rows, set this to Male and point them at your files.");
+				ComboI("Body type", b.type, kBodyTypes, 3, "Body Blushing is painted on the CBBE / 3BA UV map; UBE has a different one, so its regions need textures converted to it. "
+					"A row set to UBE only paints UBE bodies, and one set to CBBE / 3BA never does, so the two sets of textures can sit side by side.");
 				{
 					bool custom = b.tint >= 0;
 					if (ig::Checkbox("Own colour", &custom)) {
@@ -1148,6 +1163,15 @@ namespace
 				blushes = DefaultBlushes();
 				g_dirty = true;
 			}
+			ig::SameLine();
+			if (ig::Button("Add the UBE regions")) {
+				for (auto& u : Settings::Arousal::UbeBlushes()) {
+					if (std::ranges::none_of(blushes, [&](const auto& b) { return b.name == u.name && b.type == u.type; })) blushes.push_back(std::move(u));
+				}
+				g_dirty = true;
+			}
+			ig::SetItemTooltip("Adds the same regions for UBE bodies, reading textures from actors\\Character\\Overlays\\CheeseBlushOverlays_UBE. Put Body Blushing's textures, "
+				"converted to the UBE UV map, there; a region whose texture is missing is skipped.");
 
 			ig::SeparatorText("Per-race visibility");
 			ig::TextWrapped("The overlays are one grey texture tinted per race, so the same opacity looks subtle on dark skin and "

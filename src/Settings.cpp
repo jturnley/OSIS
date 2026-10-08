@@ -295,7 +295,7 @@ namespace Settings
 			// GT Softbody (CBBE) slider names. Excitement: nipple erection, areola
 			// tightening, early labial/clitoral swelling. Plateau: areola puffing,
 			// labia parting and protruding, slight breast volume increase.
-			return {
+			std::vector<Morph> rows{
 				{ "NipBGone", 0.05f, 0.35f, 0.00f, true, 0.30f },
 				{ "NippleShy_v2", 0.05f, 0.35f, 0.00f, true, 0.30f },
 				{ "NipplePerkiness", 0.05f, 0.40f, 0.45f },
@@ -319,6 +319,28 @@ namespace Settings
 				{ "Labiaspread", 0.45f, 0.95f, 0.40f },
 				{ "VaginaHole", 0.65f, 1.00f, 0.15f },
 			};
+			for (auto& m : rows) m.type = kStandardType;
+			for (auto& m : UbeMorphs()) rows.push_back(std::move(m));
+			return rows;
+		}
+
+		// UBE's own BodySlide sliders (UBE SE 2.0 Release Body). The same behaviour as the CBBE/3BA rows above: nipple and areola erection,
+		// the clitoris, a little breast volume and, at the plateau, a puffier areola and a wider vulva. The values are a first estimate,
+		// not tuned in the game; they only touch UBE actors.
+		std::vector<Morph> UbeMorphs()
+		{
+			std::vector<Morph> rows{
+				{ "NipplesPerkiness", 0.05f, 0.40f, 0.45f },
+				{ "NippleLength", 0.10f, 0.55f, 0.30f },
+				{ "NippleDiameter n|p", 0.15f, 0.60f, 0.20f },
+				{ "AreolaeSizeBig", 0.10f, 0.50f, 0.20f },
+				{ "AreolaErection", 0.55f, 0.90f, 0.55f },
+				{ "BreastsBigger", 0.40f, 1.00f, 0.06f },
+				{ "ClitorisErection", 0.20f, 0.70f, 0.60f },
+				{ "Vagina_shape_wider", 0.45f, 0.95f, 0.25f },
+			};
+			for (auto& m : rows) m.type = kUBEType;
+			return rows;
 		}
 
 		// Tuned so the flush reads about the same on every skin. Pale races need less alpha than
@@ -342,7 +364,7 @@ namespace Settings
 		{
 			// Sexual flush spreads from the upper chest outward. The textures' own
 			// alpha is only ~20-33%, so these run near full opacity.
-			return {
+			std::vector<Blush> rows{
 				{ "Blush_Chest_Upper", 0.25f, 0.70f, 1.00f },
 				{ "Blush_Chest_Center", 0.30f, 0.75f, 1.00f },
 				{ "Blush_Breast", 0.35f, 0.85f, 0.90f },
@@ -350,6 +372,29 @@ namespace Settings
 				{ "Blush_Thigh_Inside", 0.45f, 0.95f, 0.90f },
 				{ "Blush_Shoulder", 0.55f, 1.00f, 0.80f },
 			};
+			for (auto& b : rows) b.type = kStandardType;
+			for (auto& b : UbeBlushes()) rows.push_back(std::move(b));
+			return rows;
+		}
+
+		// The same regions for UBE, from textures painted on UBE's UV map. Body Blushing has none: convert its textures with the UBE
+		// texture conversion tool and put the results in this folder, so the CBBE/3BA textures are left as they are. A row whose texture
+		// is not there is skipped, with one line in the log.
+		std::vector<Blush> UbeBlushes()
+		{
+			std::vector<Blush> rows{
+				{ "UBE Blush_Chest_Upper", 0.25f, 0.70f, 1.00f },
+				{ "UBE Blush_Chest_Center", 0.30f, 0.75f, 1.00f },
+				{ "UBE Blush_Breast", 0.35f, 0.85f, 0.90f },
+				{ "UBE Blush_Coochie", 0.35f, 0.85f, 1.00f },
+				{ "UBE Blush_Thigh_Inside", 0.45f, 0.95f, 0.90f },
+				{ "UBE Blush_Shoulder", 0.55f, 1.00f, 0.80f },
+			};
+			for (auto& b : rows) {
+				b.type = kUBEType;
+				b.texture = "actors\\Character\\Overlays\\CheeseBlushOverlays_UBE\\" + b.name.substr(4) + ".dds";
+			}
+			return rows;
 		}
 	}
 
@@ -500,6 +545,8 @@ namespace Settings
 						b.full = j.value("full", 1.0f);
 						b.texture = j.value("texture", std::string{});
 						b.sex = std::clamp(j.value("sex", static_cast<int>(kFemaleBody)), 0, 2);
+						// No type written: a stock row (its texture is Body Blushing's, on the CBBE UV) is Standard; a row with a texture of its own is Any.
+						b.type = std::clamp(j.value("type", b.texture.empty() ? static_cast<int>(kStandardType) : static_cast<int>(kAnyType)), 0, 2);
 						b.tint = j.value("tint", -1);
 						b.max = std::clamp(j.value("max", 1.0f), 0.0f, 1.0f);
 						b.enabled = j.value("enabled", true);
@@ -525,6 +572,7 @@ namespace Settings
 					m.max = j.value("max", 0.0f);
 					m.enabled = j.value("enabled", true);
 					m.sex = std::clamp(j.value("sex", static_cast<int>(kFemaleBody)), 0, 2);
+					m.type = std::clamp(j.value("type", static_cast<int>(kAnyType)), 0, 2);
 					m.rest = j.value("rest", 0.0f);
 					if (m.full <= m.start) m.full = m.start + 0.01f;
 					loaded.push_back(std::move(m));
@@ -558,11 +606,11 @@ namespace Settings
 		{
 			std::scoped_lock l(lock);
 			for (const auto& m : Arousal::morphs) {
-				arr.push_back({ { "name", m.name }, { "sex", m.sex }, { "start", m.start }, { "full", m.full }, { "max", m.max }, { "rest", m.rest },
+				arr.push_back({ { "name", m.name }, { "sex", m.sex }, { "type", m.type }, { "start", m.start }, { "full", m.full }, { "max", m.max }, { "rest", m.rest },
 					{ "enabled", m.enabled } });
 			}
 			for (const auto& b : Arousal::blushes) {
-				blushArr.push_back({ { "name", b.name }, { "texture", b.texture }, { "sex", b.sex }, { "tint", b.tint }, { "start", b.start },
+				blushArr.push_back({ { "name", b.name }, { "texture", b.texture }, { "sex", b.sex }, { "type", b.type }, { "tint", b.tint }, { "start", b.start },
 					{ "full", b.full }, { "max", b.max }, { "enabled", b.enabled } });
 			}
 			for (const auto& r : Arousal::raceBlush) {

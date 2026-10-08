@@ -98,6 +98,12 @@ orgasm:
 Living Skin's face blush uses `max(scene excitement ramp, Arousal::Flush)`, so the face and
 body flush together.
 
+## Body types
+Arousal morph rows and blush regions carry a `type` (`Settings::Arousal::BodyType`: any, CBBE/3BA, UBE). `IsUBE` in `Arousal.cpp` reads the
+race: an editor ID starting `00ube_`, or a name ending ` UBE` (UBE_AllRace.esp's 18 races), and `BodyMatch` keeps each row to its body. UBE
+has its own sliders and UV map but the stock skeleton, so Body (toe curl, grip) is untouched. `UbeMorphs()` and `UbeBlushes()` are the stock UBE
+rows; the textures are the user's (UBE-UV conversions of Body Blushing).
+
 ## Personalities
 Nine ids (`Face::Engine::Pers`): 0 balanced, 1 stoic, 2 vocal, 3 shy, 4 dominant, 5 timid, 6 submissive (full edition only), 7 wild,
 8 crazed. The lite edition has no submissive: `EditionPersonality` turns a 6 into a timid (5) wherever one could come in (SPID keyword, voice

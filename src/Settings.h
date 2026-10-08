@@ -219,6 +219,11 @@ namespace Settings
 		// which is what they were.
 		enum Sex : int { kAnySex = 0, kFemaleBody = 1, kMaleBody = 2 };
 
+		// Which body type a row is for. UBE is a set of races of its own (00UBE_*) with its own sliders and its own UV map, so a CBBE/3BA
+		// row (its slider names, its blush textures) means nothing on it, and a UBE row means nothing on a CBBE/3BA body. Rows written
+		// before this existed load as Any, except the stock blush rows, whose textures are painted on the CBBE UV: those load as Standard.
+		enum BodyType : int { kAnyType = 0, kStandardType = 1, kUBEType = 2 };
+
 		struct Morph
 		{
 			std::string name;
@@ -228,6 +233,7 @@ namespace Settings
 			bool enabled = true;
 			float rest = 0.0f;   // slider value while unaroused
 			int sex = kFemaleBody;
+			int type = kAnyType;
 		};
 
 		struct Blush
@@ -239,6 +245,7 @@ namespace Settings
 			bool enabled = true;
 			std::string texture;   // optional: your own path under Data\textures, overrides `name`
 			int sex = kFemaleBody;
+			int type = kAnyType;
 			std::int32_t tint = -1;  // 0xRRGGBB; -1 uses the per-race colour
 		};
 
@@ -286,8 +293,10 @@ namespace Settings
 		inline std::vector<Blush> blushes;
 		inline std::vector<RaceBlush> raceBlush;
 
-		std::vector<Morph> DefaultMorphs();
+		std::vector<Morph> DefaultMorphs();  // the CBBE/3BA rows and the UBE rows
 		std::vector<Blush> DefaultBlushes();
+		std::vector<Morph> UbeMorphs();      // just the UBE rows, for adding to a table that has none
+		std::vector<Blush> UbeBlushes();
 		std::vector<RaceBlush> DefaultRaceBlush();
 	}
 

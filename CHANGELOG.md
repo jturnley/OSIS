@@ -24,6 +24,21 @@
   change hands at a climax; if the mouth still drops out, that line and the one after it show which it was.
 
 ### Added
+- **UBE bodies** (asked on the beta 1 page: does it work with UBE, and is there a body blush and a toe curl for it). UBE is a set of races
+  of its own (`00UBE_NordRace`, `00UBE_DarkElfRaceVampire`, shown as "Nord UBE"), with its own BodySlide sliders and its own UV map, so the
+  CBBE/3BA arousal rows and Body Blushing's textures do nothing, or the wrong thing, on it.
+  - **Toe curl and hand grip already work**: UBE uses the stock skeleton, whose toe and finger bones the Body module writes. The curl is one
+    block per foot. The per-toe bending needs a foot weighted to XPMSSE's individual toe bones, and UBE's own feet are weighted to Toe0 only.
+  - **A body type on every arousal morph row and blush region** (Arousal page, "Body type": Any, CBBE / 3BA or UBE). An actor is UBE when its
+    race's editor ID starts with `00UBE_` or its name ends in "UBE". A row only touches its own body type, so one table serves both and a
+    UBE texture set can sit beside the CBBE/3BA one instead of overwriting it, which is what broke 3BA bodies for people who converted
+    Body Blushing's files to the UBE UV. Rows from an older table load as Any, except stock blush regions (no texture of their own), which
+    load as CBBE / 3BA.
+  - **Eight UBE morph rows** with UBE's own slider names (NipplesPerkiness, NippleLength, NippleDiameter n|p, AreolaeSizeBig, AreolaErection,
+    BreastsBigger, ClitorisErection, Vagina_shape_wider), the same behaviour as the 3BA rows, and **six UBE blush regions** reading
+    `actors\Character\Overlays\CheeseBlushOverlays_UBE\Blush_*.dds`. The values are a first estimate and have not been run in the game. The textures are not shipped: convert
+    Body Blushing's with the UBE texture conversion tool and put them in that folder. A region whose texture is missing is skipped, with one line
+    in the log. A new install gets the rows; an existing table has "Add the UBE rows" and "Add the UBE regions" buttons.
 - **Faces shaped by the time between orgasms and their number.** An orgasm that comes within the rapid window
   (default 40 s) of the actor's last is "rapid", by how close it is: its climax face is shortened by up to 60%
   (and never to more than half the gap), it skips the squeeze at the start (the face is still

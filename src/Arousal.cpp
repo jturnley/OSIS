@@ -52,6 +52,7 @@ namespace Arousal
 			std::uint32_t lastTick = 0;
 			bool legacyCleared = false;
 			bool female = true;
+			bool ube = false;     // a UBE race: its own sliders and its own UV map, so CBBE/3BA rows and textures are not for it
 
 			std::vector<std::string> blushNodes;
 			std::vector<std::string> blushTextures;
@@ -109,6 +110,11 @@ namespace Arousal
 			return want == S::kAnySex || (want == S::kFemaleBody) == female;
 		}
 
+		bool BodyMatch(int want, bool ube)
+		{
+			return want == S::kAnyType || (want == S::kUBEType) == ube;
+		}
+
 		// A row's own texture wins; otherwise the Body Blushing region of that name. Paths are
 		// given relative to Data\textures, and a leading data\ or textures\ is tolerated.
 		std::string BlushTexture(const S::Blush& b)
@@ -126,6 +132,18 @@ namespace Arousal
 			std::string id = race ? race->GetFormEditorID() : "";
 			std::ranges::transform(id, id.begin(), [](unsigned char c) { return static_cast<char>(std::tolower(c)); });
 			return id;
+		}
+
+		// UBE is a set of races of its own: editor IDs 00UBE_NordRace, 00UBE_DarkElfRaceVampire and so on, shown as "Nord UBE". The name is
+		// checked as well, in case the editor ID is not kept at run time.
+		bool IsUBE(RE::Actor* a)
+		{
+			if (!a) return false;
+			const std::string id = RaceID(a);
+			if (id.starts_with("00ube_") || id.starts_with("ube_")) return true;
+			auto* race = a->GetRace();
+			const std::string name = race ? race->GetName() : "";
+			return name.size() > 4 && _stricmp(name.c_str() + name.size() - 4, " ube") == 0;
 		}
 
 		// The same alpha reads very differently on pale and on dark skin, so each race scales it.
@@ -169,6 +187,7 @@ namespace Arousal
 					// A row with its own colour paints even on a race that has no default tint.
 					if (!b.enabled || (!tint && b.tint < 0)) continue;
 					if (!SexMatch(b.sex, st.female)) continue;
+					if (!BodyMatch(b.type, st.ube)) continue;
 					if (active.size() < static_cast<size_t>(s.slots)) active.push_back(&b);
 				}
 			}
@@ -541,6 +560,7 @@ namespace Arousal
 			if (dt > 0.0f) st.level += (st.target - st.level) * (1.0f - std::pow(0.5f, dt / std::max(0.1f, halfLife)));
 			if (std::abs(st.target - st.level) < 0.002f) st.level = st.target;
 			st.shown = Shape(a, st, s, now, dt);
+			st.ube = IsUBE(a);
 
 			ApplyBlush(a, st, s);
 			// A male body has no softbody sliders worth driving, but it does have the genital
@@ -552,7 +572,7 @@ namespace Arousal
 			bool changed = false;
 			for (size_t i = 0; i < s.morphs.size(); ++i) {
 				const auto& m = s.morphs[i];
-				const bool applies = m.enabled && SexMatch(m.sex, st.female);
+				const bool applies = m.enabled && SexMatch(m.sex, st.female) && BodyMatch(m.type, st.ube);
 				const float prev = st.applied[i];
 				if (!applies && std::isnan(prev)) {
 					st.applied[i] = 0.0f;  // never set on this body: nothing to clear
