@@ -853,6 +853,16 @@ namespace Face::Engine::detail
 
 		void Blindfold(Preset& e) { Add2(e, 28, 0.45f); }
 
+		// Asleep: the lids shut (the blink channel is the only thing that closes them), everything else slack. Nothing of the scene's excitement
+		// reaches a sleeper's face.
+		void SleepFace(Preset& e)
+		{
+			e.fill(0.0f);
+			e[0] = 0.08f;            // Aah, the mouth a little parted
+			e[16] = e[17] = 1.0f;    // lids shut
+			e[28] = e[29] = 0.10f;   // a little squint so no gap shows under the lids
+		}
+
 		void ApplyScenarioCycler(Preset& e, int scenario, int phase, int seed)
 		{
 			if (!S::bScenarioCycler) return;
@@ -1561,6 +1571,8 @@ namespace Face::Engine::detail
 		if (usingLib) ApplyEyeScalar(e);
 		else ApplyV2Controls(t, e, dom == kClimax && s.climaxFromPool ? 2 : phrase, dom, yieldMouth, victim, react);  // a clip ripples on its own
 		ApplyPersonalityFace(t, s, e, pers, dom, enjPhase, seed);
+		const bool asleep = IsSleeping(t, s);
+		if (asleep) SleepFace(e);
 
 		// Director owns the whole face, but its pleasure presets were tuned as an overlay on OStim's
 		// own face, not as one: OStim's expression files run mood 0.7-1.0, brows 0.4-1.0 and mouth
@@ -1612,7 +1624,11 @@ namespace Face::Engine::detail
 		if (OSEDShouldAnime(t, s, a, rawEnj, yieldMouth)) ApplyOSEDAnimeAccent(t, s, a, rawEnj, yieldMouth);
 		else ClearOSEDAnimeAccent(s, a);
 
-		if (blind) {
+		if (asleep) {
+			ClearLook(a);
+			s.eyeOwner = "Asleep";
+			s.headOwner = "Asleep";
+		} else if (blind) {
 			ClearLook(a);
 			s.headOwner = "Blindfold";
 		} else if (yieldMouth) {
@@ -1624,7 +1640,9 @@ namespace Face::Engine::detail
 		} else {
 			s.headOwner = "Idle";
 		}
-		if (S::bHeadflow) ApplyHeadflow(t, s, a, idx, dom, phrase, partner, arch, posRole, scenario, overwhelm, yieldMouth);
+		if (asleep) {
+			// head and eyes at rest
+		} else if (S::bHeadflow) ApplyHeadflow(t, s, a, idx, dom, phrase, partner, arch, posRole, scenario, overwhelm, yieldMouth);
 		else if (S::bBodyDemo) BodyDemo(t, s, a, dom);
 	}
 

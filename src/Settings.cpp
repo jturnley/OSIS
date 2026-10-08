@@ -66,6 +66,7 @@ namespace Settings
 				{ "Face", "bRichEmotions", &Face::bRichEmotions },
 				{ "Face", "bMouthVariety", &Face::bMouthVariety },
 				{ "Face", "bDeviceAware", &Face::bDeviceAware },
+				{ "Face", "bSleepingEyesClosed", &Face::bSleepingEyesClosed },
 				{ "Face", "bExposureAware", &Face::bExposureAware },
 				{ "Face", "bYieldOralMouth", &Face::bYieldOralMouth },
 				{ "Face", "bYieldMouthToPPA", &Face::bYieldMouthToPPA },

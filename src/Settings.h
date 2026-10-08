@@ -73,6 +73,7 @@ namespace Settings
 		inline bool bRichEmotions = true;
 		inline bool bMouthVariety = true;
 		inline bool bDeviceAware = true;
+		inline bool bSleepingEyesClosed = true;  // an actor OStim marks as asleep (the "sleeping" action) has closed eyes and a slack face
 		inline bool bExposureAware = true;
 		inline bool bYieldOralMouth = true;
 		inline bool bYieldMouthToPPA = true;  // a blowjob's mouth is PPA's while it is playing its mouth preset

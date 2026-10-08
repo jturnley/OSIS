@@ -581,6 +581,8 @@ namespace Face::Engine
 				// OStim puts the feet on different roles: footjob's actor "has the feet", while
 				// grinding/holding/kissing/tickling put them on the target.
 				x.actionMouthPenetrated = SplitCSV("blowjob,deepthroat");
+				x.actionSleeping = SplitCSV("sleeping");
+				x.tagSleeping = SplitCSV("sleeping");
 				x.actionFootActor = SplitCSV("footjob");
 				x.actionFootTarget = SplitCSV("grindingfoot,holdingfoot,kissingfoot,ticklingfoot");
 				x.tagOralAction = SplitCSV("oral,blowjob,deepthroat,cunnilingus,anilingus,rimjob,facefuck,fellatio,mouth");
@@ -894,6 +896,29 @@ namespace Face::Engine
 		bool FaceVictim(Thread& t, const Slot& s)
 		{
 			return !t.consent && (!t.victimKnown || IsSubmissive(t, s));
+		}
+
+		bool IsSleeping(Thread& t, const Slot& s)
+		{
+			if (!S::bSleepingEyesClosed || !t.meta || s.pos < 0) return false;
+			const auto& m = *t.meta;
+			// OStim's own marker: a "sleeping" action, whose actor is the one asleep.
+			if (OStimData::FindAnyActionForActor(m, s.pos, T().actionSleeping) >= 0) return true;
+			if (OStimData::FindAnyAction(m, T().actionSleeping) >= 0) return false;  // somebody else is
+			// Some scenes only carry the tag. Their sleeper is the one things are done to: in the installed scenes that is one actor in all 86.
+			if (!OStimData::HasAnySceneTag(m, T().tagSleeping)) return false;
+			int most = -1, mostN = 0, tie = 0;
+			for (int pos = 0; pos < static_cast<int>(m.actors.size()); ++pos) {
+				const int n = static_cast<int>(std::ranges::count_if(m.actions, [pos](const OStimData::Action& a) { return a.target == pos; }));
+				if (n > mostN) {
+					most = pos;
+					mostN = n;
+					tie = 0;
+				} else if (n == mostN && n > 0) {
+					++tie;
+				}
+			}
+			return tie == 0 && most == s.pos;
 		}
 
 		bool IsSubmissive(Thread& t, const Slot& s)

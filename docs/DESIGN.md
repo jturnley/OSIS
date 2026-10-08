@@ -98,6 +98,11 @@ orgasm:
 Living Skin's face blush uses `max(scene excitement ramp, Arousal::Flush)`, so the face and
 body flush together.
 
+## Sleeping actors
+`IsSleeping` (Engine.cpp): the actor a `sleeping` action names, or, in a scene only tagged `sleeping`, the one most actions target. The Director's
+`SleepFace` replaces the composed face (lids shut via the blink channel, the rest slack) and skips gaze and headflow; the layer path sets the lids
+directly and remembers it in `Slot::asleepShown` to open them again.
+
 ## Cost of the arousal module
 `Arousal::Tick` (every `fInterval` s) follows the player and up to `iMaxNPCs` NPCs, scene or not. What it may not do is work for nothing: texture
 existence is cached (`FsUtil::TextureExistsCached`), body-blush regions are built only once one has a non-zero alpha and taken down after 10 s

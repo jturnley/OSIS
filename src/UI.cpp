@@ -563,6 +563,10 @@ namespace
 					"A nude actor who is not yet worked up is bashful about it. Consensual scenes only.");
 				Check("Device awareness (gags, blindfolds)", bDeviceAware,
 					"A gag changes the mouth (closed, or held open by a ring) and a blindfold the eyes. Reads Devious Devices.");
+				Check("Close the eyes of a sleeping actor", bSleepingEyesClosed,
+					"In a scene where OStim says an actor is asleep (its \"sleeping\" action, or a scene tagged sleeping, where the sleeper is the one most things are "
+					"done to) that actor's eyes are shut and their face slack: brows and gaze at rest, the mouth a little parted, whatever the excitement. "
+					"Director and Enhanced modes.");
 			}
 			if (ig::CollapsingHeader("Timing", ig::ImGuiTreeNodeFlags_DefaultOpen)) {
 				Check("Pace boost (stage changes + speed raise intensity)", bPaceBoost,

@@ -129,6 +129,7 @@ namespace Scenes
 		// the phonemes looked like when it was handed over (a change from that is PPA at work), when the hand-over
 		// began, and, after one that came to nothing, when to try again.
 		bool ppaYield = false;
+		bool asleepShown = false;  // the lids were shut for a sleeping actor (Assist and Enhanced), so they are opened again when that stops
 		bool ppaSeen = false;
 		bool ppaGaveUp = false;
 		bool ppaBaseSet = false;

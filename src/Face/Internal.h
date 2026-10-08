@@ -47,6 +47,7 @@ namespace Face::Engine::detail
 		TagList actionOral, actionKiss, actionVaginal, actionAnal, actionPenetration, actionAnySignal;
 		TagList actionFootActor, actionFootTarget;  // whose feet: footjob's actor, everything else's target
 		TagList actionMouthPenetrated;                // the actor's mouth has a penis in it
+		TagList actionSleeping, tagSleeping;             // OStim's "sleeping" action (its actor is the sleeper) and the scene tag some scenes use instead
 		TagList tagOralAction, tagForced, tagRough, tagLoving, tagSub, tagDom;
 		TagList deepthroat;
 	};
@@ -95,6 +96,8 @@ namespace Face::Engine::detail
 	[[nodiscard]] int ActRole(Thread& t, Slot& s, RE::Actor* a);
 	[[nodiscard]] int PositionRole(Thread& t, const Slot& s);
 	[[nodiscard]] bool IsSubmissive(Thread& t, const Slot& s);
+	// This actor is asleep in the scene: the one a "sleeping" action names, or in a scene only tagged sleeping the one most is done to.
+	[[nodiscard]] bool IsSleeping(Thread& t, const Slot& s);
 	// Faces only: the victim of a non-consensual scene. When nobody can be identified, every
 	// actor keeps the victim treatment rather than guessing an aggressor.
 	[[nodiscard]] bool FaceVictim(Thread& t, const Slot& s);

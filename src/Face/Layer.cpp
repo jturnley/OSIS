@@ -525,6 +525,17 @@ namespace Face::Engine::detail
 			ApplyOSEDMicroLayer(t, s, a, idx, raw, shy, bold, yieldMouth);
 		}
 		const int phrase = PhrasePhase(t, idx, enjEff);
+		// A sleeping actor's eyes are shut whatever else the layer is doing; the lids come open again when the scene moves on.
+		if (IsSleeping(t, s)) {
+			SetMod(a, 16, 100, 0.35f);
+			SetMod(a, 17, 100, 0.35f);
+			ClearLook(a);
+			s.asleepShown = true;
+		} else if (s.asleepShown) {
+			SetMod(a, 16, 0, 0.35f);
+			SetMod(a, 17, 0, 0.35f);
+			s.asleepShown = false;
+		}
 		PulseActor(t, s, a, dom, phrase, enjEff);
 		Pulse::Emit("OSED_Phase", t.id, a, static_cast<float>(raw));
 		Pulse::Emit("OSED_Mode", t.id, a, static_cast<float>(S::iMode));

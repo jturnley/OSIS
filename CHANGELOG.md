@@ -37,6 +37,12 @@
 - **The tongue never came out** ("I enabled the tongue, but it never appears"). The tongue options need Style above 1.5, and Style is 0 by default, so
   ticking them did nothing, silently. The Face page now says so beside them and has a button to set Style to 1.6. The tongue is also only for
   female actors in a consensual scene, with nothing else holding the mouth, which the tooltip now says.
+- **A sleeping actor's eyes stayed open** (reported on the beta 1 page: "actors no longer close their eyes during sleeping scenes"). OStim
+  marks the sleeper: 55 of the installed scenes have a `sleeping` action whose actor is the one asleep, and 86 more only carry a `sleeping` scene
+  tag, where the sleeper is the actor most is done to (one actor, in every one of them). Such an actor now has the lids shut (the blink channel),
+  the brows and gaze at rest, the mouth a little parted and no mood, whatever the excitement, and no head movement; in Assist and Enhanced the
+  layer shuts the lids and clears the gaze, and opens them again when the scene moves on. New setting **Close the eyes of a sleeping actor**
+  (Face page, `bSleepingEyesClosed`, on).
 - **PPA's mouth dropped out for the climax on a blowjob** (reported on the beta 1 page: "every time during climax the PPA
   disables for that part, then returns when the climax is over"). While PPA has an actor's mouth, OSIS's faces already
   keep their hands off it, but the lip-sync did not: a moan's phonemes are written over whatever the mouth is doing, and
