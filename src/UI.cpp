@@ -981,6 +981,8 @@ namespace
 				"and everything is put back after it (or after the slow fade, below).");
 			Check("Arousal features slowly fade after scene (may cause increased GPU load)", bFadeAfterScene,
 				"Off (the default): the body morphs and the body blush are put back the moment the scene ends. On: they ease back over the next several seconds, at the Resolution half-life below, and are put back after that. The blush is drawn as extra copies of the body, so keeping it up after the scene costs GPU for as long as it fades. Does not matter while 'Also outside OStim scenes' is on, which keeps them following the arousal.");
+			Check("Pause a female body's morphs and blush while a penis is in a mouth", bPauseOnOral,
+				"For a female-bodied actor who has a penis (a futa receiving a blowjob): while a penis of theirs is in someone's mouth in the scene, their body morphs and blush are left as they are, and catch up afterwards. Every morph change refreshes the whole body in RaceMenu, about once a second, which can upset an attached penis's physics (an SMP head's lips then stop wrapping around it). A male body is never touched by this, so nothing changes for one.");
 			if (bOutsideScenes) {
 				ig::TextColored(kWarn, "Warning: this can use a lot of resources.");
 				ig::TextWrapped("It keeps the player and up to %d nearby NPCs updated all the time you play, scene or not: body morphs, and the body "

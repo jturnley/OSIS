@@ -7,6 +7,12 @@
   as extra copies of the body, which costs GPU for as long as it is up). The old behaviour is a new setting, "Arousal features slowly fade
   after scene (may cause increased GPU load)" (Arousal page, off by default). With "Also outside OStim scenes" on, nothing is put back at
   the end of a scene anyway.
+- **A female-bodied actor with a penis (a futa) has their body morphs and blush paused while a penis is in someone's mouth.** Reported on the
+  LoversLab page: with Predator's SMP head the giver's lips wrap around a male receiver's penis but not a futa's, though they do with OSIS off. The
+  one thing the arousal module does to a female-bodied receiver and never to a male one is a RaceMenu body refresh about once a second (each
+  morph change), plus the body blush's overlays; this stops both for the receiver while a blowjob, deepthroat or penis-licking targets them,
+  and they catch up afterwards. The cause is not confirmed. New setting "Pause a female body's morphs and blush while a penis is in a mouth"
+  (Arousal page, on by default); the log says "has a penis in a mouth in this scene node" when it applies.
 
 ### Fixed
 - **A dominant held their partner's climax while only giving a blowjob** (reported on the Nexus page: "an npc with a dom personality will hold their

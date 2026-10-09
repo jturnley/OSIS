@@ -119,6 +119,11 @@ followed NPC set is sticky (`Gather`), and an arousal mod is queried every 5th t
 morphs and the blush ease back after a scene; without it `Tick` calls `ClearAllNow` the tick the last scene ends, and `ClearActor` also sets a male's
 genital response back to rest, since nothing else would.
 
+`Arousal::Tick` also leaves alone a female-bodied actor (`st.female`) at the receiving end of a blowjob, deepthroat or lickingpenis action (`PenisInMouth`,
+from the scene's data, so it needs neither a schlong mod nor the sex of the actor) while `bPauseOnOral` is on: no morph writes, so no `UpdateModelWeight`,
+and no overlay work. A male body gets no morph rows and so no refresh to begin with. This is a guess at why an SMP head's lips stopped wrapping around a
+futa's penis (reported, not reproduced); `oralPaused` logs when it applies.
+
 ## Body types
 Arousal morph rows and blush regions carry a `type` (`Settings::Arousal::BodyType`: any, CBBE/3BA, UBE). `IsUBE` in `Arousal.cpp` reads the
 race: an editor ID starting `00ube_`, or a name ending ` UBE` (UBE_AllRace.esp's 18 races), and `BodyMatch` keeps each row to its body. UBE

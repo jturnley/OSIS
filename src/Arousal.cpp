@@ -52,6 +52,7 @@ namespace Arousal
 			std::uint32_t lastTick = 0;
 			bool legacyCleared = false;
 			bool female = true;
+			bool oralPaused = false;  // left alone because a penis of theirs is in someone's mouth; see PenisInMouth
 			bool ube = false;     // a UBE race: its own sliders and its own UV map, so CBBE/3BA rows and textures are not for it
 
 			std::vector<std::string> blushNodes;
@@ -79,7 +80,7 @@ namespace Arousal
 
 		struct Snap
 		{
-			bool enabled, player, npcs, ostim, factors, personality, outside, fadeAfter;
+			bool enabled, player, npcs, ostim, factors, personality, outside, fadeAfter, pauseOral;
 			int source, maxNPCs;
 			float intensity, radius, rise, fall, climaxHold;
 			std::vector<S::Morph> morphs;
@@ -97,7 +98,7 @@ namespace Arousal
 		{
 			std::scoped_lock l(Settings::lock);
 			return { S::bEnabled && Settings::General::bEnabled, S::bAffectPlayer, S::bAffectNPCs, S::bOStimExcitement, S::bSceneFactors,
-				S::bPersonality, S::bOutsideScenes, S::bFadeAfterScene, S::iSource, S::iMaxNPCs, S::fIntensity, S::fRadius, S::fRiseHalfLife, S::fFallHalfLife, S::fClimaxHold,
+				S::bPersonality, S::bOutsideScenes, S::bFadeAfterScene, S::bPauseOnOral, S::iSource, S::iMaxNPCs, S::fIntensity, S::fRadius, S::fRiseHalfLife, S::fFallHalfLife, S::fClimaxHold,
 				S::morphs, S::bBlush, S::iOverlayFirstSlot, S::iOverlaySlots, S::blushes, S::raceBlush, Settings::Skin::bMatteOverlays,
 				Settings::Body::bGenitals, S::bShapedResponse, S::fResponseFloor, S::fResponseCeiling, S::fPeakWindow, S::fStoicRest, S::fStoicPeak };
 		}
@@ -171,6 +172,25 @@ namespace Arousal
 			if (id.contains("orc")) return 0xB02818;
 			if (id.contains("woodelf")) return 0xF02A20;
 			return 0xFF2030;
+		}
+
+		// Whose penis is in someone's mouth in the scene's current node: the target of a blowjob, a deepthroat or a licking of the penis. OStim's
+		// actions put the penis on the target. Read from the scene's data, so it does not depend on the actor's sex or on a schlong mod.
+		bool PenisInMouth(RE::Actor* a)
+		{
+			static const OStimData::TagList kActions = [] {
+				OStimData::TagList l{ "blowjob", "deepthroat", "lickingpenis" };
+				const auto named = l;
+				for (const auto& n : named) {
+					const auto canonical = OStimData::CanonicalAction(n);  // OStim's own names for some of them (deepthroating)
+					if (std::ranges::find(l, canonical) == l.end()) l.push_back(canonical);
+				}
+				return l;
+			}();
+			auto* t = Scenes::ThreadOf(a);
+			if (!t || !t->meta) return false;
+			auto* sl = t->Find(a);
+			return sl && sl->pos >= 0 && OStimData::FindAnyActionForTarget(*t->meta, sl->pos, kActions) >= 0;
 		}
 
 		void ClearBlush(RE::Actor* a, ActorState& st)
@@ -623,6 +643,17 @@ namespace Arousal
 			if (std::abs(st.target - st.level) < 0.002f) st.level = st.target;
 			st.shown = Shape(a, st, s, now, dt);
 			st.ube = IsUBE(a);
+
+			// A female-bodied actor whose penis is in someone's mouth (a futa receiving a blowjob) is left alone while it lasts: no morph update and no
+			// overlay work. Each morph change is a RaceMenu weight refresh of the whole body, about once a second, and a male receiver never gets one,
+			// since the morph rows are for female bodies. The body keeps its last look and catches up afterwards.
+			const bool oral = s.pauseOral && st.female && PenisInMouth(a);
+			if (oral != st.oralPaused) {
+				st.oralPaused = oral;
+				if (oral) logger::info("Arousal: {} has a penis in a mouth in this scene node: their body morphs and blush are left alone while it lasts", st.name);
+				else logger::info("Arousal: {}'s body morphs and blush resume", st.name);
+			}
+			if (oral) continue;
 
 			ApplyBlush(a, st, s);
 			// A male body has no softbody sliders worth driving, but it does have the genital
