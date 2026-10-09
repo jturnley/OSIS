@@ -682,7 +682,7 @@ namespace
 				"Timid: enjoys it a lot, but the closeness is too much: eyes shut much of the time, an occasional peek at the partner. "
 				"Vocal: likes it a lot but has no control over themselves: surprise, and loud voices. "
 				"Wild: enjoys every moment, the intimacy and the pleasure alike, with only positive reactions, and tries to maximise them. "
-				"Dominant: their own pleasure comes first and the partner is a toy; the partner's climax is held until the dominant's own. "
+				"Dominant: their own pleasure comes first and the partner is a toy; the partner's climax is held until the dominant's own, while the dominant is being stimulated (not while only giving a blowjob, say). "
 				"Crazed: obsessed with the partner: long creepy eye contact, drives them up to climax as fast as it can, and climaxes with them, "
 				"with a creepy look, every time they do."
 #if !OSIS_LITE
@@ -971,13 +971,16 @@ namespace
 			std::scoped_lock l(Settings::lock);
 			using namespace Settings::Arousal;
 			ig::SeparatorText("Arousal");
+			ig::TextDisabled("The morph table and the body blush have their own pages: open \"Arousal\" in the list on the left to see Morphs and Body Blush under it.");
 			Check("Enabled", bEnabled, "The same switch as Arousal on the General page.");
 			Check("Affect player", bAffectPlayer, "Drive the player's own morphs and body blush.");
 			Check("Affect nearby NPCs", bAffectNPCs, "Drive NPCs around the player too, within the limits below.");
 			Check("Also outside OStim scenes", bOutsideScenes,
 				"On: the body follows the arousal all the time, as Softbody Arousal did (an arousal mod's number for the player and the NPCs near them), so a body "
 				"is already at its resting look when a scene starts. Off (the default): morphs and body blush only exist while an OStim scene is running, "
-				"and for the fade after it, and everything is put back after that.");
+				"and everything is put back after it (or after the slow fade, below).");
+			Check("Arousal features slowly fade after scene (may cause increased GPU load)", bFadeAfterScene,
+				"Off (the default): the body morphs and the body blush are put back the moment the scene ends. On: they ease back over the next several seconds, at the Resolution half-life below, and are put back after that. The blush is drawn as extra copies of the body, so keeping it up after the scene costs GPU for as long as it fades. Does not matter while 'Also outside OStim scenes' is on, which keeps them following the arousal.");
 			if (bOutsideScenes) {
 				ig::TextColored(kWarn, "Warning: this can use a lot of resources.");
 				ig::TextWrapped("It keeps the player and up to %d nearby NPCs updated all the time you play, scene or not: body morphs, and the body "

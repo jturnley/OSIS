@@ -1,5 +1,23 @@
 # Changelog
 
+## 2.0 beta 2, hotfix 1 (plugin version 2.0.12)
+
+### Changed
+- **The morphs and the body blush now come down as the scene ends**, instead of easing out for a few seconds afterwards (the blush is drawn
+  as extra copies of the body, which costs GPU for as long as it is up). The old behaviour is a new setting, "Arousal features slowly fade
+  after scene (may cause increased GPU load)" (Arousal page, off by default). With "Also outside OStim scenes" on, nothing is put back at
+  the end of a scene anyway.
+
+### Fixed
+- **A dominant held their partner's climax while only giving a blowjob** (reported on the Nexus page: "an npc with a dom personality will hold their
+  partners orgasm even during bj scenes where they are not doing anything to themselves ... their pleasure is going up very slowly"). OStim's
+  actions give each role a stimulation (a blowjob's giver 0.1, the one receiving it 1.4; vaginal sex 1.0 to both), and a giver's excitement
+  rises very slowly, so the dominant could not reach their own climax and the partner was held at the edge for the full 150 s. A dominant now
+  holds a partner only while the scene gives *them* a stimulation of at least 0.25. The same goes for a crazed actor, which is no longer held
+  waiting for a partner who is not being stimulated.
+- **The body blush and morph settings were hard to find.** They are sub-pages of Arousal ("Morphs" and "Body Blush"), which a skim of the
+  menu misses. The Arousal page now says where they are.
+
 ## 2.0 beta 2 (plugin version 2.0.11)
 
 Beta 1's code level, plus what came out of testing it and of the first reports on the Nexus page. In short: climax faces that

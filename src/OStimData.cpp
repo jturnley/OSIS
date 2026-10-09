@@ -20,6 +20,7 @@ namespace OStimData
 		std::unordered_map<std::string, TagList> g_actionTags;                // canonical type -> tags
 		std::unordered_map<std::string, std::string> g_actionAlias;           // alias -> canonical type
 		std::unordered_map<std::string, std::array<std::string, 3>> g_actionOverride;  // type -> expression set per role
+		std::unordered_map<std::string, std::array<float, 3>> g_actionStim;  // type -> stimulation per role (actor, target, performer)
 
 		std::string Lower(std::string_view s)
 		{
@@ -83,6 +84,16 @@ namespace OStimData
 							}
 						}
 						if (!overrides[0].empty() || !overrides[1].empty() || !overrides[2].empty()) g_actionOverride[type] = std::move(overrides);
+					}
+					{
+						std::array<float, 3> stim{ 0.0f, 0.0f, 0.0f };
+						static constexpr const char* kStimRoles[3] = { "actor", "target", "performer" };
+						for (int r = 0; r < 3; ++r) {
+							if (const auto it = doc.find(kStimRoles[r]); it != doc.end() && it->is_object()) {
+								if (const auto v = it->find("stimulation"); v != it->end() && v->is_number()) stim[r] = v->get<float>();
+							}
+						}
+						g_actionStim[type] = stim;
 					}
 					for (const auto& alias : doc.value("aliases", json::array())) {
 						if (alias.is_string()) g_actionAlias[Lower(alias.get<std::string>())] = type;
@@ -157,6 +168,7 @@ namespace OStimData
 		g_actionTags.clear();
 		g_actionAlias.clear();
 		g_actionOverride.clear();
+		g_actionStim.clear();
 		LoadActions();
 		IndexScenes();
 		const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
@@ -206,6 +218,30 @@ namespace OStimData
 		std::scoped_lock l(g_lock);
 		const auto it = g_actionOverride.find(Lower(a_type));
 		return it == g_actionOverride.end() ? std::string{} : it->second[a_role];
+	}
+
+	float RoleStimulation(std::string_view a_type, int a_role)
+	{
+		if (a_role < 0 || a_role > 2) return -1.0f;
+		std::scoped_lock l(g_lock);
+		const auto it = g_actionStim.find(Canonical(Lower(a_type)));
+		return it == g_actionStim.end() ? -1.0f : it->second[a_role];
+	}
+
+	float ActorStimulation(const Scene& a_scene, int a_pos)
+	{
+		std::scoped_lock l(g_lock);
+		bool known = false;
+		float sum = 0.0f;
+		for (const auto& act : a_scene.actions) {
+			const auto it = g_actionStim.find(act.type);
+			if (it == g_actionStim.end()) continue;
+			known = true;
+			if (act.actor == a_pos) sum += it->second[0];
+			if (act.target == a_pos && act.target != act.actor) sum += it->second[1];
+			if (act.performer == a_pos && act.performer != act.actor) sum += it->second[2];
+		}
+		return known ? sum : -1.0f;
 	}
 
 	TagList SplitCSV(std::string_view a_csv)

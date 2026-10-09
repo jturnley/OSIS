@@ -20,7 +20,10 @@ itself; it warns when the DLL is older than its sources.
 Finally it writes mods/<mod>.zip for each, installable in MO2 (the mod's files at the zip root,
 so MO2 names the mod after the zip and finds its data directly).
 
-Usage: python tools/assemble_mod.py
+Usage: python tools/assemble_mod.py [--patch]
+
+With --patch it also writes mods/<mod> - <label> patch.zip for each: just the DLL and the README, to install over the
+release before it (a hotfix). Without the PDB, so it is small; a crash log from it is read against the PDB kept in mods/<mod>/.
 """
 import datetime
 import os
@@ -202,6 +205,21 @@ def write_zip(mod_dir):
     return dest, count
 
 
+PATCH_FILES = ("SKSE/Plugins/OSIS.dll", "README-OSIS.md")  # not the PDB: it is 35 MB, nearly the whole of the full archive
+
+
+def write_patch(mod_dir):
+    """mods/<mod> - <label> patch.zip: the files a hotfix replaces, at the root like the full archive."""
+    name = os.path.basename(mod_dir)
+    dest = os.path.join(ROOT, 'mods', '%s - %s patch.zip' % (name, release_label() or project_version()))
+    tmp = dest + '.tmp'
+    with zipfile.ZipFile(tmp, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as z:
+        for rel in PATCH_FILES:
+            z.write(os.path.join(mod_dir, *rel.split('/')), rel)
+    os.replace(tmp, dest)
+    return dest
+
+
 def git_head():
     try:
         head = subprocess.run(['git', '-C', ROOT, 'rev-parse', '--short', 'HEAD'],
@@ -253,8 +271,9 @@ The arousal morphs and body blush are set up for CBBE/3BA (GT Softbody sliders, 
 race (`00UBE_*`) and have rows of their own, with the UBE sliders and UBE blush regions; every row on the Arousal page has a body type.
 The UBE blush textures are not shipped: convert Body Blushing's to the UBE UV and put them in
 `Data/Textures/actors/Character/Overlays/CheeseBlushOverlays_UBE/`. Toe and finger curl work on any body that uses the stock skeleton.
-The morphs and blush follow the arousal during OStim scenes, and for the fade after them. "Also outside OStim scenes" (Arousal page,
-off by default) keeps them following an arousal mod's number all the time, which costs resources.
+The morphs and blush follow the arousal during OStim scenes and are put back as the scene ends; "Arousal features slowly fade after scene"
+(Arousal page, off by default) eases them back over a few seconds instead, which can raise GPU load. "Also outside OStim scenes" (off by default)
+keeps them following an arousal mod's number all the time, which costs resources.
 
 ## Personalities
 
@@ -341,6 +360,9 @@ def main():
         warnings.clear()
         skipped.clear()
         assemble(build_dir, data_dirs, edition, without)
+        if '--patch' in sys.argv[1:]:
+            dest = write_patch(OUT)
+            print('patch: %s, %d bytes' % (os.path.relpath(dest, ROOT), os.path.getsize(dest)))
     return 0
 
 

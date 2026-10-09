@@ -79,7 +79,7 @@ namespace Arousal
 
 		struct Snap
 		{
-			bool enabled, player, npcs, ostim, factors, personality, outside;
+			bool enabled, player, npcs, ostim, factors, personality, outside, fadeAfter;
 			int source, maxNPCs;
 			float intensity, radius, rise, fall, climaxHold;
 			std::vector<S::Morph> morphs;
@@ -97,7 +97,7 @@ namespace Arousal
 		{
 			std::scoped_lock l(Settings::lock);
 			return { S::bEnabled && Settings::General::bEnabled, S::bAffectPlayer, S::bAffectNPCs, S::bOStimExcitement, S::bSceneFactors,
-				S::bPersonality, S::bOutsideScenes, S::iSource, S::iMaxNPCs, S::fIntensity, S::fRadius, S::fRiseHalfLife, S::fFallHalfLife, S::fClimaxHold,
+				S::bPersonality, S::bOutsideScenes, S::bFadeAfterScene, S::iSource, S::iMaxNPCs, S::fIntensity, S::fRadius, S::fRiseHalfLife, S::fFallHalfLife, S::fClimaxHold,
 				S::morphs, S::bBlush, S::iOverlayFirstSlot, S::iOverlaySlots, S::blushes, S::raceBlush, Settings::Skin::bMatteOverlays,
 				Settings::Body::bGenitals, S::bShapedResponse, S::fResponseFloor, S::fResponseCeiling, S::fPeakWindow, S::fStoicRest, S::fStoicPeak };
 		}
@@ -350,6 +350,8 @@ namespace Arousal
 				Papyrus::ClearBodyMorphKeys(ptr.get(), kLegacyMorphKey);
 				Papyrus::UpdateModelWeight(ptr.get());
 				ClearBlush(ptr.get(), st);
+				// Nothing else sets the genital response back to rest once the state is gone.
+				if (!st.female) Body::SetGenitalResponse(ptr.get(), 0.0f);
 			}
 		}
 
@@ -566,9 +568,10 @@ namespace Arousal
 		const int source = ActiveSource();
 		const bool inScene = Scenes::AnyActive();
 		if (inScene) g_lastSceneSeen = now;
-		// A scene's arousal fades over a few half-lives afterwards, and that goes on after the scene has ended.
-		const bool live = inScene || now - g_lastSceneSeen < std::max(30.0f, s.fall * 3.0f);
-		// With no arousal mod the only signal is OStim's excitement, and that exists only in a scene (and the fade after it).
+		// A scene's arousal fades over a few half-lives afterwards, and with bFadeAfterScene that goes on after the scene has ended; without it,
+		// everything is put back as the scene ends.
+		const bool live = inScene || (s.fadeAfter && now - g_lastSceneSeen < std::max(30.0f, s.fall * 3.0f));
+		// With no arousal mod the only signal is OStim's excitement, and that exists only in a scene (and the fade after it, if that is on).
 		const bool haveSignal = source != Settings::Arousal::kAuto || (s.ostim && live);
 		if (!s.enabled || !haveSignal || (!s.outside && !live) || Compat::Disabled(Compat::kArousal)) {
 			// Not now. Bodies that were being followed are put back; with nothing followed, this costs nothing.

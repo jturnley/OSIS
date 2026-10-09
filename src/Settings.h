@@ -253,6 +253,7 @@ namespace Settings
 		inline bool bEnabled = true;
 		inline bool bAffectPlayer = true;
 		inline bool bAffectNPCs = true;
+		inline bool bFadeAfterScene = false;  // after a scene ends, let the morphs and the body blush fade out over a few seconds; off: put them back as the scene ends
 		inline bool bOutsideScenes = false;  // keep following the arousal (an arousal mod's number, for the player and the NPCs near them) when no OStim scene is running; costs resources, so off
 		inline int iSource = kAuto;
 		inline bool bOStimExcitement = true;  // in a scene, OStim excitement is an arousal floor

@@ -10,5 +10,5 @@ namespace Release
 	// Shown after the version in the log (so a log or crash report from a tester says which beta it is) and in the
 	// README that tools/assemble_mod.py writes, which reads this line. The plugin's version number itself is numeric
 	// (set_version in xmake.lua) and cannot say "beta". Empty for a final release.
-	inline constexpr std::string_view kLabel = "beta 2";
+	inline constexpr std::string_view kLabel = "beta 2 hotfix 1";
 }

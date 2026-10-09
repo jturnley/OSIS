@@ -189,13 +189,30 @@ namespace Face::Engine
 		// lets them, which is the dominant's own climax - then they climax together - or, failing that, fControlMaxHold seconds at the edge.
 		// A crazed one is the other way round: their own climax waits for their partner's, and comes with it, every time (OnOrgasm). Consensual
 		// scenes only. OStim ignores a stall for an actor it has not put in a thread yet, so it is said again every few seconds.
+		// Whether anything in the scene moves this actor's own excitement. OStim's actions give each role a stimulation: a blowjob's giver 0.1 and
+		// the one receiving it 1.4. A dominant who is only giving one cannot climax in any reasonable time (the report: "their pleasure is going up
+		// very slowly"), so holding their partner for them would hold the partner for the whole scene. Likewise a crazed one cannot be held for a
+		// partner who is not being stimulated. Unknown actions count as engaged.
+		constexpr float kMinStimulation = 0.25f;
+
+		bool Engaged(const Thread& t, const Slot& s)
+		{
+			if (!t.meta || s.pos < 0) return true;
+			const float v = OStimData::ActorStimulation(*t.meta, s.pos);
+			return v < 0.0f || v >= kMinStimulation;
+		}
+
 		void UpdateClimaxControl(Thread& t)
 		{
 			const float now = Scenes::Now();
 			const bool on = S::bPersonalityControl && t.consent && t.slots.size() >= 2;
 			std::vector<int> pers(t.slots.size(), -1);
+			std::vector<char> engaged(t.slots.size(), 1);
 			for (std::size_t i = 0; i < t.slots.size(); ++i) {
-				if (auto* a = t.slots[i].Get()) pers[i] = Archetype(a);
+				if (auto* a = t.slots[i].Get()) {
+					pers[i] = Archetype(a);
+					engaged[i] = Engaged(t, t.slots[i]) ? 1 : 0;
+				}
 			}
 			for (std::size_t i = 0; i < t.slots.size(); ++i) {
 				auto& s = t.slots[i];
@@ -206,11 +223,11 @@ namespace Face::Engine
 					bool dominantOther = false, dominantClimaxing = false, partnerOther = false, partnerClimaxing = false;
 					for (std::size_t j = 0; j < t.slots.size(); ++j) {
 						if (j == i || !t.slots[j].Get()) continue;
-						if (pers[j] == Pers::kDominant) {
+						if (pers[j] == Pers::kDominant && engaged[j]) {
 							dominantOther = true;
 							dominantClimaxing = dominantClimaxing || t.slots[j].climaxing;
 						}
-						if (pers[j] != Pers::kCrazed) {
+						if (pers[j] != Pers::kCrazed && engaged[j]) {
 							partnerOther = true;
 							partnerClimaxing = partnerClimaxing || t.slots[j].climaxing;
 						}

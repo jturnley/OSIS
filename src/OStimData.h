@@ -54,6 +54,18 @@ namespace OStimData
 	[[nodiscard]] std::string CanonicalAction(std::string_view a_name);
 	// The expression pool an action's definition gives the actor (0), target (1) or performer (2) of it; empty if none.
 	[[nodiscard]] std::string ActionRoleOverride(std::string_view a_type, int a_role);
+	// What OStim's action definitions give each role of an action ("stimulation" in the JSON): a blowjob's giver 0.1 and the one receiving it
+	// 1.4, vaginal sex 1.0 to both. -1 when the action has no definition.
+	[[nodiscard]] float RoleStimulation(std::string_view a_type, int a_role);
+	// The sum of that over everything the scene has this actor doing or having done to them, a self-action counted once. -1 when none of the
+	// scene's actions has a definition, so nothing is known.
+	[[nodiscard]] float ActorStimulation(const Scene& a_scene, int a_pos);
+	// What OStim's action definitions give each role of an action ("stimulation" in the JSON): a blowjob's giver 0.1 and the one receiving it
+	// 1.4, vaginal sex 1.0 to both. -1 when the action has no definition.
+	[[nodiscard]] float RoleStimulation(std::string_view a_type, int a_role);
+	// The sum of that over everything the scene has this actor doing or having done to them, a self-action counted once. -1 when none of the
+	// scene's actions has a definition, so nothing is known.
+	[[nodiscard]] float ActorStimulation(const Scene& a_scene, int a_pos);
 
 	[[nodiscard]] TagList SplitCSV(std::string_view a_csv);
 	[[nodiscard]] bool HasAny(const TagList& a_have, const TagList& a_want);

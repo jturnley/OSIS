@@ -114,8 +114,10 @@ directly and remembers it in `Slot::asleepShown` to open them again.
 `Arousal::Tick` (every `fInterval` s) follows the player and up to `iMaxNPCs` NPCs, scene or not. What it may not do is work for nothing: texture
 existence is cached (`FsUtil::TextureExistsCached`), body-blush regions are built only once one has a non-zero alpha and taken down after 10 s
 without, a repaint happens only when the rows or the 3D change or `Overlays::NodeHolds` finds a painted node no longer showing our texture, the
-followed NPC set is sticky (`Gather`), and an arousal mod is queried every 5th tick outside a scene. `bOutsideScenes` (off by default; the page warns about its cost when on) confines it to scenes and
-the fade (`fFallHalfLife` x 3) after them; with no arousal mod it is confined to those regardless.
+followed NPC set is sticky (`Gather`), and an arousal mod is queried every 5th tick outside a scene. `bOutsideScenes` (off by default; the page warns about its cost when on) confines it to scenes; with no arousal mod it is confined to those regardless.
+`bFadeAfterScene` (off by default; "Arousal features slowly fade after scene (may cause increased GPU load)") extends that by `fFallHalfLife` x 3 so the
+morphs and the blush ease back after a scene; without it `Tick` calls `ClearAllNow` the tick the last scene ends, and `ClearActor` also sets a male's
+genital response back to rest, since nothing else would.
 
 ## Body types
 Arousal morph rows and blush regions carry a `type` (`Settings::Arousal::BodyType`: any, CBBE/3BA, UBE). `IsUBE` in `Arousal.cpp` reads the
