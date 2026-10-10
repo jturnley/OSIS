@@ -49,7 +49,7 @@ local function osis_plugin(targetname, lite)
         add_headerfiles("src/**.h")
         if lite then
             add_defines("OSIS_LITE=1")
-            add_files("src/**.cpp|Voice.cpp|SceneLock.cpp|SpellCast.cpp")
+            add_files("src/**.cpp|Voice.cpp|Moans.cpp|SceneLock.cpp|SpellCast.cpp")
             set_targetdir("build/lite/$(plat)/$(arch)/$(mode)")
         else
             add_files("src/**.cpp")

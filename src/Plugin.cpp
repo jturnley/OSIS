@@ -11,6 +11,7 @@
 #include "Face/Output.h"
 #include "Hooks.h"
 #include "LipSync.h"
+#include "VoiceModel.h"
 #include "OStimData.h"
 #include "Release.h"
 #include "Scenes.h"
@@ -20,6 +21,7 @@
 #include "Skin.h"
 #include "UI.h"
 #if !OSIS_LITE
+#	include "Moans.h"
 #	include "SceneLock.h"
 #	include "SpellCast.h"
 #	include "Voice.h"
@@ -52,6 +54,7 @@ namespace Scheduler
 			LipSync::Poll();
 #if !OSIS_LITE
 			Voice::Tick();
+			Moans::Tick();
 			SceneLock::Tick();
 #endif
 			Skin::Tick();
@@ -130,6 +133,7 @@ namespace
 			Guarded("Living Skin", Skin::OnDataLoaded);
 			Guarded("Arousal", Arousal::Init);
 			Guarded("Lip-sync", LipSync::OnDataLoaded);
+			Guarded("Voice model", VoiceModel::OnDataLoaded);
 #if !OSIS_LITE
 			Guarded("Victim voice", Voice::OnDataLoaded);
 #endif
@@ -151,6 +155,7 @@ namespace
 #if !OSIS_LITE
 			SpellCast::Clear();
 			Voice::Clear();
+			Moans::Clear();
 			SceneLock::Clear();
 #endif
 			Compat::NotifyOnce();

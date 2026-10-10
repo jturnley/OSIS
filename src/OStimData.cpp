@@ -21,6 +21,7 @@ namespace OStimData
 		std::unordered_map<std::string, std::string> g_actionAlias;           // alias -> canonical type
 		std::unordered_map<std::string, std::array<std::string, 3>> g_actionOverride;  // type -> expression set per role
 		std::unordered_map<std::string, std::array<float, 3>> g_actionStim;  // type -> stimulation per role (actor, target, performer)
+		std::unordered_map<std::string, std::array<std::uint8_t, 3>> g_actionVoice;  // type -> sound flags per role: 1 moan, 2 talk, 4 muffled
 
 		std::string Lower(std::string_view s)
 		{
@@ -94,6 +95,20 @@ namespace OStimData
 							}
 						}
 						g_actionStim[type] = stim;
+					}
+					{
+						std::array<std::uint8_t, 3> voice{ 0, 0, 0 };
+						static constexpr const char* kVoiceRoles[3] = { "actor", "target", "performer" };
+						for (int r = 0; r < 3; ++r) {
+							const auto it = doc.find(kVoiceRoles[r]);
+							if (it == doc.end() || !it->is_object()) continue;
+							const auto flag = [&](const char* key) {
+								const auto v = it->find(key);
+								return v != it->end() && v->is_boolean() && v->get<bool>();
+							};
+							voice[r] = static_cast<std::uint8_t>((flag("moan") ? 1 : 0) | (flag("talk") ? 2 : 0) | (flag("muffled") ? 4 : 0));
+						}
+						g_actionVoice[type] = voice;
 					}
 					for (const auto& alias : doc.value("aliases", json::array())) {
 						if (alias.is_string()) g_actionAlias[Lower(alias.get<std::string>())] = type;
@@ -242,6 +257,25 @@ namespace OStimData
 			if (act.performer == a_pos && act.performer != act.actor) sum += it->second[2];
 		}
 		return known ? sum : -1.0f;
+	}
+
+	SoundFlags ActorSoundFlags(const Scene& a_scene, int a_pos)
+	{
+		std::scoped_lock l(g_lock);
+		SoundFlags out;
+		for (const auto& act : a_scene.actions) {
+			const auto it = g_actionVoice.find(act.type);
+			if (it == g_actionVoice.end()) continue;
+			out.known = true;
+			std::uint8_t bits = 0;
+			if (act.actor == a_pos) bits |= it->second[0];
+			if (act.target == a_pos) bits |= it->second[1];
+			if (act.performer == a_pos) bits |= it->second[2];
+			out.moan |= (bits & 1) != 0;
+			out.talk |= (bits & 2) != 0;
+			out.muffled |= (bits & 4) != 0;
+		}
+		return out;
 	}
 
 	TagList SplitCSV(std::string_view a_csv)

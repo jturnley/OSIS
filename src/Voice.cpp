@@ -345,6 +345,11 @@ namespace Voice
 		std::atomic_int g_silenceCount = 0;
 		std::mutex g_nodeLock;
 		std::vector<RE::NiAVObject*> g_victimNodes;
+		std::atomic_bool g_ownClimax = false;
+		std::atomic_int g_plainCount = 0;           // actors whose plain moans (only) are muted
+		std::vector<RE::NiAVObject*> g_plainNodes;  // under g_nodeLock
+		std::unordered_set<RE::FormID> g_plainIds;  // under g_lock
+		std::unordered_set<RE::FormID> g_mutedIds;  // under g_lock: every actor whose OStim moans are muted (victims and Director-mode actors)
 		std::atomic_bool g_hooked = false;
 		std::atomic<std::uint32_t> g_mutedAtStart = 0;
 		std::atomic<std::uint32_t> g_mutedLate = 0;
@@ -353,6 +358,9 @@ namespace Voice
 		{
 			bool enabled = false;
 			bool noMoans = true;
+			bool muteAll = false;  // Director mode: every face-painted actor's voice-set sounds are muted, not only a victim's
+			bool ownMoans = false;  // Director mode: only the plain moans are muted, because Moans plays its own
+			bool ownClimax = false; // ... and the climax sounds too
 			bool mute = true;
 			bool help = true;
 			bool scream = true;
@@ -368,6 +376,9 @@ namespace Voice
 			Config c;
 			c.enabled = VS::bEnabled && Settings::General::bEnabled;
 			c.noMoans = VS::bVictimNoMoans;
+			c.muteAll = VS::bDirectorMuteMoans && Settings::General::bEnabled && Settings::Face::iMode == Settings::Face::kDirector;
+			c.ownMoans = VS::bDirectorOwnMoans && !VS::bDirectorMuteMoans && Settings::General::bEnabled && Settings::Face::iMode == Settings::Face::kDirector;
+			c.ownClimax = c.ownMoans && VS::bDirectorOwnClimax;
 			c.mute = VS::bMuteDialogue;
 			c.help = VS::bCallForHelp;
 			c.scream = VS::bBreakScream;
@@ -568,10 +579,14 @@ namespace Voice
 			return n;
 		}
 
-		// Audio side: a voice-set sound starting on a node of a victim's body.
+		// Audio side: a voice-set sound starting on a node of a muted actor's body. Victims and the all-sounds Director mute lose every
+		// voice-set sound; the takeover loses only the plain moans, so a climax or a reaction still plays.
 		bool ShouldSilence(RE::BSGameSound* snd)
 		{
-			if (!LipSync::IsMoanResource(snd->resourceID)) return false;
+			const bool all = g_silenceCount.load(std::memory_order_relaxed) > 0 && LipSync::IsMoanResource(snd->resourceID);
+			const bool plain = g_plainCount.load(std::memory_order_relaxed) > 0 &&
+			                   (LipSync::IsPlainMoanResource(snd->resourceID) || (g_ownClimax.load(std::memory_order_relaxed) && LipSync::IsClimaxResource(snd->resourceID)));
+			if (!all && !plain) return false;
 			auto* am = RE::BSAudioManager::GetSingleton();
 			if (!am) return false;
 			RE::NiAVObject* chain[24];
@@ -579,7 +594,8 @@ namespace Voice
 			if (n == 0) return false;
 			std::scoped_lock l(g_nodeLock);
 			for (int i = 0; i < n; ++i) {
-				if (std::ranges::find(g_victimNodes, chain[i]) != g_victimNodes.end()) return true;
+				if (all && std::ranges::find(g_victimNodes, chain[i]) != g_victimNodes.end()) return true;
+				if (plain && std::ranges::find(g_plainNodes, chain[i]) != g_plainNodes.end()) return true;
 			}
 			return false;
 		}
@@ -588,7 +604,8 @@ namespace Voice
 		{
 			static void thunk(RE::BSGameSound* a_sound)
 			{
-				const bool mute = a_sound && g_silenceCount.load(std::memory_order_relaxed) > 0 && ShouldSilence(a_sound);
+				const bool mute = a_sound && !LipSync::PlayingOwn() && (g_silenceCount.load(std::memory_order_relaxed) > 0 || g_plainCount.load(std::memory_order_relaxed) > 0) &&
+				                  ShouldSilence(a_sound);
 				if (mute) a_sound->volume = 1e-5f;
 				func(a_sound);
 				if (mute) {
@@ -602,16 +619,21 @@ namespace Voice
 		// Main thread: anything that started before the victim was known, or that the start hook
 		// could not place, is turned down here. A moan is never stopped, only muted, so OStim's
 		// own bookkeeping sees it finish normally.
-		void SweepMoans(const std::unordered_set<RE::FormID>& a_victims)
+		void SweepMoans(const std::unordered_set<RE::FormID>& a_all, const std::unordered_set<RE::FormID>& a_plain)
 		{
 			auto* am = RE::BSAudioManager::GetSingleton();
-			if (!am || a_victims.empty()) return;
+			if (!am || (a_all.empty() && a_plain.empty())) return;
 			std::array<Moan, 64> moans{};
 			const int n = CollectLoudMoans(am, moans.data(), static_cast<int>(moans.size()));
 			for (int i = 0; i < n; ++i) {
-				if (!LipSync::IsMoanResource(moans[i].res)) continue;
+				const bool isAll = LipSync::IsMoanResource(moans[i].res);
+				const bool isPlain = LipSync::IsPlainMoanResource(moans[i].res) || (g_ownClimax.load(std::memory_order_relaxed) && LipSync::IsClimaxResource(moans[i].res));
+				if (!isAll && !isPlain) continue;
 				auto* owner = LipSync::ActorOf(moans[i].node);
-				if (!owner || !a_victims.contains(owner->GetFormID())) continue;
+				if (!owner) continue;
+				const auto id = owner->GetFormID();
+				if (!((isAll && a_all.contains(id)) || (isPlain && a_plain.contains(id)))) continue;
+				if (LipSync::IsOwnSound(moans[i].soundID)) continue;
 				RE::BSSoundHandle h;
 				h.soundID = moans[i].soundID;
 				h.assumeSuccess = false;
@@ -720,13 +742,22 @@ namespace Voice
 			out.push_back({ Act::kSpeak, v.handle, std::move(*line), {} });
 		}
 
-		void Publish(std::vector<RE::NiAVObject*> a_nodes, int a_count)
+		// Callers hold neither g_lock nor g_nodeLock.
+		void Publish(std::vector<RE::NiAVObject*> a_nodes, int a_count, std::unordered_set<RE::FormID> a_ids = {}, std::vector<RE::NiAVObject*> a_plainNodes = {},
+			int a_plainCount = 0, std::unordered_set<RE::FormID> a_plainIds = {})
 		{
 			{
 				std::scoped_lock l(g_nodeLock);
 				g_victimNodes = std::move(a_nodes);
+				g_plainNodes = std::move(a_plainNodes);
+			}
+			{
+				std::scoped_lock l(g_lock);
+				g_mutedIds = std::move(a_ids);
+				g_plainIds = std::move(a_plainIds);
 			}
 			g_silenceCount.store(a_count, std::memory_order_relaxed);
+			g_plainCount.store(a_plainCount, std::memory_order_relaxed);
 		}
 
 		void TestPool(RE::Actor* a, Pool a_pool)
@@ -766,6 +797,7 @@ namespace Voice
 	void Tick()
 	{
 		const auto c = ReadConfig();
+		g_ownClimax.store(c.ownClimax, std::memory_order_relaxed);
 		const float now = Scenes::Now();
 		const float dt = g_lastTick > 0.0f ? std::clamp(now - g_lastTick, 0.0f, 1.0f) : 0.05f;
 		g_lastTick = now;
@@ -776,19 +808,23 @@ namespace Voice
 				had = !g_victims.empty();
 				g_victims.clear();
 			}
-			if (had || g_silenceCount.load(std::memory_order_relaxed)) Publish({}, 0);
-			return;
+			if (!c.muteAll && !c.ownMoans) {
+				if (had || g_silenceCount.load(std::memory_order_relaxed) || g_plainCount.load(std::memory_order_relaxed)) Publish({}, 0);
+				return;
+			}
 		}
 
 		std::vector<Action> actions;
 		std::vector<RE::NiAVObject*> nodes;
 		std::unordered_set<RE::FormID> silenced;
+		std::vector<RE::NiAVObject*> plainNodes;
+		std::unordered_set<RE::FormID> plainSet;
 		{
 			std::scoped_lock sl(Scenes::Lock());
 			std::vector<Seen> seen;
 			{
 				std::scoped_lock l(g_lock);
-				if (g_victims.empty() && !g_silenceCount.load(std::memory_order_relaxed)) return;
+				if (g_victims.empty() && !c.muteAll && !c.ownMoans && !g_silenceCount.load(std::memory_order_relaxed) && !g_plainCount.load(std::memory_order_relaxed)) return;
 				for (const auto& [id, v] : g_victims) seen.push_back({ id, v.handle, v.thread });
 			}
 			// Facts about each victim, gathered outside g_lock (the face engine takes its own locks).
@@ -807,6 +843,27 @@ namespace Voice
 						if (n && std::ranges::find(nodes, n) == nodes.end()) nodes.push_back(n);
 					}
 				}
+			}
+			if (c.muteAll) {
+				// Director mode: every actor OSIS paints a face on. A victim is handled above (and left alone when
+				// bVictimNoMoans is off: that choice stays theirs).
+				Scenes::ForEachActor([&](RE::Actor* a, const Scenes::Slot& s) {
+					if (!s.painted || s.victim) return;
+					silenced.insert(s.id);
+					for (auto* n : { a->Get3D(), a->Get3D1(false), a->Get3D1(true) }) {
+						if (n && std::ranges::find(nodes, n) == nodes.end()) nodes.push_back(n);
+					}
+				});
+			}
+			if (c.ownMoans) {
+				// The takeover plays its own moans for these actors (Moans), so OStim's plain moans are muted and nothing else.
+				Scenes::ForEachActor([&](RE::Actor* a, const Scenes::Slot& s) {
+					if (!s.painted || s.victim) return;
+					plainSet.insert(s.id);
+					for (auto* n : { a->Get3D(), a->Get3D1(false), a->Get3D1(true) }) {
+						if (n && std::ranges::find(plainNodes, n) == plainNodes.end()) plainNodes.push_back(n);
+					}
+				});
 			}
 			{
 				std::scoped_lock l(g_lock);
@@ -851,8 +908,11 @@ namespace Voice
 			}
 		}
 		const int count = static_cast<int>(silenced.size());
-		Publish(std::move(nodes), count);
-		if (count) SweepMoans(silenced);
+		auto ids = silenced;
+		const int plainCount = static_cast<int>(plainSet.size());
+		auto plainIds = plainSet;
+		Publish(std::move(nodes), count, std::move(ids), std::move(plainNodes), plainCount, std::move(plainIds));
+		if (count || plainCount) SweepMoans(silenced, plainSet);
 	}
 
 	void Clear()
@@ -960,7 +1020,16 @@ namespace Voice
 	{
 		if (!a || g_silenceCount.load(std::memory_order_relaxed) == 0) return false;
 		std::scoped_lock l(g_lock);
-		return g_victims.contains(a->GetFormID());
+		return g_mutedIds.contains(a->GetFormID());
+	}
+
+	bool OwnClimax() { return g_ownClimax.load(std::memory_order_relaxed); }
+
+	bool IsPlainMuted(RE::Actor* a)
+	{
+		if (!a || g_plainCount.load(std::memory_order_relaxed) == 0) return false;
+		std::scoped_lock l(g_lock);
+		return g_plainIds.contains(a->GetFormID());
 	}
 
 	std::string Status()
