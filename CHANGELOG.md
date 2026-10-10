@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.0 beta 2, hotfix 2 (plugin version 2.0.13)
+
+### Changed
+- **The Faces module now switches itself off while Ahegao Expressions is installed.** Reported with the log of a list that has it: OSIS said
+  its face engine "stands down" for Ahegao Expressions, but only the Assist and Enhanced modes did; the Director (the default mode) went on
+  writing faces next to it. Detection moved to Compat, and Ahegao Expressions now takes the Faces module down like an old OSED core (the
+  General page's Modules list shows the reason; scenes are still tracked, so Body, Living Skin, Lip-Sync and the arousal factors work).
+  The setting is the old Face > "Switch the Faces module off while Ahegao Expressions is installed" (`bAhegaoAutoYield`, on by default);
+  "Always yield to an ahegao mod" forces it. Dynamic Dialogue Framework still only takes Lip-Sync down.
+
 ## 2.0 beta 2, hotfix 1 (plugin version 2.0.12)
 
 ### Changed

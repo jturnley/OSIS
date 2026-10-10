@@ -124,6 +124,12 @@ from the scene's data, so it needs neither a schlong mod nor the sex of the acto
 and no overlay work. A male body gets no morph rows and so no refresh to begin with. This is a guess at why an SMP head's lips stopped wrapping around a
 futa's penis (reported, not reproduced); `oralPaused` logs when it applies.
 
+The Faces module stands down for Ahegao Expressions the way it does for an old OSED core: `Compat::Disabled(kFace)` is true while
+`Compat::AhegaoYield()` (installed and `bAhegaoAutoYield`, or `bAhegaoModYield`), and `ApplyAll` paints nothing (the scene is still tracked and
+pulsed). Before this only the Assist and Enhanced layers checked the ahegao yield, so the Director wrote faces beside Ahegao Expressions.
+`Face::Engine::FaceYielded` (Living Skin's face blush, Lip-Sync) is the same `Compat::AhegaoYield()`. Dynamic Dialogue Framework only takes
+Lip-Sync down (`bYieldToDDF`); a Faces stand-down for it was tried and taken out again.
+
 ## Body types
 Arousal morph rows and blush regions carry a `type` (`Settings::Arousal::BodyType`: any, CBBE/3BA, UBE). `IsUBE` in `Arousal.cpp` reads the
 race: an editor ID starting `00ube_`, or a name ending ` UBE` (UBE_AllRace.esp's 18 races), and `BodyMatch` keeps each row to its body. UBE

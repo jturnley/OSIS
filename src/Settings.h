@@ -107,7 +107,7 @@ namespace Settings
 		inline bool bWatcher = false;
 
 		inline bool bAhegaoModYield = false;   // force the yield on, whatever is or is not installed
-		inline bool bAhegaoAutoYield = true;   // Ahegao Expressions installed: leave faces to it
+		inline bool bAhegaoAutoYield = true;   // Ahegao Expressions installed: the Faces module stands down
 		inline bool bAnimeTongue = false;
 		inline bool bAnimeTongueFull = false;
 		inline bool bTongueLife = false;

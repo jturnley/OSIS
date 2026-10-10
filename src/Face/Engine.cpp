@@ -490,6 +490,24 @@ namespace Face::Engine
 					// own it: this is OStim's own tongue, stranded by our takeover.
 					ClearOStimTongue(s, a);
 				}
+				// The Faces module is off (switched off, an old OSED core or Ahegao Expressions): paint nothing, and
+				// create nothing that would. The scene is still tracked and pulsed, so Body, Living Skin, Lip-Sync and the arousal factors work.
+				if (faceOff) {
+					if (s.faced) {  // switched off mid-scene: hand the face back
+						ClearOSEDPrototypeActor(s, a);
+						ClearLook(a);
+						Output::Release(a, 0.6f);
+						RestoreOStimFace(s, a);
+						s.faced = false;
+					}
+					if (arc) {
+						const int enjEff = EffectiveIntensity(t, a);
+						PulseActor(t, s, a, SelectDominant(t, s, enjEff, Raw(a)), PhrasePhase(t, idx, enjEff), enjEff);
+						const char* owner = !S::bEnabled ? "Faces off" : (Compat::AhegaoYield() ? "Ahegao mod" : "Old OSED core");
+						SetOwners(s, owner, owner, owner, owner);
+					}
+					continue;
+				}
 				// An ahegao mod has this actor: hand the whole face over until it is done. It sets
 				// its own mouth, so our jaw floor would only fight it.
 				if (ExternalAhegao(s, a)) {
@@ -525,22 +543,6 @@ namespace Face::Engine
 				{
 					const bool want = s.tongueOn && Settings::LipSync::iTongueMode != Settings::LipSync::kTongueIgnore;
 					Output::SetMouthFloor(a, want ? Settings::LipSync::fTongueMinOpen : 0.0f);
-				}
-				if (faceOff) {
-					if (s.faced) {  // switched off mid-scene: hand the face back
-						ClearOSEDPrototypeActor(s, a);
-						ClearLook(a);
-						Output::Release(a, 0.6f);
-						RestoreOStimFace(s, a);
-						s.faced = false;
-					}
-					if (arc) {
-						const int enjEff = EffectiveIntensity(t, a);
-						PulseActor(t, s, a, SelectDominant(t, s, enjEff, Raw(a)), PhrasePhase(t, idx, enjEff), enjEff);
-						const char* owner = S::bEnabled ? "Old OSED core" : "Faces off";
-						SetOwners(s, owner, owner, owner, owner);
-					}
-					continue;
 				}
 				// Whether OStim's writer is also on for this actor. If so the face is shared and OSIS
 				// adds to it; if the takeover holds, OSIS has it to itself.
@@ -1129,17 +1131,10 @@ namespace Face::Engine
 		// Sharing a face with that only produces a fight neither side wins, so when one is
 		// installed we leave faces to it and keep to the body. Looked up once; plugins do not come
 		// and go mid-session.
-		bool AhegaoModInstalled()
-		{
-			static const bool has = [] {
-				const bool found = HasPlugin("AhegaoExpressions.esp");
-				logger::info("Ahegao Expressions {}", found ? "is installed: the face engine stands down" : "not found");
-				return found;
-			}();
-			return has;
-		}
+		// Detected in Compat, which also takes the Faces module down for it (Compat::Disabled(kFace)), so ApplyAll paints nothing while it is installed.
+		bool AhegaoModInstalled() { return Compat::AhegaoInstalled(); }
 
-		bool AhegaoYield() { return S::bAhegaoModYield || (S::bAhegaoAutoYield && AhegaoModInstalled()); }
+		bool AhegaoYield() { return Compat::AhegaoYield(); }
 
 		// Ahegao Expressions and friends put the tongue out with OActor.EquipObject(act, "tongue")
 		// and then write their own phonemes. A tongue that is out but not ours means one of them

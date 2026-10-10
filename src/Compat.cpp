@@ -16,6 +16,7 @@ namespace Compat
 		std::array<std::string, kCount> g_reason;
 		std::vector<std::string> g_conflicts;
 		bool g_ddf = false;
+		bool g_ahegao = false;
 		bool g_odf = false;
 		bool g_notified = false;
 
@@ -54,15 +55,28 @@ namespace Compat
 		if (g_odf) logger::info("Overlay Distribution Framework is installed: it claims overlay slots of its own");
 		g_ddf = dh && dh->LookupModByName("TMS_DynamicDialogue.esp");
 		if (g_ddf) logger::info("Dynamic Dialogue Framework is active: Lip-Sync stands down while bYieldToDDF is on");
+		g_ahegao = dh && dh->LookupModByName("AhegaoExpressions.esp");
+		logger::info("Ahegao Expressions {}", g_ahegao ? "is installed: the Faces module stands down while bAhegaoAutoYield is on" : "not found");
 	}
 
 	// Read without Settings::lock: callers hold other modules' locks, and a stale bool is harmless.
-	bool Disabled(Module m) { return g_yield[m] || (m == kLipSync && g_ddf && Settings::LipSync::bYieldToDDF); }
+	bool AhegaoInstalled() { return g_ahegao; }
+
+	bool AhegaoYield() { return Settings::Face::bAhegaoModYield || (Settings::Face::bAhegaoAutoYield && g_ahegao); }
+
+	bool Disabled(Module m)
+	{
+		if (g_yield[m]) return true;
+		if (m == kLipSync) return g_ddf && Settings::LipSync::bYieldToDDF;
+		if (m == kFace) return AhegaoYield();
+		return false;
+	}
 
 	std::string Reason(Module m)
 	{
 		if (g_yield[m]) return g_reason[m];
 		if (m == kLipSync && g_ddf && Settings::LipSync::bYieldToDDF) return "stood down: Dynamic Dialogue Framework is active";
+		if (m == kFace && AhegaoYield()) return g_ahegao ? "stood down: Ahegao Expressions is installed" : "stood down: set to always yield to an ahegao mod";
 		return {};
 	}
 

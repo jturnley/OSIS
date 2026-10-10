@@ -322,8 +322,9 @@ lists them. Only the matching module stands down: with the old Core plugin activ
 the DLL still tracks scenes and runs body, skin, lip-sync and arousal, and only stops painting faces.
 
 Every module can also be switched off on its own (General page, "Modules"), for when another mod
-already does that job. Lip-Sync stands down by itself while Dynamic Dialogue Framework is
-installed, since both drive the mouth; the Lip-Sync page can override that.
+already does that job. The Faces module switches itself off while Ahegao Expressions is installed, since it drives
+faces too (the Faces page can override that), and Lip-Sync stands down while Dynamic Dialogue Framework is installed,
+since both drive the mouth (the Lip-Sync page can override that).
 
 ## Source and licence
 
