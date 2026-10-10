@@ -64,6 +64,8 @@ namespace Scenes
 		float tongueClearUntil = 0.0f;  // asked OStim to take its own tongue back; wait before asking again
 		float tongueLifeUntil = 0.0f;
 		float tongueLifeNext = 0.0f;
+		float blinkNextAt = 0.0f;  // a crazed actor's next blink (their lids are held open between)
+		bool tilting = false;  // a crazed actor's head tilt is on (put back when it stops)
 		float tonguePrimeUntil = 0.0f;
 		float tongueHoldUntil = 0.0f;
 		float tongueCooldownUntil = 0.0f;

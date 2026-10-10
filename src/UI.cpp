@@ -704,11 +704,14 @@ namespace
 #endif
 				". It scales OStim's excitement rate for that actor, for the length of the scene.");
 			SliderF("Wild: excitement rate", fWildExcitementMult, 0.5f, 2.0f, "%.2f", "Times OStim's rate for a wild actor.");
-			SliderF("Stoic: excitement rate", fStoicExcitementMult, 0.3f, 1.0f, "%.2f", "Times OStim's rate for a stoic actor, who is not into it.");
+			SliderF("Stoic: excitement rate", fStoicExcitementMult, 0.1f, 1.0f, "%.2f", "Times OStim's rate for a stoic actor, who is not into it: at the default 0.20 it takes five times the effort to get them there.");
 #if !OSIS_LITE
 			SliderF("Submissive: excitement rate in rough scenes", fSubmissiveRoughMult, 0.5f, 2.0f, "%.2f",
 				"Times OStim's rate for a submissive actor in a rough scene, or in one they accepted.");
 #endif
+			SliderF("Crazed: seconds between blinks", fCrazedBlinkSeconds, 0.0f, 60.0f, "%.0f",
+				"A crazed actor's stare is unbroken: their lids are held open and close for an instant about this often (a person blinks every three or four seconds). "
+				"0 leaves their blinking alone. Needs the Director mode; with OStim's own writer on, the game's blinking shows through.");
 			ig::SeparatorText("Dominant and crazed: control of the climax");
 			Check("Dominant and crazed people control a partner's climax", bPersonalityControl,
 				"A dominant holds their partner's climax (OStim's stall: the partner waits at the edge) until the dominant's own, and the two climax together. "
@@ -788,6 +791,12 @@ namespace
 				ComboI("Bend axis", iGenitalAxis, kAxes, 3,
 					"Bone-local axis. Use the test button and try each one: the right axis depends on how the schlong is rigged.");
 			}
+			ig::SeparatorText("Head tilt (crazed)");
+			Check("Crazed actors tilt their head", bHeadTilt,
+				"A crazed actor holds a tilt of the head toward a shoulder, switching side now and then: the anime stare, and out of place in Skyrim, which is the point. "
+				"Rolled about the line to whoever they look at, so there is no axis to set. Eased in and out; off when the scene is not consensual or in the afterglow.");
+			if (bHeadTilt) SliderF("Tilt degrees", fHeadTiltDegrees, 0.0f, 30.0f, "%.0f",
+				"How far the head rolls. About 10 reads as a tilt; past 20 the neck starts to stretch on most meshes, and an SMP head's hair and neck move more.");
 			Check("Scale with style", bStyleGated, "Realistic 35%, cinematic 70%, anime 100%.");
 		}
 		{
@@ -804,6 +813,16 @@ namespace
 				ig::SetItemTooltip("Holds the chain at full bend for six seconds, so you can see which axis is right.");
 			}
 		}
+		if (ig::Button("Test head tilt (6s)")) OnGame([]() {
+			const auto actors = TestTargets();
+			if (actors.empty()) {
+				Papyrus::Notify("OSIS: aim at an actor, select one in the console, or start a scene");
+				return;
+			}
+			for (auto* a : actors) Body::TestHeadTilt(a);
+		});
+		ig::SetItemTooltip("Tilts the head by the degrees above for six seconds, whoever it is: the roll is about the line to the other actor in a scene, or straight ahead alone.");
+		ig::SameLine();
 		if (ig::Button("Test")) OnGame([]() {
 			const auto actors = TestTargets();
 			if (actors.empty()) {

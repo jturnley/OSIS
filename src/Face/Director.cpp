@@ -10,6 +10,8 @@
 #include "Face/Internal.h"
 
 #include "Face/Buildup.h"
+#include "Body.h"
+#include "Compat.h"
 
 #include "Papyrus.h"
 #include "Pulse.h"
@@ -1183,25 +1185,47 @@ namespace Face::Engine::detail
 				}
 				break;
 			case Pers::kCrazed: {
-				// A fixed, wide stare: lids open, no squint, the brows low and drawn in; the mood a smile with anger behind it, nothing soft. When
-				// the partner climaxes (and so does the crazed, with them) it becomes the creepy look: the smile at full, the brows lower.
+				// The yandere face: a wide stare that does not blink (UpdateCrazedBlink; the look at the partner is unbroken, SetGaze), and a smile that never leaves
+				// whatever the brows say - wide, the teeth showing (the mood happy, the Eee phoneme under it). The brows are what makes it wrong, and they turn slowly
+				// between three looks, each held for a while: down and drawn in over the smile (the menace), high and wide, the lids lifted by them (the manic), and one
+				// up with the other down (the unevenness), with the side that leads changing now and then. Lids open, no squint. When the partner climaxes (and so does
+				// the crazed, with them) it becomes the creepy look: the smile at full and the brows at their lowest.
 				const bool creepy = AnyoneElseClimaxing(t, s) || dom == kClimax;
 				if (!building && !creepy) break;
-				// (Most of the own faces in the middle stages have the eyes closed or glancing: the pick favours the open ones, this is the rest.)
 				e[16] = e[17] = 0.0f;
 				e[24] = e[25] = e[26] = e[27] = 0.0f;
 				e[28] *= creepy ? 0.1f : 0.2f;
 				e[29] *= creepy ? 0.1f : 0.2f;
-				e[22] *= 0.4f;
-				e[23] *= 0.4f;
-				Add2(e, 18, (creepy ? 0.40f : 0.28f) * heat);
-				Add2(e, 20, (creepy ? 0.20f : 0.12f) * heat);
+				for (int i = 18; i <= 23; ++i) e[i] = 0.0f;  // the brows are ours from here on
+				const int look = creepy ? 0 : ((t.tick / 20 + seed) % 3);  // about 16 s each
+				const bool flip = ((t.tick / 33 + seed) % 2) == 0;
+				const int downLead = flip ? 18 : 19, downTrail = flip ? 19 : 18;  // BrowDown L / R
+				const int upLead = flip ? 22 : 23, upTrail = flip ? 23 : 22;      // BrowUp L / R
+				const float weight = 0.6f + 0.4f * heat;
+				if (look == 0) {  // the menace
+					e[downLead] = (creepy ? 0.85f : 0.55f) * weight;
+					e[downTrail] = (creepy ? 0.55f : 0.30f) * weight;
+					e[20] = e[21] = (creepy ? 0.40f : 0.30f) * weight;
+				} else if (look == 1) {  // the manic
+					e[upLead] = 0.80f * weight;
+					e[upTrail] = 0.65f * weight;
+					e[20] = e[21] = 0.10f;
+				} else {  // the unevenness
+					e[downLead] = 0.60f * weight;
+					e[downTrail] = 0.0f;
+					e[upTrail] = 0.70f * weight;
+					e[flip ? 20 : 21] = 0.25f * weight;
+				}
+				e[5] = std::max(e[5], creepy ? 0.60f : 0.35f + 0.20f * heat);  // the grin: Eee
 				if (creepy) {
 					e[30] = 10.0f;
 					e[31] = 1.0f;
-					e[5] = std::max(e[5], 0.5f);
+				} else if (((t.tick / 8 + seed) % 10) < 2) {
+					e[30] = 8.0f;  // the anger behind it, for a moment
+					e[31] = 0.45f;
 				} else {
-					SwapClashingMood(e, (1u << 1) | (1u << 3) | (1u << 5) | (1u << 6), ((t.tick / 8 + seed) % 10) < 3 ? 8 : 10, 0.6f);
+					e[30] = 10.0f;
+					e[31] = 0.85f;
 				}
 				break;
 			}
@@ -1647,6 +1671,58 @@ namespace Face::Engine::detail
 	}
 
 	// ------------------------------------------------------------------ Breathe (Director breath clock)
+	// Crazed: the stare is unbroken, so the blinking all but stops. The lids are held open (the engine's own blinking overwritten, which needs our own face:
+	// the Director mode) and close for an instant about every fCrazedBlinkSeconds, now and then twice in a row, quick. Through the climax too; not in the
+	// afterglow, when the head drops and the stare ends, nor in a scene that is not consensual or for a sleeper.
+	void UpdateCrazedBlink(Thread& t, Slot& s, RE::Actor* a)
+	{
+		if (!a) return;
+		const float every = S::fCrazedBlinkSeconds;
+		const bool on = every > 0.0f && S::iMode == S::kDirector && t.consent && Archetype(a) == Pers::kCrazed && s.dom != kDistress && s.dom != kAfterglow && !IsSleeping(t, s);
+		Output::SetBlinkHold(a, on);
+		if (!on) {
+			s.blinkNextAt = 0.0f;
+			return;
+		}
+		const float now = Scenes::Now();
+		if (s.blinkNextAt <= 0.0f) {
+			s.blinkNextAt = now + every * RandFloat(0.4f, 1.0f);
+		} else if (now >= s.blinkNextAt) {
+			Output::PulseBlink(a, 1.0f, RandFloat(0.18f, 0.26f), 0.0f);
+			if (RandInt(0, 4) == 0) Output::PulseBlink(a, 1.0f, RandFloat(0.16f, 0.22f), 0.30f);
+			s.blinkNextAt = now + every * RandFloat(0.6f, 1.4f);
+		}
+	}
+
+	// Crazed: a tilt of the head toward a shoulder, held through the stare and changing side now and then - the anime thing, out of place in Skyrim, which is what
+	// makes it creepy. The Body module does the rolling (about the line to the partner, so it reads as a tilt whichever way the head is turned); this says how far
+	// and which way. The same conditions as the blink hold: consensual, not in distress, not in the afterglow when the head drops, not asleep. A little more at the
+	// partner's climax.
+	void UpdateCrazedTilt(Thread& t, Slot& s, RE::Actor* a)
+	{
+		if (!a) return;
+		const float degrees = Settings::Body::fHeadTiltDegrees;
+		const bool on = Settings::Body::bHeadTilt && Settings::Body::bEnabled && Settings::General::bEnabled && !Compat::Disabled(Compat::kBody) && degrees > 0.0f &&
+			t.consent && Archetype(a) == Pers::kCrazed && s.dom != kDistress && s.dom != kAfterglow && !IsSleeping(t, s);
+		if (!on) {
+			if (s.tilting) {
+				s.tilting = false;
+				Body::SetHeadTilt(a, 0.0f, RE::NiPoint3{ 0.0f, 1.0f, 0.0f });
+			}
+			return;
+		}
+		s.tilting = true;
+		RE::NiPoint3 axis{ std::sin(a->GetAngleZ()), std::cos(a->GetAngleZ()), 0.0f };  // straight ahead, when there is nobody to look at
+		if (auto* partner = PrimaryPartner(t, s)) {
+			auto d = partner->GetPosition() - a->GetPosition();
+			d.z = 0.0f;
+			if (d.Length() > 1.0f) axis = d / d.Length();
+		}
+		const bool flip = ((t.tick / 45 + Seed(a)) % 2) == 0;  // about 36 s a side
+		const float more = (AnyoneElseClimaxing(t, s) || s.dom == kClimax) ? 1.3f : 1.0f;
+		Body::SetHeadTilt(a, (flip ? degrees : -degrees) * more, axis);
+	}
+
 	void Breathe(Thread& t, Slot& s, RE::Actor* a, int idx)
 	{
 		SetOwners(s, s.faceOwner, "Breath clock", "Breath clock", s.headOwner);
@@ -1693,13 +1769,14 @@ namespace Face::Engine::detail
 		else if (enjEff >= 72) cyc = 3;
 		else if (enjEff < 40) cyc = 5;
 		if (crazed && cyc > 2) --cyc;  // hard breathing: shorter cycles
+		if (pers == Pers::kVocal) cyc = 2;  // vocal is the loud one by never stopping: the shortest cycle there is, at every level of excitement
 		const int base = t.tick + idx * 2 + seed;
 		const int p = base % cyc;
 		const int cycleIdx = base / cyc;
 
 		const int vchance = std::max(0, enjEff + 8);
 		bool vocal = ((seed * 7 + cycleIdx * 13) % 100) < vchance;
-		if (pers == Pers::kVocal) vocal = vocal || ((seed * 5 + cycleIdx * 11) % 100) < 60;
+		if (pers == Pers::kVocal) vocal = true;  // every cycle is a moan: the time between them is as short as it goes
 		else if (arch == 2 || arch == 4) vocal = vocal || ((seed * 5 + cycleIdx * 11) % 100) < 35;
 		else if (pers == Pers::kStoic && vocal && ((seed * 3 + cycleIdx * 7) % 100) < 70) vocal = false;
 		else if ((arch == 1 || arch == 3) && vocal && ((seed * 3 + cycleIdx * 7) % 100) < 35) vocal = false;
@@ -1708,6 +1785,7 @@ namespace Face::Engine::detail
 		if (p == 0) af = 0.06f;
 		else if (p == 1) af = 0.80f;
 		else if (p == 2) af = 1.00f;
+		if (pers == Pers::kVocal) af = p == 0 ? 0.35f : 1.00f;  // a cycle of two: the mouth never closes between moans, and every second beat is a full one
 
 		int val = 0;
 		if (vocal) {
@@ -1733,8 +1811,9 @@ namespace Face::Engine::detail
 			// "ahh" on the rise, rounded "oww" on the peak/fall; only the size scales.
 			int ph = (p == 2 || p == 3) ? 11 : 0;
 			if (enjEff >= 85 && (p == 1 || p == 2)) ph = 1;
+			if (pers == Pers::kVocal && p == 1 && ph != 1) ph = (cycleIdx % 3) == 2 ? 11 : 0;  // with cycles of two there is no p == 2 or 3: the rounded "oww" comes every third moan
 			if (S::bActTypeAware && ActorHasAnyAction(t, s, T().actionOral)) ph = 11;
-			if (p == 0) ResetPh(a, 0.6f);
+			if (p == 0 && pers != Pers::kVocal) ResetPh(a, 0.6f);
 			if (ph == 1) {
 				SetPh(a, 1, val, 0.6f);
 				SetPh(a, 11, val / 3, 0.6f);
@@ -1769,5 +1848,6 @@ namespace Face::Engine::detail
 			}
 			ApplyEyeSquint(a, crazed ? 3 : ClampI(std::max(lidFloor, 10), 0, 40), seed);
 		}
+		if (crazed) SetPh(a, 5, ClampI(28 + enjEff / 6, 28, 46), 0.6f);  // a grin under the moans and the breaths: the smile does not close between them
 	}
 }

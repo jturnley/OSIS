@@ -130,6 +130,18 @@ pulsed). Before this only the Assist and Enhanced layers checked the ahegao yiel
 `Face::Engine::FaceYielded` (Living Skin's face blush, Lip-Sync) is the same `Compat::AhegaoYield()`. Dynamic Dialogue Framework only takes
 Lip-Sync down (`bYieldToDDF`); a Faces stand-down for it was tried and taken out again.
 
+Vocal (2) is loud by frequency: `Breathe` gives it the shortest breath cycle (2 beats) at any excitement and makes every cycle a moan, with the mouth
+kept partly open on the rest beat. The moan sound itself is OStim's (one global interval, `OStimMoanIntervalMin/Max`), so it is not per actor.
+
+Crazed (8) is the stare: `SetGaze` keeps the look on the partner (and `ApplyHeadflow` the head), `UpdateCrazedBlink` (from `ApplyAll`, Director mode) holds the blink
+channels open with `Output::SetBlinkHold` and fires `Output::PulseBlink` about every `fCrazedBlinkSeconds`, and `ApplyPersonalityFace` writes the yandere face: a held
+smile (mood happy, Eee) under three slowly turning brow looks (menace, manic, uneven). The blink hold relies on the engine's blink living in the same modifier channels
+Output writes (`Output.cpp` already hands them back at rest for that reason); where OStim's writer is on, the layered `max` lets the engine's blink through.
+
+Head tilt (`Body::SetHeadTilt`, from `Face::Engine::UpdateCrazedTilt`): `ApplyTilt` rolls the head bone, and the neck bone by `kNeckShare`, about a world axis (the line to the
+partner), taken into each bone's parent frame with `ToLocal` before either changes, so the two add up to one rotation at the head. It runs after the animation update like the
+curl and keeps the animation's pose (`FreshPose`) to avoid stacking if the animation did not rewrite the bone. Local axes of Skyrim's head bone are not relied on.
+
 ## Body types
 Arousal morph rows and blush regions carry a `type` (`Settings::Arousal::BodyType`: any, CBBE/3BA, UBE). `IsUBE` in `Arousal.cpp` reads the
 race: an editor ID starting `00ube_`, or a name ending ` UBE` (UBE_AllRace.esp's 18 races), and `BodyMatch` keeps each row to its body. UBE
@@ -141,7 +153,7 @@ Nine ids (`Face::Engine::Pers`): 0 balanced, 1 stoic, 2 vocal, 3 shy, 4 dominant
 8 crazed. The lite edition has no submissive: `EditionPersonality` turns a 6 into a timid (5) wherever one could come in (SPID keyword, voice
 token, the new-type roll, a stored or INI value, the UI combo), so the same actor rolls the same in both editions bar that. `BasePersonality` maps a newer type to the original it is built on (wild to vocal, crazed to dominant, timid and
 submissive to balanced), which the original rules in the Director see (`arch`); the newer rules and the picks see the full id
-(`pers`). Stoic (1) is the opposite of wild: slower excitement (`fStoicExcitementMult`), a muted face (`ApplyPersonalityFace`, 0.65 / 0.45), neutral moods, a quiet climax, and a muted body (`Arousal::Shape`: `fStoicRest` / `fStoicPeak`, face and body blush gated to the last seconds before and during the orgasm - `Arousal::Flush` returns the gate for Skin, which ignores the excitement ramp for a stoic - which fades with a 1.5 s half-life). Where each shows: `MoodAffinity`, `Buildup::Pick` (`ExtraWeight`), the climax pool's `suits[9]`, `ApplyPersonalityFace`
+(`pers`). Stoic (1) is the opposite of wild: much slower excitement (`fStoicExcitementMult`, 0.20), a muted face (`ApplyPersonalityFace`, 0.65 / 0.45), neutral moods, a quiet climax, and a muted body (`Arousal::Shape`: `fStoicRest` / `fStoicPeak`, face and body blush gated to the last seconds before and during the orgasm - `Arousal::Flush` returns the gate for Skin, which ignores the excitement ramp for a stoic - which fades with a 1.5 s half-life). Where each shows: `MoodAffinity`, `Buildup::Pick` (`ExtraWeight`), the climax pool's `suits[9]`, `ApplyPersonalityFace`
 (shy's conflict, timid's lids and peeks, vocal's surprise, the dominant's smirk, wild's smile, crazed's stare and creepy look,
 submissive's brows), `SetGaze`, `ApplyHeadflow`, `Breathe`, and the excitement rates in `UpdateExcitementRates`.
 

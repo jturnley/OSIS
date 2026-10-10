@@ -1,5 +1,26 @@
 # Changelog
 
+## Unreleased (after 2.0 beta 2, hotfix 2)
+
+### Changed
+- **Vocal is the loud one by never stopping.** Its breath clock now runs the shortest cycle there is (two beats) at every level of excitement
+  and every cycle is a moan (it was one in two or three), the mouth stays partly open between moans instead of closing, and the rounded "oww"
+  comes every third one. This is the face: how often OStim plays the moan sound is one global pair of OStim settings (Moan interval min/max),
+  not something that can be set for one actor.
+- **Crazed no longer blinks, and its face is the yandere face.** The lids are held open (the engine's own blinking is overwritten; Director mode only) and
+  close for an instant about every 14 seconds, now and then twice in a row (new setting Face > "Crazed: seconds between blinks", `fCrazedBlinkSeconds`;
+  0 leaves blinking alone). The smile never leaves: the mood happy and held, the Eee phoneme under it so the teeth show, kept under the moans and the
+  breaths too, with only a flicker of anger behind it now and then (it used to swap to anger 3 times in 10). The brows are what makes it wrong, and they
+  turn slowly, each look held for about 16 s: down and drawn in over the smile (the menace), high and wide with the lids lifted (the manic), and one up with
+  the other down (the unevenness), the side that leads changing now and then. At a partner's climax: the full smile and the lowest brows.
+- **Crazed actors tilt their head.** Toward a shoulder, 10 degrees (Body > "Crazed actors tilt their head", `bHeadTilt`, and `fHeadTiltDegrees`), changing side about
+  every 36 seconds and a little more at the partner's climax: the anime stare, out of place in Skyrim, which is what makes it creepy. The Body module does it the way
+  it does the toe curl, on the bones after each animation update: the head bone and a share of the neck bone are rolled about the world line from the actor to the
+  partner, converted into each bone's parent frame, so there is no axis to set, and the animation's own pose is kept so a tilt never stacks on itself. Eased in over
+  about a second and a half and out again; not in a non-consensual scene, in the afterglow, or asleep. A "Test head tilt (6s)" button is on the Body page.
+- **A stoic builds arousal at 0.20 of OStim's rate** (`fStoicExcitementMult`, was 0.70): five times the effort to bring them to the edge. An INI
+  still at the old 0.70 is moved to 0.20 once, at load; the slider now goes down to 0.10.
+
 ## 2.0 beta 2, hotfix 2 (plugin version 2.0.13)
 
 ### Changed

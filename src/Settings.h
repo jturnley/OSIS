@@ -123,7 +123,7 @@ namespace Settings
 		// Wild people build excitement faster, and submissive ones in a rough scene: a multiplier on OStim's own rate.
 		inline bool bPersonalityExcitement = true;
 		inline float fWildExcitementMult = 1.30f;
-		inline float fStoicExcitementMult = 0.70f;  // a stoic is not into it: the opposite of wild
+		inline float fStoicExcitementMult = 0.20f;  // a stoic is not into it: it takes a lot of effort to get them there
 		inline float fSubmissiveRoughMult = 1.35f;
 		// Dominant and crazed people control a partner's climax. A dominant holds the partner at the edge until the dominant's own climax (or this
 		// many seconds at the edge), and builds faster themselves; a crazed one builds the partner's excitement up fast and climaxes with them,
@@ -131,6 +131,7 @@ namespace Settings
 		inline bool bPersonalityControl = true;
 		inline float fControlMaxHold = 150.0f;
 		inline float fCrazedDriveMult = 2.5f;
+		inline float fCrazedBlinkSeconds = 14.0f;  // a crazed actor's stare is unbroken: the lids are held open and close for an instant about this often (0: leave blinking alone)
 		inline float fDominantExcitementMult = 1.25f;
 	}
 
@@ -157,6 +158,10 @@ namespace Settings
 		inline bool bGenitals = false;
 		inline float fGenitalDegrees = 60.0f;  // total bend across the chain at full arousal
 		inline int iGenitalAxis = 0;
+		// A crazed actor tilts their head toward a shoulder, the anime way: unnatural, which is the point. The bones are rolled about the line to who they look at,
+		// so there is no axis to set. The side changes now and then; the Test button shows it.
+		inline bool bHeadTilt = true;
+		inline float fHeadTiltDegrees = 10.0f;
 	}
 
 	// ---------------------------------------------------------------- living skin (face overlays)

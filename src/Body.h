@@ -18,6 +18,10 @@ namespace Body
 	// in and out, applied every frame like the curl. Male bodies only; ignored without the bones.
 	void SetGenitalResponse(RE::Actor* a_actor, float a_level);
 	void TestGenitals(RE::Actor* a_actor);
+	// Roll the head (and a share of the neck) about a world axis, by a_degrees (signed: the side), eased in and out; 0 puts it back. Applied after each animation update
+	// like the curl, on the animated bones, so it is the animation's pose plus the tilt. The axis is the line from the actor to who they look at.
+	void SetHeadTilt(RE::Actor* a_actor, float a_degrees, const RE::NiPoint3& a_worldAxis);
+	void TestHeadTilt(RE::Actor* a_actor);
 	void Test(RE::Actor* a_actor);                              // MCM crosshair / scene test
 	void ClearActor(RE::Actor* a_actor);
 	void ClearAll();

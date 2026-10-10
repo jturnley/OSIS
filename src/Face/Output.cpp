@@ -117,6 +117,7 @@ namespace Face::Output
 			std::array<BlinkPulse, 3> pulse{};  // slow blinks queued or playing (PulseBlink)
 			bool pulseOn = false;
 			float blinkPose = 0.0f;             // the lid closure the pose itself asks for, which a pulse adds to and returns to
+			bool blinkHold = false;             // the blink channels stay ours even at rest: the lids are held open (SetBlinkHold)
 			bool exprRelease = false;  // easing the mood back to zero, then stop writing it
 			bool reported = false;     // logged the first write
 			Probe probe;
@@ -514,6 +515,18 @@ namespace Face::Output
 		slot->depth = std::clamp(depth, 0.0f, 1.0f);
 	}
 
+	void SetBlinkHold(RE::Actor* a, bool hold)
+	{
+		if (!a) return;
+		std::scoped_lock l(g_lock);
+		auto* st = Get(a, hold);
+		if (!st || st->blinkHold == hold) return;
+		st->blinkHold = hold;
+		if (hold) {
+			for (int i = kBlinkL; i <= kBlinkR; ++i) st->mod[i].Set(st->blinkPose, 0.35f);
+		}
+	}
+
 	bool HasMouthOverride(RE::Actor* a)
 	{
 		std::scoped_lock l(g_lock);
@@ -535,6 +548,7 @@ namespace Face::Output
 		st->mouthFloor = 0.0f;
 		for (auto& p : st->pulse) p.len = 0.0f;
 		st->blinkPose = 0.0f;
+		st->blinkHold = false;
 		st->suspended = false;
 		st->mouthOwned = true;
 		st->releasing = true;
@@ -791,7 +805,7 @@ namespace Face::Output
 				pr.modMask |= 1u << i;
 			}
 			// Look modifiers stop eye blinking while non-zero, and a blink we write is the lids' to own; hand both back once at rest.
-			if (IsGated(i) && c.cur <= 0.0f && c.target <= 0.0f) c.used = false;
+			if (IsGated(i) && c.cur <= 0.0f && c.target <= 0.0f && !(IsBlink(i) && st.blinkHold)) c.used = false;
 		}
 		if (st.exprUsed) {
 			for (int i = 0; i < kExpressions; ++i) {

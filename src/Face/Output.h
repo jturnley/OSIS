@@ -106,6 +106,9 @@ namespace Face::Output
 	// A slow blink on top of whatever holds the lids: down, held, up over `a_seconds`, to `a_depth` (0..1), starting `a_delay` seconds from now. A
 	// face that is updated every few seconds cannot draw a blink itself, so the output layer does, frame by frame.
 	void PulseBlink(RE::Actor* a_actor, float a_depth, float a_seconds, float a_delay = 0.0f);
+	// Hold the lids open: the blink channels are written all the time (the pose's value, 0 for open lids) instead of being handed back to the engine's own
+	// blinking, so the actor blinks only when PulseBlink says so. Our own face only: where OStim's writer is on, the engine's blink shows through.
+	void SetBlinkHold(RE::Actor* a_actor, bool a_hold);
 	// The phonemes as the face renders them right now, whoever wrote them. Main thread. False when the actor has no face data.
 	[[nodiscard]] bool ReadPhonemes(RE::Actor* a_actor, std::array<float, kPhonemes>& a_out);
 

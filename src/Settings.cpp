@@ -118,6 +118,7 @@ namespace Settings
 				{ "Face", "bPersonalityControl", &Face::bPersonalityControl },
 				{ "Face", "fControlMaxHold", &Face::fControlMaxHold },
 				{ "Face", "fCrazedDriveMult", &Face::fCrazedDriveMult },
+				{ "Face", "fCrazedBlinkSeconds", &Face::fCrazedBlinkSeconds },
 				{ "Face", "fDominantExcitementMult", &Face::fDominantExcitementMult },
 #if !OSIS_LITE
 				{ "Face", "fSubmissiveRoughMult", &Face::fSubmissiveRoughMult },
@@ -137,6 +138,8 @@ namespace Settings
 				{ "Body", "bGenitals", &Body::bGenitals },
 				{ "Body", "fGenitalDegrees", &Body::fGenitalDegrees },
 				{ "Body", "iGenitalAxis", &Body::iGenitalAxis },
+				{ "Body", "bHeadTilt", &Body::bHeadTilt },
+				{ "Body", "fHeadTiltDegrees", &Body::fHeadTiltDegrees },
 
 				{ "Skin", "bEnabled", &Skin::bEnabled },
 				{ "Skin", "fStrength", &Skin::fStrength },
@@ -226,10 +229,11 @@ namespace Settings
 			Face::iPlayerPersonality = std::clamp(Face::iPlayerPersonality, -1, 8);
 			Face::fNewPersonalityShare = std::clamp(Face::fNewPersonalityShare, 0.0f, 1.0f);
 			Face::fWildExcitementMult = std::clamp(Face::fWildExcitementMult, 0.5f, 2.0f);
-			Face::fStoicExcitementMult = std::clamp(Face::fStoicExcitementMult, 0.3f, 1.0f);
+			Face::fStoicExcitementMult = std::clamp(Face::fStoicExcitementMult, 0.1f, 1.0f);
 			Face::fSubmissiveRoughMult = std::clamp(Face::fSubmissiveRoughMult, 0.5f, 2.0f);
 			Face::fControlMaxHold = std::clamp(Face::fControlMaxHold, 20.0f, 600.0f);
 			Face::fCrazedDriveMult = std::clamp(Face::fCrazedDriveMult, 1.0f, 4.0f);
+			Face::fCrazedBlinkSeconds = std::clamp(Face::fCrazedBlinkSeconds, 0.0f, 60.0f);
 			Face::fDominantExcitementMult = std::clamp(Face::fDominantExcitementMult, 0.5f, 2.0f);
 			Face::fNCAutoInterval = std::clamp(Face::fNCAutoInterval, 5.0f, 120.0f);
 			if (Face::fAnimeEnd > Face::fAnimeStart) Face::fAnimeEnd = Face::fAnimeStart;
@@ -241,6 +245,7 @@ namespace Settings
 			Body::fFootFlexScale = std::clamp(Body::fFootFlexScale, 0.0f, 1.0f);
 			Body::fGenitalDegrees = std::clamp(Body::fGenitalDegrees, 0.0f, 120.0f);
 			Body::iGenitalAxis = std::clamp(Body::iGenitalAxis, 0, 2);
+			Body::fHeadTiltDegrees = std::clamp(Body::fHeadTiltDegrees, 0.0f, 30.0f);
 			Skin::iFaceFirstSlot = std::clamp(Skin::iFaceFirstSlot, 0, 15);
 			Arousal::iSource = std::clamp(Arousal::iSource, 0, 3);
 			Arousal::fInterval = std::clamp(Arousal::fInterval, 0.25f, 30.0f);
@@ -402,8 +407,14 @@ namespace Settings
 		}
 	}
 
+	namespace
+	{
+		bool SaveIni();  // below
+	}
+
 	void Load()
 	{
+		bool migratedStoic = false;
 		{
 			std::scoped_lock l(lock);
 			CSimpleIniA ini;
@@ -412,8 +423,17 @@ namespace Settings
 				logger::warn("Could not load {} - using defaults.", kIniPath);
 			} else {
 				ReadIni(ini);
+				// A stoic's rate was 0.70 until 2.0 beta 2, hotfix 2, and an INI written by those still says so: 0.70 was the default, not a choice.
+				if (std::abs(Face::fStoicExcitementMult - 0.70f) < 0.0015f) {
+					Face::fStoicExcitementMult = 0.20f;
+					migratedStoic = true;
+				}
 			}
 			Sanitize();
+		}
+		if (migratedStoic) {
+			logger::info("Face: fStoicExcitementMult was the old default 0.70; it is 0.20 now, so a stoic takes much more effort to bring to the edge.");
+			SaveIni();
 		}
 		LoadTables();
 		spdlog::set_level(General::bDebug ? spdlog::level::debug : spdlog::level::info);
@@ -703,11 +723,12 @@ namespace Settings
 		fNewPersonalityShare = 0.20f;
 		bPersonalityExcitement = true;
 		fWildExcitementMult = 1.30f;
-		fStoicExcitementMult = 0.70f;
+		fStoicExcitementMult = 0.20f;
 		fSubmissiveRoughMult = 1.35f;
 		bPersonalityControl = true;
 		fControlMaxHold = 150.0f;
 		fCrazedDriveMult = 2.5f;
+		fCrazedBlinkSeconds = 14.0f;
 		fDominantExcitementMult = 1.25f;
 		fAnimeStart = 85.0f;
 		fAnimeEnd = 70.0f;

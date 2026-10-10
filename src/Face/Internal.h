@@ -142,6 +142,8 @@ namespace Face::Engine::detail
 	// ---- Director (legacy mode 2 grammar, now the default)
 	void ApplyArc(Thread& t, Slot& s, RE::Actor* a, int idx, bool yieldMouth);
 	void Breathe(Thread& t, Slot& s, RE::Actor* a, int idx);
+	void UpdateCrazedBlink(Thread& t, Slot& s, RE::Actor* a);  // a crazed actor's lids are held open, with a blink now and then
+	void UpdateCrazedTilt(Thread& t, Slot& s, RE::Actor* a);   // ... and its head tilt, which is the Body module's, so it runs with the Faces module off too
 
 	// ---- Assist / Enhanced layer, anime, tongue, normal state, watcher (Layer.cpp)
 	void ApplyOSEDLayerArc(Thread& t, Slot& s, RE::Actor* a, int idx, bool yieldMouth);

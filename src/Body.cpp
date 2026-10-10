@@ -57,6 +57,16 @@ namespace Body
 			float genital = 0.0f;        // current bend, eased toward the target
 			float genitalTarget = 0.0f;  // arousal level, set from the Arousal tick
 
+			// Head tilt: eased toward a target in degrees, about a world axis. The neck bone takes a share of it, the head bone the rest.
+			float tilt = 0.0f;
+			float tiltTarget = 0.0f;
+			RE::NiPoint3 tiltAxis{ 0.0f, 1.0f, 0.0f };
+			RE::NiAVObject* head = nullptr;
+			RE::NiAVObject* neck = nullptr;  // the head's parent, when that is the neck
+			RE::NiMatrix3 headBase{}, headWritten{}, neckBase{}, neckWritten{};  // the animation's rotation, and what we wrote over it
+			bool headHas = false, neckHas = false;                              // `...Written` is valid
+			bool tiltReported = false;
+
 			// A per-toe bone. No animation drives these, so nothing resets them each frame: the
 			// curl is written as rest * rotation, and the rest pose is put back when it ends.
 			struct ToeBone
@@ -156,10 +166,70 @@ namespace Body
 			};
 		}
 
+		constexpr float kNeckShare = 0.35f;  // of a tilt, taken by the neck bone
+		constexpr float kTiltEase = 1.4f;    // seconds to close most of the way to the tilt: a slow lean, not a twitch
+
+		bool SameRot(const RE::NiMatrix3& a, const RE::NiMatrix3& b)
+		{
+			for (int i = 0; i < 3; ++i) {
+				for (int j = 0; j < 3; ++j) {
+					if (std::abs(a.entry[i][j] - b.entry[i][j]) > 1.0e-4f) return false;
+				}
+			}
+			return true;
+		}
+
+		// A bone's rotation this frame without our tilt. The animation writes the bone every frame, and then it is the fresh pose; if it did not, the rotation is still
+		// the one we wrote last time, and the pose is the one we kept, so a tilt is never stacked on a tilt.
+		const RE::NiMatrix3& FreshPose(RE::NiAVObject* n, bool hasWritten, const RE::NiMatrix3& written, RE::NiMatrix3& base)
+		{
+			if (!(hasWritten && SameRot(n->local.rotate, written))) base = n->local.rotate;
+			return base;
+		}
+
+		void RestoreHead(State& st)
+		{
+			if (st.neck && st.neckHas && SameRot(st.neck->local.rotate, st.neckWritten)) st.neck->local.rotate = st.neckBase;
+			if (st.head && st.headHas && SameRot(st.head->local.rotate, st.headWritten)) st.head->local.rotate = st.headBase;
+			st.neckHas = st.headHas = false;
+		}
+
+		// Roll by st.tilt degrees about the world axis. The world rotation wanted at the head is R(total); the neck turns by its share about the axis as seen from its
+		// parent, and the head by the rest as seen from the neck's own (original) world rotation, which is what makes the two add up to R(total) at the head.
+		void ApplyTilt(State& st)
+		{
+			if (!st.head || !st.head->parent) return;
+			const float len = std::sqrt(st.tiltAxis.x * st.tiltAxis.x + st.tiltAxis.y * st.tiltAxis.y + st.tiltAxis.z * st.tiltAxis.z);
+			if (len < 0.001f) return;
+			const RE::NiPoint3 axis{ st.tiltAxis.x / len, st.tiltAxis.y / len, st.tiltAxis.z / len };
+			RE::NiAVObject* top = st.head;
+			if (st.neck && st.neck->parent) {
+				const float neckDeg = st.tilt * kNeckShare;
+				const auto axisNeck = ToLocal(st.neck->parent->world.rotate, axis);
+				const auto axisHead = ToLocal(st.neck->world.rotate, axis);
+				const auto& neckPose = FreshPose(st.neck, st.neckHas, st.neckWritten, st.neckBase);
+				const auto& headPose = FreshPose(st.head, st.headHas, st.headWritten, st.headBase);
+				st.neck->local.rotate = AxisAngle(axisNeck, neckDeg) * neckPose;
+				st.head->local.rotate = AxisAngle(axisHead, st.tilt - neckDeg) * headPose;
+				st.neckWritten = st.neck->local.rotate;
+				st.neckHas = true;
+				top = st.neck;
+			} else {
+				const auto axisHead = ToLocal(st.head->parent->world.rotate, axis);
+				const auto& headPose = FreshPose(st.head, st.headHas, st.headWritten, st.headBase);
+				st.head->local.rotate = AxisAngle(axisHead, st.tilt) * headPose;
+			}
+			st.headWritten = st.head->local.rotate;
+			st.headHas = true;
+			RE::NiUpdateData ctx{ 0.0f, RE::NiUpdateData::Flag::kNone };
+			top->UpdateDownwardPass(ctx, 0);
+		}
+
 		void RestoreToes(State& st)
 		{
 			for (auto& b : st.toeBones) b.node->local.rotate = b.rest;
 			for (auto& b : st.genitals) b.node->local.rotate = b.rest;
+			RestoreHead(st);
 		}
 
 		void Resolve(State& st, RE::NiAVObject* root)
@@ -181,6 +251,13 @@ namespace Body
 			}
 			for (const char* n : kFingers) {
 				if (auto* o = root->GetObjectByName(n)) st.fingers.push_back(o);
+			}
+			st.head = root->GetObjectByName("NPC Head [Head]");
+			st.neck = nullptr;
+			st.headHas = st.neckHas = false;
+			if (st.head && st.head->parent) {
+				const char* parentName = st.head->parent->name.c_str();
+				if (parentName && std::string_view(parentName).contains("Neck")) st.neck = st.head->parent;
 			}
 			st.genitals.clear();
 			for (size_t i = 0; i < kGenitals.size(); ++i) {
@@ -243,6 +320,48 @@ namespace Body
 		});
 	}
 
+	void SetHeadTilt(RE::Actor* a, float degrees, const RE::NiPoint3& axis)
+	{
+		if (!a) return;
+		if (Compat::Disabled(Compat::kBody)) degrees = 0.0f;  // read without Settings::lock, as in SetGenitalResponse: the caller holds its own module's lock
+		degrees = std::clamp(degrees, -40.0f, 40.0f);
+		std::scoped_lock l(g_lock);
+		auto it = g_states.find(a->GetFormID());
+		if (it == g_states.end()) {
+			if (degrees == 0.0f) return;  // nothing to do and nothing to put back
+			if (!Animatable(a)) return;
+			it = g_states.emplace(a->GetFormID(), State{}).first;
+		}
+		it->second.tiltTarget = degrees;
+		it->second.tiltAxis = axis;
+		g_count = g_states.size();
+	}
+
+	void TestHeadTilt(RE::Actor* a)
+	{
+		if (!a) return;
+		float deg;
+		{
+			std::scoped_lock l(Settings::lock);
+			deg = Settings::Body::fHeadTiltDegrees;
+		}
+		RE::NiPoint3 axis{ std::sin(a->GetAngleZ()), std::cos(a->GetAngleZ()), 0.0f };  // straight ahead, alone
+		if (auto* t = Scenes::ThreadOf(a)) {
+			for (auto& sl : t->slots) {
+				auto* o = sl.Get();
+				if (!o || o == a) continue;
+				auto d = o->GetPosition() - a->GetPosition();
+				d.z = 0.0f;
+				if (d.Length() > 1.0f) axis = d / d.Length();
+				break;
+			}
+		}
+		SetHeadTilt(a, deg, axis);
+		Scheduler::After(6.0f, [h = a->GetHandle()]() {
+			if (auto actor = h.get()) SetHeadTilt(actor.get(), 0.0f, RE::NiPoint3{ 0.0f, 1.0f, 0.0f });
+		});
+	}
+
 	void OnClimaxPeak(RE::Actor* a, float value)
 	{
 		float mag;
@@ -278,6 +397,7 @@ namespace Body
 			const float now = Scenes::Now();
 			if (now - st.start < kRampIn + st.hold) st.start = now - (kRampIn + st.hold);
 			st.sustainTarget = 0.0f;  // the next Paint puts it back if a foot action is still running
+			st.tiltTarget = 0.0f;
 		}
 	}
 
@@ -345,9 +465,11 @@ namespace Body
 		constexpr float kGenitalEase = 2.5f;
 		st.genital += (st.genitalTarget - st.genital) * (1.0f - std::exp(-dtEase / kGenitalEase));
 		if (std::abs(st.genitalTarget - st.genital) < 0.004f) st.genital = st.genitalTarget;
+		st.tilt += (st.tiltTarget - st.tilt) * (1.0f - std::exp(-dtEase / kTiltEase));
+		if (std::abs(st.tiltTarget - st.tilt) < 0.05f) st.tilt = st.tiltTarget;
 
 		auto* root = a->Get3D1(false);
-		if (env <= 0.0f && st.sustain <= 0.0f && st.genital <= 0.0f) {
+		if (env <= 0.0f && st.sustain <= 0.0f && st.genital <= 0.0f && st.tilt == 0.0f && st.tiltTarget == 0.0f) {
 			if (root && root == st.root) {
 				RestoreToes(st);
 				RE::NiUpdateData done{ 0.0f, RE::NiUpdateData::Flag::kNone };
@@ -397,6 +519,15 @@ namespace Body
 			}
 		} else {
 			for (auto& b : st.genitals) b.node->local.rotate = b.rest;
+		}
+		if (st.tilt != 0.0f) {
+			if (!st.tiltReported) {
+				st.tiltReported = true;
+				logger::info("Body: head tilt on {:08X} {}: {:.1f} deg about the line to who they look at (neck bone {})", a->GetFormID(), a->GetDisplayFullName(), st.tiltTarget, st.neck != nullptr);
+			}
+			ApplyTilt(st);
+		} else if (st.headHas || st.neckHas) {
+			RestoreHead(st);
 		}
 		// Push the new local rotations to world space now, bone and children (the fingertip
 		// segments). If the engine already ran its world pass for this skeleton, a local-only

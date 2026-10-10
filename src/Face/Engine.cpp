@@ -490,6 +490,7 @@ namespace Face::Engine
 					// own it: this is OStim's own tongue, stranded by our takeover.
 					ClearOStimTongue(s, a);
 				}
+				UpdateCrazedTilt(t, s, a);
 				// The Faces module is off (switched off, an old OSED core or Ahegao Expressions): paint nothing, and
 				// create nothing that would. The scene is still tracked and pulsed, so Body, Living Skin, Lip-Sync and the arousal factors work.
 				if (faceOff) {
@@ -566,6 +567,7 @@ namespace Face::Engine
 				// (a mid-scene mode change) or by a shock would otherwise be rewritten every frame
 				// over OStim's own expression.
 				else Output::ReleaseMood(a, 0.6f);
+				UpdateCrazedBlink(t, s, a);
 				if (arc) {
 					if (t.normalActive) ApplyNormalState(t, s, a, idx, ym);
 					else if (director) ApplyArc(t, s, a, idx, ym);
