@@ -3,6 +3,28 @@
 ## Unreleased (after 2.0 beta 2, hotfix 2)
 
 ### Changed
+- **Lip-Sync decodes 32-bit PCM and WAVE_FORMAT_EXTENSIBLE voice files.** Found by reading OSSO 1.16's files: its Cute and Excited voice sets (23 moan and climax
+  files) are 32-bit integer PCM, which the decoder skipped ("encoding"), so those two sets never moved the mouth. Every other OSSO file was already readable.
+- **Director moans (LoversLab edition, experimental, off by default): Voice > "Director mode: OSIS plays the moans" (`bDirectorOwnMoans`).** With the face in Director
+  mode, OSIS plays each actor's moans itself, from the voice sets OStim uses and by the rules OStim uses (see the voice model below): the entry the scene's speed picks
+  (a dynamic set's four stages), the muffled list and only that while an action says muffled, nothing where no action lets them moan. OStim's plain moans are muted on
+  those actors; only the plain-moan sound files are, so a climax, a comment or an event reaction (a spank) is still OStim's, and a file shared between a moan and one
+  of those is left alone. The wait to the next moan is the entry's own "moanIntervalOverride", else a random interval (`fOwnMoanIntervalMin` / `Max`, 2.5 to 4 s like
+  OStim), counted from the end of the moan and scaled by personality (vocal and wild x0.6, stoic x2, shy and timid x1.4; `bOwnMoanPersonality`). It waits while the
+  actor is talking, in their own orgasm, while a climax or reaction sound is playing on them (needs Lip-Sync on), and while another mod holds their mouth. Each moan is an
+  ordinary engine sound following the actor, so Lip-Sync moves the mouth with it. Not tested in game yet.
+- **Director moans now take over the climax sounds too** (`bDirectorOwnClimax`, on by default, only effective with `bDirectorOwnMoans`). At each orgasm OStim reports,
+  OSIS plays the voice set's climax sound for that actor, chosen the same way as a moan (the entry the scene's speed picks, the muffled list while an action says
+  muffled), and mutes OStim's climax sound for them. A moan of OSIS's still sounding gives way. A voice set whose climax has dialogue stays entirely with OStim, which speaks
+  the line in preference to the sound. Comments after a climax and event reactions are untouched. A file shared between a moan list, a climax list or a reaction is left alone.
+- **Voice model (groundwork, no audible change).** OSIS now reads OStim's voice sets as data and makes the choices OStim makes: which set an actor has (the one picked
+  in the MCM or by OSSO's auto-assign, found by the name OStim reports and matched through the translation files; else actor base, voice type, race, default by sex),
+  which entry plays (the first whose perk conditions hold, which is how a dynamic set's four speed stages work), and which list (a muffled actor takes the muffled
+  list only). Whether an actor may moan, and whether it is muffled, comes from the `moan` / `muffled` flags in OStim's action definitions for the scene they are in.
+  Lip-Sync page > "Log the voice set for the crosshair actor" writes what it would do to the log. Nothing plays yet.
+- **New setting, Voice > "Director mode: mute OStim's moans on every actor" (`bDirectorMuteMoans`, off by default).** With the face in Director mode it mutes OStim's
+  voice-set sounds on every actor whose face OSIS paints, using the victim muting's start hook and sweep, and Lip-Sync stops following them. Groundwork for OSIS playing
+  its own moans; on its own it just makes scenes quiet. Not yet tested in game.
 - **Vocal is the loud one by never stopping.** Its breath clock now runs the shortest cycle there is (two beats) at every level of excitement
   and every cycle is a moan (it was one in two or three), the mouth stays partly open between moans instead of closing, and the rounded "oww"
   comes every third one. This is the face: how often OStim plays the moan sound is one global pair of OStim settings (Moan interval min/max),

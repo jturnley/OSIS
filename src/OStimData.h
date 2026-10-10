@@ -67,6 +67,17 @@ namespace OStimData
 	// scene's actions has a definition, so nothing is known.
 	[[nodiscard]] float ActorStimulation(const Scene& a_scene, int a_pos);
 
+	// What OStim's action definitions allow an actor to do with their voice ("moan", "talk" and "muffled" in each role's JSON), merged over
+	// every action the scene has them in, as OStim does (Graph/Action/ActionActor.cpp). known is false when none of the actions has a definition.
+	struct SoundFlags
+	{
+		bool known = false;
+		bool moan = false;
+		bool talk = false;
+		bool muffled = false;
+	};
+	[[nodiscard]] SoundFlags ActorSoundFlags(const Scene& a_scene, int a_pos);
+
 	[[nodiscard]] TagList SplitCSV(std::string_view a_csv);
 	[[nodiscard]] bool HasAny(const TagList& a_have, const TagList& a_want);
 

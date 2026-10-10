@@ -206,6 +206,13 @@ namespace Settings
 	{
 		inline bool bEnabled = true;
 		inline bool bVictimNoMoans = true;    // mute OStim's moans and climax sounds on the victim
+		inline bool bDirectorOwnMoans = false;   // Director mode: OSIS plays the moans itself, from OStim's voice sets, and mutes OStim's plain moans
+		inline bool bDirectorOwnClimax = true;    // with bDirectorOwnMoans: the climax sounds too
+		inline float fOwnMoanVolume = 1.0f;
+		inline float fOwnMoanIntervalMin = 2.5f;  // seconds between moans, counted from the end of one; OStim's own default is 2.5 to 4
+		inline float fOwnMoanIntervalMax = 4.0f;
+		inline bool bOwnMoanPersonality = true;   // a vocal actor moans more often, a stoic or shy one less
+		inline bool bDirectorMuteMoans = false;  // Director mode: mute OStim's voice-set sounds on every face-painted actor (groundwork for OSIS-owned moans)
 		inline int iVictimVoice = 2;          // 0 silent, 1 breathing only, 2 full (help, lines, scream)
 		inline float fInterval = 9.0f;        // seconds between lines (+-40%)
 		inline bool bMuteDialogue = true;     // OActor.Mute on the victim: no OStim scene comments

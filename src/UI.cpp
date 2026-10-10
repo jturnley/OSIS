@@ -12,6 +12,7 @@
 #include "Face/PPA.h"
 #include "Face/Output.h"
 #include "LipSync.h"
+#include "VoiceModel.h"
 #include "OStimData.h"
 #include "Hooks.h"
 #include "Papyrus.h"
@@ -21,6 +22,7 @@
 #include "Skin.h"
 #if !OSIS_LITE
 #	include "SceneLock.h"
+#	include "Moans.h"
 #	include "Voice.h"
 #endif
 
@@ -935,6 +937,16 @@ namespace
 			else ig::TextColored(kWarn, "Dynamic Dialogue Framework is active: expect the two to fight over the mouth.");
 		}
 		ig::TextWrapped("%s", LipSync::Status().c_str());
+		if (ig::Button("Log the voice set for the crosshair actor")) {
+			OnGame([]() {
+				auto* a = TestTarget();
+				const auto text = VoiceModel::Describe(a);
+				logger::info("Voice model:\n{}", text);
+				Papyrus::Notify(a ? "OSIS: voice set written to the log" : "OSIS: aim at an actor first");
+			});
+		}
+		ig::SameLine();
+		ig::TextDisabled("Which OStim voice set they have, how it was found, and which entry each list would pick right now.");
 		SaveBar();
 	}
 
@@ -951,6 +963,26 @@ namespace
 			Check("Mute OStim moans on the victim", bVictimNoMoans,
 				"Silences OStim's moans and climax sounds on the victim, leaving room for the lines below. Off: both play "
 				"over each other.");
+			Check("Director mode: mute OStim's moans on every actor", bDirectorMuteMoans,
+				"Experimental, off by default. With the face in Director mode, silences OStim's voice-set sounds (moans, climax sounds, "
+				"reactions) on every actor whose face OSIS paints, and Lip-Sync stops following them. Nothing replaces them yet, so the "
+				"scene is quiet. The Status below counts the sounds muted.");
+			Check("Director mode: OSIS plays the moans", bDirectorOwnMoans,
+				"Experimental, off by default. With the face in Director mode, OSIS plays each actor's moans itself, from the same OStim voice sets: "
+				"the entry the scene's speed picks (a dynamic set's stages), the muffled list while an action says muffled, and none where the scene "
+				"does not let them moan. OStim's plain moans are muted; its climax sounds and reactions (a spank, say) still play. Lip-Sync follows "
+				"the new moans. Ignored while the all-sounds mute above is on.");
+			if (bDirectorOwnMoans) {
+				Check("Also play the climax sounds", bDirectorOwnClimax,
+					"At each orgasm OSIS plays the voice set's climax sound for that actor (the entry the scene's speed picks; the muffled list while an action says "
+					"so) and mutes OStim's. A moan of theirs still playing gives way. A voice set whose climax has dialogue stays with OStim, which speaks it in "
+					"preference to the sound. Comments after a climax and reactions are always OStim's.");
+				SliderF("Own moan volume", fOwnMoanVolume, 0.0f, 1.0f, "%.2f", "OStim has its own moan volume in its MCM; this one is OSIS's.");
+				SliderF("Own moan interval, shortest (s)", fOwnMoanIntervalMin, 0.1f, 10.0f, "%.1f",
+					"Time between moans, counted from the end of one. A voice-set entry with its own interval (a dynamic set's faster stages) overrides this.");
+				SliderF("Own moan interval, longest (s)", fOwnMoanIntervalMax, 0.1f, 15.0f, "%.1f", "OStim's default is 2.5 to 4 seconds.");
+				Check("Personality changes how often", bOwnMoanPersonality, "Vocal and wild actors moan about twice as often as balanced ones, stoic ones half as often, shy and timid ones a little less.");
+			}
 			ComboI("Victim voice", iVictimVoice, kVoiceModes, 3,
 				"Silent: nothing at all. Breathing only: hard breathing, no words. Full: the cry for help, the personality "
 				"lines and the scream as well.");
@@ -973,6 +1005,7 @@ namespace
 		}
 		ig::SeparatorText("Status");
 		ig::TextWrapped("%s", Voice::Status().c_str());
+		ig::TextWrapped("Own moans: %s", Moans::Status().c_str());
 		if (ig::Button("Test cry for help")) OnGame([]() { Voice::TestHelp(TestTarget()); });
 		ig::SameLine();
 		if (ig::Button("Test line")) OnGame([]() { Voice::TestLine(TestTarget()); });
@@ -981,6 +1014,15 @@ namespace
 		ig::SameLine();
 		if (ig::Button("Test breathing")) OnGame([]() { Voice::TestBreath(TestTarget()); });
 		ig::TextDisabled("Tests speak on the crosshair actor; they don't call anyone.");
+		if (ig::Button("Test: play a voice-set moan")) {
+			OnGame([]() {
+				const auto r = LipSync::PlayMoanOn(TestTarget());
+				logger::info("Test moan: {}", r);
+				Papyrus::Notify("OSIS: " + r);
+			});
+		}
+		ig::SameLine();
+		ig::TextDisabled("Plays a random moan from the installed OStim voice sets on the crosshair actor, the way OStim does.");
 		SaveBar();
 	}
 #endif
