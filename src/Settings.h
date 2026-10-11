@@ -160,6 +160,7 @@ namespace Settings
 		inline int iGenitalAxis = 0;
 		// A crazed actor tilts their head toward a shoulder, the anime way: unnatural, which is the point. The bones are rolled about the line to who they look at,
 		// so there is no axis to set. The side changes now and then; the Test button shows it.
+		inline bool bYieldToPPA = true;      // leave the genital chain and the hands to PPA for as long as it is driving them (a penis in a hole or a hand)
 		inline bool bHeadTilt = true;
 		inline float fHeadTiltDegrees = 10.0f;
 	}

@@ -5,6 +5,7 @@
 
 #include "Face/Internal.h"
 
+#include "Body.h"
 #include "Compat.h"
 #include "Face/PPA.h"
 
@@ -491,6 +492,7 @@ namespace Face::Engine
 					ClearOStimTongue(s, a);
 				}
 				UpdateCrazedTilt(t, s, a);
+				UpdatePPABody(t, s, a);
 				// The Faces module is off (switched off, an old OSED core or Ahegao Expressions): paint nothing, and
 				// create nothing that would. The scene is still tracked and pulsed, so Body, Living Skin, Lip-Sync and the arousal factors work.
 				if (faceOff) {
@@ -728,6 +730,22 @@ namespace Face::Engine
 				s.ppaRetryAt = now + kRetry;
 				logger::info("PPA: nothing moved {}'s mouth in {:.0f} s; it is not driving it here, so the Director has it back", a->GetDisplayFullName(), kProbe);
 			}
+		}
+
+		// PPA moves the penis of whoever has it in a hole or a hand (the six genital bones), and the hands that hold it. Those are the bones the Body
+		// module would otherwise write at a climax beat, so for as long as the scene's action puts them in PPA's hands Body is told to leave them alone.
+		// Like the mouth this is decided from the scene's action; Body re-checks nothing, it only needs this said every tick (the claim lapses after
+		// about a second and a half, so a scene that ends or a thread that stops being ticked gives the bones back by itself).
+		void UpdatePPABody(Thread& t, Slot& s, RE::Actor* a)
+		{
+			bool genitals = false;
+			bool hands = false;
+			if (a && Settings::Body::bYieldToPPA && PPA::Installed() && t.meta && t.meta->known && s.pos >= 0) {
+				const auto c = OStimData::PPAContactFor(*t.meta, s.pos);
+				genitals = c.genitals;
+				hands = c.hands;
+			}
+			Body::SetPPAYield(a, genitals, hands);
 		}
 
 		float StyleValue() { return ClampF(S::fStyle, 0.0f, 2.0f); }

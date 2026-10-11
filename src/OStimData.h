@@ -67,6 +67,16 @@ namespace OStimData
 	// scene's actions has a definition, so nothing is known.
 	[[nodiscard]] float ActorStimulation(const Scene& a_scene, int a_pos);
 
+	// Which body parts of an actor PPA (Procedural Penis Animations) is expected to be moving in this scene, from what OStim's action definitions
+	// require of each role ("penis", "hand", "vagina", "anus", "mouth"). genitals: they hold the penis in an action whose other role is a hole
+	// (vaginal, anal, oral) or a hand (a handjob, masturbation). hands: they have a hand on a penis. Nothing is known about an action without a definition.
+	struct PPAContact
+	{
+		bool genitals = false;
+		bool hands = false;
+	};
+	[[nodiscard]] PPAContact PPAContactFor(const Scene& a_scene, int a_pos);
+
 	[[nodiscard]] TagList SplitCSV(std::string_view a_csv);
 	[[nodiscard]] bool HasAny(const TagList& a_have, const TagList& a_want);
 

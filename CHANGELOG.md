@@ -3,6 +3,18 @@
 ## Unreleased (after 2.0 beta 2, hotfix 2)
 
 ### Changed
+- **Body no longer fights PPA over the genital chain and the hands.** Reported on the Nexus page: with Body on, PPA's effects stopped around climax, and turning Body off fixed it.
+  The cause was in Body: whenever an actor was curling (the toe and finger curl at each climax beat, about every 10 to 25 s in a busy scene), it wrote the six genital bones
+  (`NPC Genitals01..06`) back to a pose it had saved when the curl began, and forced an update of them. That happened even with Body > "Bend the genital bones with arousal" off,
+  because only the bend was behind that switch. PPA animates exactly those six bones during penetration (its `[Penis] Bones`), so for about five seconds per beat the penis was
+  frozen at whatever pose it was in when the curl started. Now:
+  - The genital bones are written only while the bend is actually in use, and put back only if they are still exactly as OSIS left them (anything that has moved them since is
+    left alone), the way the head tilt already did it. The saved pose is taken when the bone is first written, not at the start of every curl.
+  - **While PPA is expected to be driving a body part, Body does not touch it**, the same rule the Director follows for the mouth. From the scene's action (OStim's action
+    definitions say who has a penis, a hand, a vagina, an anus or a mouth), with PPA installed: whoever holds the penis in a vaginal, anal or oral act or a handjob keeps
+    their genital chain to PPA, and a hand holding a penis keeps its fingers to PPA, for as long as the act lasts. Toes are never part of it. New setting Body > "Leave what
+    PPA is driving to PPA" (`bYieldToPPA`, on by default); the log says "Body: PPA is expected to be driving ..." when it starts and ends.
+  - A crazed actor's head tilt stops while PPA has their mouth (it aims the penis at the head bone, and a tilt moved the mouth off it).
 - **Vocal is the loud one by never stopping.** Its breath clock now runs the shortest cycle there is (two beats) at every level of excitement
   and every cycle is a moan (it was one in two or three), the mouth stays partly open between moans instead of closing, and the rounded "oww"
   comes every third one. This is the face: how often OStim plays the moan sound is one global pair of OStim settings (Moan interval min/max),

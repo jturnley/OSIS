@@ -21,6 +21,8 @@ namespace OStimData
 		std::unordered_map<std::string, std::string> g_actionAlias;           // alias -> canonical type
 		std::unordered_map<std::string, std::array<std::string, 3>> g_actionOverride;  // type -> expression set per role
 		std::unordered_map<std::string, std::array<float, 3>> g_actionStim;  // type -> stimulation per role (actor, target, performer)
+		// type -> what each role requires of the body: 1 penis, 2 hand, 4 vagina, 8 anus, 16 mouth
+		std::unordered_map<std::string, std::array<std::uint8_t, 3>> g_actionReq;
 
 		std::string Lower(std::string_view s)
 		{
@@ -94,6 +96,26 @@ namespace OStimData
 							}
 						}
 						g_actionStim[type] = stim;
+					}
+					{
+						std::array<std::uint8_t, 3> req{ 0, 0, 0 };
+						static constexpr const char* kReqRoles[3] = { "actor", "target", "performer" };
+						for (int r = 0; r < 3; ++r) {
+							const auto it = doc.find(kReqRoles[r]);
+							if (it == doc.end() || !it->is_object()) continue;
+							const auto list = it->find("requirements");
+							if (list == it->end() || !list->is_array()) continue;
+							for (const auto& x : *list) {
+								if (!x.is_string()) continue;
+								const auto name = Lower(x.get<std::string>());
+								if (name == "penis") req[r] |= 1;
+								else if (name == "hand") req[r] |= 2;
+								else if (name == "vagina") req[r] |= 4;
+								else if (name == "anus") req[r] |= 8;
+								else if (name == "mouth") req[r] |= 16;
+							}
+						}
+						g_actionReq[type] = req;
 					}
 					for (const auto& alias : doc.value("aliases", json::array())) {
 						if (alias.is_string()) g_actionAlias[Lower(alias.get<std::string>())] = type;
@@ -242,6 +264,31 @@ namespace OStimData
 			if (act.performer == a_pos && act.performer != act.actor) sum += it->second[2];
 		}
 		return known ? sum : -1.0f;
+	}
+
+	PPAContact PPAContactFor(const Scene& a_scene, int a_pos)
+	{
+		constexpr std::uint8_t kPenis = 1, kHand = 2, kHole = 4 | 8 | 16;
+		std::scoped_lock l(g_lock);
+		PPAContact out;
+		for (const auto& act : a_scene.actions) {
+			const auto it = g_actionReq.find(act.type);
+			if (it == g_actionReq.end()) continue;
+			const auto& m = it->second;
+			const int who[3] = { act.actor, act.target, act.performer };
+			const bool anyPenis = ((m[0] | m[1] | m[2]) & kPenis) != 0;
+			if (!anyPenis) continue;
+			for (int r = 0; r < 3; ++r) {
+				if (who[r] != a_pos) continue;
+				if (m[r] & kPenis) {
+					for (int o = 0; o < 3; ++o) {
+						if (o != r && who[o] >= 0 && (m[o] & (kHole | kHand))) out.genitals = true;
+					}
+				}
+				if (m[r] & kHand) out.hands = true;
+			}
+		}
+		return out;
 	}
 
 	TagList SplitCSV(std::string_view a_csv)

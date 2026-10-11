@@ -83,14 +83,25 @@ namespace Body
 			struct GenBone
 			{
 				RE::NiAVObject* node;
-				RE::NiMatrix3 rest;
+				RE::NiMatrix3 rest;   // the pose the bend is written over: taken from the bone when we first write it, and again if anything else has moved it since
 				float weight;
+				RE::NiMatrix3 written{};  // what we wrote last
+				bool has = false;         // `written` is valid: we have written this bone and not yet put it back
 			};
 			std::vector<GenBone> genitals;
 		};
 
 		std::mutex g_lock;
 		std::unordered_map<RE::FormID, State> g_states;
+
+		// PPA is driving these (from the scene's action, said by the Face engine every tick). `until` is when the claim lapses if it is not repeated.
+		struct PPAClaim
+		{
+			bool genitals = false;
+			bool hands = false;
+			float until = 0.0f;
+		};
+		std::unordered_map<RE::FormID, PPAClaim> g_ppa;  // under g_lock
 		std::atomic<std::size_t> g_count{ 0 };
 		std::string g_status = "idle";
 
@@ -225,10 +236,25 @@ namespace Body
 			top->UpdateDownwardPass(ctx, 0);
 		}
 
+		// Put the genital bones back, but only those still exactly as we wrote them. If the animation or another mod (PPA) has moved one since, it is theirs
+		// and is left as it is. Returns whether anything was written.
+		bool RestoreGenitals(State& st)
+		{
+			bool any = false;
+			for (auto& b : st.genitals) {
+				if (b.has && SameRot(b.node->local.rotate, b.written)) {
+					b.node->local.rotate = b.rest;
+					any = true;
+				}
+				b.has = false;
+			}
+			return any;
+		}
+
 		void RestoreToes(State& st)
 		{
 			for (auto& b : st.toeBones) b.node->local.rotate = b.rest;
-			for (auto& b : st.genitals) b.node->local.rotate = b.rest;
+			RestoreGenitals(st);
 			RestoreHead(st);
 		}
 
@@ -309,6 +335,32 @@ namespace Body
 		}
 		it->second.genitalTarget = level;
 		g_count = g_states.size();
+	}
+
+	void SetPPAYield(RE::Actor* a, bool genitals, bool hands)
+	{
+		if (!a) return;
+		std::scoped_lock l(g_lock);
+		const auto id = a->GetFormID();
+		const auto it = g_ppa.find(id);
+		const bool wasGenitals = it != g_ppa.end() && it->second.genitals;
+		const bool wasHands = it != g_ppa.end() && it->second.hands;
+		if (genitals != wasGenitals || hands != wasHands) {
+			if (genitals || hands) {
+				logger::info("Body: PPA is expected to be driving {:08X} {}'s {}; OSIS leaves {} alone while it does", id, a->GetDisplayFullName(),
+					genitals && hands ? "genitals and hands" : genitals ? "genitals" : "hands", genitals && hands ? "them" : "it");
+			} else {
+				logger::info("Body: PPA is no longer driving {:08X} {}; the bones are OSIS's again", id, a->GetDisplayFullName());
+			}
+		}
+		if (!genitals && !hands) {
+			if (it != g_ppa.end()) g_ppa.erase(it);
+			return;
+		}
+		auto& c = g_ppa[id];
+		c.genitals = genitals;
+		c.hands = hands;
+		c.until = Scenes::Now() + 1.5f;
 	}
 
 	void TestGenitals(RE::Actor* a)
@@ -409,6 +461,7 @@ namespace Body
 			if (a && st.root && a->Get3D1(false) == st.root) RestoreToes(st);
 		}
 		g_states.clear();
+		g_ppa.clear();
 		g_count = 0;
 		g_status = "cleared";
 	}
@@ -448,6 +501,13 @@ namespace Body
 		if (it == g_states.end()) return;
 		auto& st = it->second;
 
+		// Whatever PPA is driving is not ours to touch this frame.
+		bool ppaGenitals = false, ppaHands = false;
+		if (const auto claim = g_ppa.find(a->GetFormID()); claim != g_ppa.end() && claim->second.until >= Scenes::Now()) {
+			ppaGenitals = claim->second.genitals;
+			ppaHands = claim->second.hands;
+		}
+
 		const float t = Scenes::Now() - st.start;
 		float env;
 		if (st.magnitude <= 0.0f) env = 0.0f;  // sustained flex only: no climax curl running
@@ -471,9 +531,11 @@ namespace Body
 		auto* root = a->Get3D1(false);
 		if (env <= 0.0f && st.sustain <= 0.0f && st.genital <= 0.0f && st.tilt == 0.0f && st.tiltTarget == 0.0f) {
 			if (root && root == st.root) {
+				const bool hadGenitals = std::ranges::any_of(st.genitals, [](const auto& b) { return b.has; });
 				RestoreToes(st);
 				RE::NiUpdateData done{ 0.0f, RE::NiUpdateData::Flag::kNone };
 				for (auto* n : st.toes) n->UpdateDownwardPass(done, 0);
+				if (hadGenitals && !st.genitals.empty()) st.genitals.front().node->UpdateDownwardPass(done, 0);
 			}
 			g_states.erase(it);
 			g_count = g_states.size();
@@ -507,18 +569,26 @@ namespace Body
 			const float deg = toe ? toeDeg * k * perToe * b.scale : 0.0f;
 			b.node->local.rotate = b.rest * AxisAngle(local, deg);
 		}
-		if (hand) {
+		const bool handsOn = hand && !ppaHands;  // a hand holding a penis is PPA's while it does
+		if (handsOn) {
 			const auto r = AxisRotation(axis, fingerDeg * k);  // fingers close
 			for (auto* n : st.fingers) n->local.rotate = n->local.rotate * r;
 		}
-		// The genital chain hangs off the pelvis and no animation touches it, so the bend is
-		// written over each bone's rest pose rather than multiplied into the animated one.
-		if (genitals && st.genital > 0.0f) {
+		// The genital chain hangs off the pelvis and no animation touches it, so the bend is written over the bone's own pose rather than multiplied into the
+		// animated one. It is written only while the bend is in use, never while PPA is driving the chain (PPA animates these same six bones during
+		// penetration), and put back only if the bones are still as we left them.
+		bool genitalsTouched = false;
+		if (genitals && st.genital > 0.0f && !ppaGenitals) {
 			for (auto& b : st.genitals) {
+				// The pose to bend: what the bone holds now if anything else has moved it since we wrote it (or we never have), else the one we kept.
+				if (!(b.has && SameRot(b.node->local.rotate, b.written))) b.rest = b.node->local.rotate;
 				b.node->local.rotate = b.rest * AxisRotation(genitalAxis, genitalDeg * st.genital * b.weight);
+				b.written = b.node->local.rotate;
+				b.has = true;
 			}
-		} else {
-			for (auto& b : st.genitals) b.node->local.rotate = b.rest;
+			genitalsTouched = !st.genitals.empty();
+		} else if (RestoreGenitals(st)) {
+			genitalsTouched = true;
 		}
 		if (st.tilt != 0.0f) {
 			if (!st.tiltReported) {
@@ -537,10 +607,10 @@ namespace Body
 		if (toe || !st.toeBones.empty()) {
 			for (auto* n : st.toes) n->UpdateDownwardPass(ctx, 0);  // covers the per-toe bones below it
 		}
-		if (hand) {
+		if (handsOn) {
 			for (auto* n : st.fingers) n->UpdateDownwardPass(ctx, 0);
 		}
-		// Only the first bone needs the pass: the rest of the chain are its children.
-		if (!st.genitals.empty()) st.genitals.front().node->UpdateDownwardPass(ctx, 0);
+		// Only the first bone needs the pass: the rest of the chain are its children. And only when we wrote or put back the chain this frame.
+		if (genitalsTouched) st.genitals.front().node->UpdateDownwardPass(ctx, 0);
 	}
 }
