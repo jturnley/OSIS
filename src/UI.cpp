@@ -797,6 +797,11 @@ namespace
 				"Rolled about the line to whoever they look at, so there is no axis to set. Eased in and out; off when the scene is not consensual or in the afterglow.");
 			if (bHeadTilt) SliderF("Tilt degrees", fHeadTiltDegrees, 0.0f, 30.0f, "%.0f",
 				"How far the head rolls. About 10 reads as a tilt; past 20 the neck starts to stretch on most meshes, and an SMP head's hair and neck move more.");
+			ig::SeparatorText("With PPA");
+			Check("Leave what PPA is driving to PPA", bYieldToPPA,
+				"While PPA (Procedural Penis Animations) is installed and the scene has a penis in a mouth, vagina or anus, or in a hand, OSIS does not touch the "
+				"genital bones of whoever has it, or the fingers of whoever is holding it, for as long as that goes on. A crazed actor's head tilt also stops while PPA "
+				"has their mouth. Toes are never affected. Off: OSIS writes those bones as before, which can fight PPA.");
 			Check("Scale with style", bStyleGated, "Realistic 35%, cinematic 70%, anime 100%.");
 		}
 		{

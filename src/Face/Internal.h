@@ -36,6 +36,7 @@ namespace Face::Engine::detail
 	bool UpdateOralOverride(Thread& t, Slot& s, RE::Actor* a, int raw);
 	// Engine.cpp: hand a blowjob's mouth to PPA while it is playing its preset, take it back if it is not.
 	void UpdatePPAMouth(Thread& t, Slot& s, RE::Actor* a);
+	void UpdatePPABody(Thread& t, Slot& s, RE::Actor* a);  // which of this actor's bones PPA is expected to be driving, for the Body module
 	void EndOralOverride(Slot& s, RE::Actor* a);
 	void OverlayOralOverride(const Slot& s, std::array<float, 32>& e);
 	[[nodiscard]] int RandInt(int lo, int hi);          // inclusive, like Utility.RandomInt

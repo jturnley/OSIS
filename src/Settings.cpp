@@ -138,6 +138,7 @@ namespace Settings
 				{ "Body", "bGenitals", &Body::bGenitals },
 				{ "Body", "fGenitalDegrees", &Body::fGenitalDegrees },
 				{ "Body", "iGenitalAxis", &Body::iGenitalAxis },
+				{ "Body", "bYieldToPPA", &Body::bYieldToPPA },
 				{ "Body", "bHeadTilt", &Body::bHeadTilt },
 				{ "Body", "fHeadTiltDegrees", &Body::fHeadTiltDegrees },
 

@@ -1703,7 +1703,8 @@ namespace Face::Engine::detail
 		if (!a) return;
 		const float degrees = Settings::Body::fHeadTiltDegrees;
 		const bool on = Settings::Body::bHeadTilt && Settings::Body::bEnabled && Settings::General::bEnabled && !Compat::Disabled(Compat::kBody) && degrees > 0.0f &&
-			t.consent && Archetype(a) == Pers::kCrazed && s.dom != kDistress && s.dom != kAfterglow && !IsSleeping(t, s);
+			t.consent && Archetype(a) == Pers::kCrazed && s.dom != kDistress && s.dom != kAfterglow && !IsSleeping(t, s) &&
+			!s.ppaYield;  // PPA has their mouth: it aims the penis at the head bone, and a tilt would move the mouth off it
 		if (!on) {
 			if (s.tilting) {
 				s.tilting = false;

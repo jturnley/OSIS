@@ -22,6 +22,10 @@ namespace Body
 	// like the curl, on the animated bones, so it is the animation's pose plus the tilt. The axis is the line from the actor to who they look at.
 	void SetHeadTilt(RE::Actor* a_actor, float a_degrees, const RE::NiPoint3& a_worldAxis);
 	void TestHeadTilt(RE::Actor* a_actor);
+	// PPA is expected to be driving this actor's genital chain and/or the hands that hold a penis: Body leaves those bones entirely alone while it is
+	// (no curl on the fingers, no bend or put-back on the genitals). Say it every tick; the claim lapses after about a second and a half, which gives
+	// the bones back by itself when a scene ends. Toes and head are never part of it.
+	void SetPPAYield(RE::Actor* a_actor, bool a_genitals, bool a_hands);
 	void Test(RE::Actor* a_actor);                              // MCM crosshair / scene test
 	void ClearActor(RE::Actor* a_actor);
 	void ClearAll();
