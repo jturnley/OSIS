@@ -3,6 +3,12 @@
 ## 2.0 beta 2, hotfix 3 (plugin version 2.0.14)
 
 ### Changed
+- **The mouth hand-over to PPA no longer gives up on a mouth PPA is already driving.** From the Eldergleam reporter's log (hotfix 2): 19 hand-overs of a blowjob's mouth,
+  13 of them "nothing moved Ashe's mouth in 6 s; it is not driving it here, so the Director has it back" and only 4 "is driving" (with a phoneme change of 3.58, 1.90,
+  1.32 and 1.10, shrinking). The probe looked only for movement, but with Ahegao Expressions or OStim's own expression already holding the mouth open before the hand-over,
+  PPA's preset has little left to change, so a PPA that was driving read as one that was not, and the Director took the mouth back and wrote over it. The probe now also
+  counts the mouth as PPA's when it already holds PPA's mouth preset (read from its config: every constant phoneme near its value and, with OverridePhonemes, the others
+  at zero), and the log says "its preset's phonemes are already in place". The movement test is unchanged, and a preset whose phonemes all depend on depth is never matched this way.
 - **The pause for a female-bodied actor with a penis (a futa) now lasts the whole scene.** Hotfix 2 paused her body morphs and blush only while a blowjob, deepthroat or
   penis-licking targeted her, and the reporter's log (OSIS 2.0.13, PPA's expression system off, the same wall blowjob animation with a male and with a futa) showed it
   working at the blowjob and the SMP head's lips still not wrapping. The refreshes before the act (a handjob came first) are not excluded, so once a penis is in her part of

@@ -30,6 +30,10 @@ namespace Face::PPA
 	[[nodiscard]] bool Installed();
 	// Installed, its expression system on, and a mouth preset that sets phonemes.
 	[[nodiscard]] bool DrivesMouth();
+	// Whether the 16 phonemes as the face renders them are what PPA's mouth preset holds: every phoneme the preset sets to a constant is near its value and, when the
+	// preset says OverridePhonemes, the ones it does not set are at zero. That is PPA at work even when nothing changed since OSIS handed the mouth over (an open mouth
+	// from OStim's expression or an ahegao mod was already near it). False without a preset that sets phonemes, or one whose phonemes all depend on depth.
+	[[nodiscard]] bool MouthMatchesPreset(const std::array<float, 16>& a_phonemes);
 	// The winning mouth preset zeroes eyes and brows (OverrideModifiers) or the mood (OverrideExpressions) while
 	// it plays. Empty when it does not; otherwise says which file and which setting, and what to do about it.
 	[[nodiscard]] std::string FaceWarning();

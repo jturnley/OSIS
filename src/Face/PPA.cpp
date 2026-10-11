@@ -21,6 +21,15 @@ namespace Face::PPA
 		constexpr auto kOsisFile = "00_OSIS_PPA_Face.toml";
 		constexpr auto kMarker = "# OSIS-PPA-FACE v1";
 
+		// What a preset does to one phoneme: PPA drives it to TargetValue, or between MinTargetValue and TargetValue when the effect has penetration depths.
+		struct PhonemeRange
+		{
+			bool set = false;
+			bool scaled = false;  // depends on the depth: anywhere between lo and hi
+			float lo = 0.0f;
+			float hi = 0.0f;
+		};
+
 		// One [[FacialPreset]] that applies to the mouth: no Targets at all matches every orifice, as in PPA.
 		struct Preset
 		{
@@ -30,6 +39,8 @@ namespace Face::PPA
 			bool overrideModifiers = false;    // zeroes eyes and brows it does not set
 			bool overrideExpressions = false;  // zeroes the mood it does not set
 			bool otherEffects = false;         // an Expression or Modifier effect of its own
+			std::array<PhonemeRange, 16> ph{};  // the phonemes it sets
+			bool overridePhonemes = false;      // the phonemes it does not set are zeroed while it plays
 			bool ours = false;                 // from OSIS's own override file
 			std::vector<std::string> block;    // its lines as written, header to last effect
 		};
@@ -96,13 +107,45 @@ namespace Face::PPA
 				bool hasTargets = false;
 				bool targetsMouth = false;
 				bool inTargets = false;  // a Targets array that runs over several lines
+				struct Eff
+				{
+					bool open = false;
+					std::string type;
+					int index = -1;
+					float target = 0.0f;
+					float minTarget = 0.0f;
+					bool hasTarget = false;
+					bool scaled = false;
+				} eff;
 				Preset p;
 				bool overridePhonemes = false;
 			} cur;
 			enum class Where { kNone, kGeneral, kPreset, kEffect } where = Where::kNone;
 			const bool ours = source == kOsisFile;
 
+			// An effect is complete when the next section starts: its keys come in any order.
+			const auto commitEffect = [&] {
+				auto& e = cur.eff;
+				if (cur.open && e.open && Lower(e.type).find("phoneme") != std::string::npos && e.index >= 0 && e.index < 16 && e.hasTarget) {
+					auto& r = cur.p.ph[static_cast<std::size_t>(e.index)];
+					const float lo = std::min(e.scaled ? e.minTarget : e.target, e.target);
+					const float hi = std::max(e.scaled ? e.minTarget : e.target, e.target);
+					if (!r.set) {
+						r.set = true;
+						r.scaled = e.scaled;
+						r.lo = lo;
+						r.hi = hi;
+					} else {
+						r.scaled = r.scaled || e.scaled;
+						r.lo = std::min(r.lo, lo);
+						r.hi = std::max(r.hi, hi);
+					}
+				}
+				e = {};
+			};
+
 			const auto flush = [&] {
+				commitEffect();
 				if (cur.open && (!cur.hasTargets || cur.targetsMouth)) {
 					// Blank lines and the comment banner before the next section are not part of the preset.
 					auto& b = cur.p.block;
@@ -110,6 +153,7 @@ namespace Face::PPA
 					cur.p.source = source;
 					cur.p.ours = ours;
 					cur.p.phonemes = cur.p.phonemes || cur.overridePhonemes;
+					cur.p.overridePhonemes = cur.overridePhonemes;
 					c.mouthPresets.push_back(std::move(cur.p));
 				}
 				cur = {};
@@ -133,7 +177,9 @@ namespace Face::PPA
 						where = Where::kPreset;
 						cur.p.block.push_back(raw);
 					} else if (name == "[[facialpreset.effects]]") {
+						commitEffect();
 						where = cur.open ? Where::kEffect : Where::kNone;
+						cur.eff.open = cur.open;
 						if (cur.open) cur.p.block.push_back(raw);
 					} else {
 						flush();
@@ -175,7 +221,18 @@ namespace Face::PPA
 					}
 					break;
 				case Where::kEffect:
+					if (key == "index") {
+						cur.eff.index = static_cast<int>(std::strtol(value.c_str(), nullptr, 10));
+					} else if (key == "targetvalue") {
+						cur.eff.target = static_cast<float>(std::strtod(value.c_str(), nullptr));
+						cur.eff.hasTarget = true;
+					} else if (key == "mintargetvalue") {
+						cur.eff.minTarget = static_cast<float>(std::strtod(value.c_str(), nullptr));
+					} else if (key == "minpenetrationdepth" || key == "maxpenetrationdepth") {
+						cur.eff.scaled = true;
+					}
 					if (key == "type") {
+						cur.eff.type = value;
 						const auto type = Lower(value);
 						if (type.find("phoneme") != std::string::npos) cur.p.phonemes = true;
 						else cur.p.otherEffects = true;  // Expression, Modifier, MFEE
@@ -362,6 +419,37 @@ namespace Face::PPA
 		std::scoped_lock l(g_lock);
 		const auto* w = g_cfg.Winner();
 		return g_cfg.installed && g_cfg.readable && g_cfg.expressionSystem && w && w->phonemes;
+	}
+
+	bool MouthMatchesPreset(const std::array<float, 16>& a_phonemes)
+	{
+		constexpr float kTolerance = 0.30f;  // how far from a constant target still counts: PPA smooths towards it
+		constexpr float kQuiet = 0.20f;      // the most a phoneme the preset zeroes may hold
+		constexpr float kSignal = 0.30f;     // a constant target below this says nothing (a neutral mouth is near it)
+		std::scoped_lock l(g_lock);
+		const auto* w = g_cfg.Winner();
+		if (!g_cfg.installed || !g_cfg.readable || !g_cfg.expressionSystem || !w || !w->phonemes) return false;
+		int constants = 0;
+		float excess = 0.0f;
+		for (std::size_t i = 0; i < 16; ++i) {
+			const auto& r = w->ph[i];
+			const float v = a_phonemes[i];
+			if (!r.set) {
+				if (w->overridePhonemes) excess += std::max(0.0f, v - kQuiet);
+				continue;
+			}
+			if (r.scaled) {
+				excess += std::max(0.0f, v - (r.hi + kTolerance));
+				continue;
+			}
+			if (r.hi < kSignal) {
+				excess += std::max(0.0f, v - (r.hi + kTolerance));
+				continue;
+			}
+			++constants;
+			excess += std::max({ 0.0f, (r.lo - kTolerance) - v, v - (r.hi + kTolerance) });
+		}
+		return constants > 0 && excess <= 0.15f;
 	}
 
 	std::string FaceWarning()

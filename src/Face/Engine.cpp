@@ -715,12 +715,23 @@ namespace Face::Engine
 				return;
 			}
 			std::array<float, Output::kPhonemes> cur{};
-			if (s.ppaBaseSet && Output::ReadPhonemes(a, cur)) {
+			static_assert(Output::kPhonemes == 16);
+			if (Output::ReadPhonemes(a, cur)) {
 				float change = 0.0f;
-				for (std::size_t i = 0; i < cur.size(); ++i) change += std::abs(cur[i] - s.ppaBase[i]);
-				if (change >= kChange) {
+				if (s.ppaBaseSet) {
+					for (std::size_t i = 0; i < cur.size(); ++i) change += std::abs(cur[i] - s.ppaBase[i]);
+				}
+				// A change is PPA at work. So is a mouth that already holds PPA's preset: with an ahegao mod or OStim's own expression holding the mouth open
+				// before the hand-over, PPA has little left to change, and a probe that only looked for movement gave up on it 13 times in 19 in one log.
+				const bool matches = PPA::MouthMatchesPreset(cur);
+				if (change >= kChange || matches) {
 					s.ppaSeen = true;
-					logger::info("PPA: is driving {}'s mouth ({:.2f} phoneme change, {:.1f} s after the hand-over)", a->GetDisplayFullName(), change, now - s.ppaSince);
+					if (change >= kChange) {
+						logger::info("PPA: is driving {}'s mouth ({:.2f} phoneme change, {:.1f} s after the hand-over)", a->GetDisplayFullName(), change, now - s.ppaSince);
+					} else {
+						logger::info("PPA: is driving {}'s mouth (its preset's phonemes are already in place, {:.2f} change, {:.1f} s after the hand-over)", a->GetDisplayFullName(),
+							change, now - s.ppaSince);
+					}
 					return;
 				}
 			}

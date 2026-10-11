@@ -142,6 +142,11 @@ Head tilt (`Body::SetHeadTilt`, from `Face::Engine::UpdateCrazedTilt`): `ApplyTi
 partner), taken into each bone's parent frame with `ToLocal` before either changes, so the two add up to one rotation at the head. It runs after the animation update like the
 curl and keeps the animation's pose (`FreshPose`) to avoid stacking if the animation did not rewrite the bone. Local axes of Skyrim's head bone are not relied on.
 
+`Face::Engine::UpdatePPAMouth` hands a blowjob giver's mouth to PPA and watches whether PPA is really driving it: a summed phoneme change of 0.6 since the hand-over, or (since
+hotfix 3) the phonemes already matching PPA's winning mouth preset (`PPA::MouthMatchesPreset`, from the preset's `Phoneme` effects: each constant target within 0.30, the
+phonemes it does not set at most 0.20 when `OverridePhonemes`, a summed excess of at most 0.15; depth-scaled phonemes only bound the top). If neither shows within 6 s the mouth
+goes back to the Director and is offered again after 15 s.
+
 ## Body types
 Arousal morph rows and blush regions carry a `type` (`Settings::Arousal::BodyType`: any, CBBE/3BA, UBE). `IsUBE` in `Arousal.cpp` reads the
 race: an editor ID starting `00ube_`, or a name ending ` UBE` (UBE_AllRace.esp's 18 races), and `BodyMatch` keeps each row to its body. UBE
