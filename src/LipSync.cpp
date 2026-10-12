@@ -5,6 +5,8 @@
 
 #include "LipSync.h"
 
+#include "Debug.h"
+
 #include <deque>
 
 #include "Compat.h"
@@ -532,8 +534,20 @@ namespace LipSync
 			std::uint32_t soundID = 0;
 			float start = 0.0f;   // when the clip began, in scene time
 			float seen = 0.0f;    // last tick it was still playing, for pruning
+			float dur = 0.0f;     // how long the clip is
 		};
 		std::unordered_map<RE::FormID, ActiveClip> g_clips;
+
+		// Why this actor's mouth is not following a moan, said when it changes (main thread only, like Poll).
+		std::unordered_map<RE::FormID, std::string> g_wait;
+		void NoteWait(RE::Actor* a_actor, const char* a_why)
+		{
+		if (!Debug::On()) return;
+		auto& last = g_wait[a_actor->GetFormID()];
+			if (last == a_why) return;
+			last = a_why;
+			Debug::Log(Debug::Cat::Mouth, "{}: lip-sync does not follow the moan: {}", Debug::Label(a_actor), a_why);
+		}
 	}
 
 	void OnDataLoaded()
@@ -659,9 +673,15 @@ namespace LipSync
 #if !OSIS_LITE
 			// A victim's moans are muted: no mouth to move.
 			if (!IsOwnSound(p.soundID)) {
-				if (Voice::IsSilenced(owner)) continue;
+				if (Voice::IsSilenced(owner)) {
+					NoteWait(owner, "the victim's moans are muted");
+					continue;
+				}
 				// OStim's plain moans are muted for the Director takeover: no mouth to move for a silent sound.
-				if (TakenOver(owner, p.key)) continue;
+				if (TakenOver(owner, p.key)) {
+					NoteWait(owner, "OStim's moan is muted for the Director's own");
+					continue;
+				}
 			}
 #endif
 			// Oral / dialogue: the mouth belongs to the animation or the voice line.
@@ -669,6 +689,7 @@ namespace LipSync
 			auto* s = t ? t->Find(owner) : nullptr;
 			if (s && (s->exprOverride || (s->externalMouthUntil > now))) {
 				++g_stats.mouthBusy;
+				NoteWait(owner, s->exprOverride ? "OStim's expression override (an oral or kiss pose) holds the mouth" : "another mod holds the mouth (SLED_LipSyncMouth)");
 				continue;
 			}
 			// PPA is playing its mouth preset on this actor (a blowjob). A moan's phonemes are written over whatever the
@@ -677,11 +698,13 @@ namespace LipSync
 			if (s && s->ppaYield) {
 				Face::Output::ClearMouthTrack(owner);
 				++g_stats.mouthBusy;
+				NoteWait(owner, "PPA has the mouth");
 				continue;
 			}
 			// An ahegao mod owns this face; leave its mouth alone entirely.
 			if (s && s->tongueOut && !s->tongueOn) {
 				++g_stats.tongueOut;
+				NoteWait(owner, "another mod's tongue is out (an ahegao mod owns this face)");
 				continue;
 			}
 			// Our own tongue is out: closing lips over it make it clip through the mouth.
@@ -689,6 +712,7 @@ namespace LipSync
 				if (tongueMode == Settings::LipSync::kTongueStop) {
 					Face::Output::ClearMouthTrack(owner);
 					++g_stats.tongueOut;
+					NoteWait(owner, "our tongue is out (tongue mode: stop the mouth)");
 					continue;
 				}
 				params.minOpen = tongueMinOpen;  // Hold open: keep the lips clear of it
@@ -717,6 +741,9 @@ namespace LipSync
 				if (fresh || (jumped && midClip)) {
 					clip.soundID = p.soundID;
 					clip.start = reported;
+					clip.dur = env->Duration();
+					g_wait.erase(owner->GetFormID());
+					Debug::Log(Debug::Cat::Mouth, "{}: moan clip {} (sound {}), {:.2f} s long, {:.2f} s in", Debug::Label(owner), fresh ? "starts" : "re-anchored", p.soundID, env->Duration(), pos);
 				}
 				clip.seen = now;
 				start = clip.start;
@@ -745,6 +772,25 @@ namespace LipSync
 		} else if (!g_stats.clips) {
 			g_stats.windowStart = now;
 		}
+	}
+
+	std::string Describe(RE::Actor* a)
+	{
+		if (!a) return "none";
+		const float now = Scenes::Now();
+		std::scoped_lock l(g_lock);
+		const auto id = a->GetFormID();
+		std::string clip = "no clip yet";
+		if (const auto it = g_clips.find(id); it != g_clips.end()) {
+			const auto& c = it->second;
+			const float el = now - c.start;
+			clip = el < c.dur ? std::format("clip {:.1f}/{:.1f} s (sound {})", el, c.dur, c.soundID) : std::format("last clip ended {:.1f} s ago", el - c.dur);
+		}
+		float busy = 0.0f;
+		if (const auto b = g_busy.find(id); b != g_busy.end()) busy = std::max(0.0f, b->second - now);
+		const auto w = g_wait.find(id);
+		return std::format("{} | an OStim voice-set sound is expected for {:.1f} s more | mouth track {} | does not follow: {}", clip, busy,
+			Face::Output::HasMouthOverride(a) ? "playing" : "none", w != g_wait.end() ? w->second : std::string("-"));
 	}
 
 	std::string Status()

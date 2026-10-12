@@ -5,6 +5,8 @@
 
 #include "Settings.h"
 
+#include "Debug.h"
+
 namespace Settings
 {
 	namespace
@@ -32,6 +34,7 @@ namespace Settings
 				{ "General", "bPulseBus", &General::bPulseBus },
 				{ "General", "bAnimationHooks", &General::bAnimationHooks },
 				{ "General", "bDebug", &General::bDebug },
+				{ "General", "fDebugSnapshotSeconds", &General::fDebugSnapshotSeconds },
 				{ "General", "iSettingsRevision", &General::iSettingsRevision },
 
 				{ "Face", "bEnabled", &Face::bEnabled },
@@ -239,6 +242,7 @@ namespace Settings
 			Face::iPlayerPersonality = std::clamp(Face::iPlayerPersonality, -1, 8);
 			Face::fNewPersonalityShare = std::clamp(Face::fNewPersonalityShare, 0.0f, 1.0f);
 			Face::fWildExcitementMult = std::clamp(Face::fWildExcitementMult, 0.5f, 2.0f);
+			General::fDebugSnapshotSeconds = std::clamp(General::fDebugSnapshotSeconds, 0.25f, 30.0f);
 			Face::fStoicExcitementMult = std::clamp(Face::fStoicExcitementMult, 0.1f, 1.0f);
 			Face::fSubmissiveRoughMult = std::clamp(Face::fSubmissiveRoughMult, 0.5f, 2.0f);
 			Face::fControlMaxHold = std::clamp(Face::fControlMaxHold, 20.0f, 600.0f);
@@ -462,7 +466,7 @@ namespace Settings
 			SaveIni();
 		}
 		LoadTables();
-		spdlog::set_level(General::bDebug ? spdlog::level::debug : spdlog::level::info);
+		Debug::SetEnabled(General::bDebug);
 	}
 
 	namespace
@@ -475,7 +479,8 @@ namespace Settings
 			static const std::unordered_map<std::string, std::string> notes = {
 				{ "General",
 					"; Master switches. Everything here is also on the SKSE Menu Framework pages (default key F1).\n"
-					"; bAnimationHooks is read at startup: leave it on unless another mod's hook on the same calls conflicts." },
+					"; bAnimationHooks is read at startup: leave it on unless another mod's hook on the same calls conflicts.\n"
+					"; bDebug writes OSIS-Debug.log next to OSIS.log: everything OSIS does or decides, one line each, and a line per actor every fDebugSnapshotSeconds. The last session's file is kept as OSIS-Debug.previous.log." },
 				{ "Face", "; Face engine. iMode: 0 Assist, 1 Enhanced, 2 Director (OSED owns the face). fStyle: 0 realistic, 1 cinematic, 2 anime." },
 				{ "Body", "; Toe curl / hand grip at climax. iCurlAxis: 0 X, 1 Y, 2 Z (bone-local)." },
 				{ "Skin",
@@ -506,6 +511,40 @@ namespace Settings
 			}
 			if (const auto it = notes.find(section); it != notes.end()) note += it->second;
 			return note;
+		}
+
+
+		std::string ValueText(const Ref& a_ref)
+		{
+			return std::visit(
+				[](auto* p) -> std::string {
+					using T = std::remove_pointer_t<decltype(p)>;
+					if constexpr (std::is_same_v<T, bool>) return *p ? "true" : "false";
+					else if constexpr (std::is_same_v<T, float>) return std::format("{:.3f}", *p);
+					else if constexpr (std::is_same_v<T, std::string>) return *p;
+					else return std::to_string(*p);
+				},
+				a_ref);
+		}
+
+		// What the trace last said each setting was, so a change made in the menu is one line: "Face.fWildExcitementMult: 1.500 -> 1.300".
+		std::map<std::string, std::string> g_traced;
+
+		void LogChanges()
+		{
+			if (!Debug::On()) return;
+			std::scoped_lock l(lock);
+			for (const auto& b : Bindings()) {
+				const std::string key = std::string(b.section) + "." + b.key;
+				auto value = ValueText(b.ref);
+				auto it = g_traced.find(key);
+				if (it == g_traced.end()) {
+					g_traced.emplace(key, std::move(value));
+				} else if (it->second != value) {
+					Debug::Log(Debug::Cat::Settings, "{}: {} -> {}", key, it->second, value);
+					it->second = std::move(value);
+				}
+			}
 		}
 
 		bool SaveIni()
@@ -545,8 +584,20 @@ namespace Settings
 				logger::error("Failed to write {}", kIniPath);
 				return false;
 			}
+			LogChanges();
 			return true;
 		}
+	}
+
+	std::vector<std::pair<std::string, std::string>> DumpAll()
+	{
+		std::scoped_lock l(lock);
+		std::vector<std::pair<std::string, std::string>> out;
+		for (const auto& b : Bindings()) {
+			out.emplace_back(std::string(b.section) + "." + b.key, ValueText(b.ref));
+			g_traced[out.back().first] = out.back().second;
+		}
+		return out;
 	}
 
 	bool Save()

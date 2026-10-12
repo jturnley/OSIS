@@ -5,7 +5,7 @@
 
 #include "Scenes.h"
 
-
+#include "Debug.h"
 #include "Face/Engine.h"
 #include "Face/Output.h"
 #include "Papyrus.h"
@@ -74,6 +74,15 @@ namespace Scenes
 				s.painted = Face::Engine::IsHuman(a) && (s.player || includeNPCs) && !a->IsChild();
 				next.push_back(std::move(s));
 			}
+			if (Debug::On()) {
+				auto text = [](const std::vector<Slot>& v) {
+					std::string out;
+					for (const auto& sl : v) out += std::format("{}{}: {} {}{}{}", out.empty() ? "" : " | ", sl.pos, Debug::Label(sl.id), sl.female ? "F" : "M", sl.player ? " player" : "", sl.painted ? "" : " (not painted)");
+					return out;
+				};
+				const auto before = text(t.slots), after = text(next);
+				if (before != after) Debug::Log(Debug::Cat::Scene, "thread {}: actors now {}", t.id, after);
+			}
 			// actors that left the thread go back to neutral
 			for (auto& old : t.slots) {
 				const bool kept = std::ranges::any_of(next, [&](const Slot& n) { return n.id == old.id; });
@@ -109,9 +118,10 @@ namespace Scenes
 			auto it = g_threads.find(tid);
 			if (it == g_threads.end()) return;
 			auto& t = it->second;
-#if !OSIS_LITE
+			Debug::Log(Debug::Cat::Scene, "thread {} ended ({} actor(s), {:.0f} s)", tid, t.slots.size(), t.start > 0.0f ? Now() - t.start : 0.0f);
+			#if !OSIS_LITE
 			SpellCast::ThreadEnded(t.spellVictims);
-#endif
+			#endif
 			if (t.active) Face::Engine::EndScene(t);
 			else {
 				for (auto& s : t.slots) ClearSlot(t, s);
@@ -145,6 +155,7 @@ namespace Scenes
 					if (first) t.spellVictims = SpellCast::StartedBySpell(list);
 #endif
 					if (!WithinRange(t)) {
+						Debug::Log(Debug::Cat::Scene, "thread {}: not directed (no player in it, and NPC-only scenes are off or too far away)", tid);
 						if (t.active) Face::Engine::EndScene(t);
 						t.active = false;
 						return;
@@ -163,8 +174,10 @@ namespace Scenes
 					auto it = g_threads.find(tid);
 					if (it == g_threads.end() || it->second.sceneID == scene) return;
 					auto& t = it->second;
+					Debug::Log(Debug::Cat::Scene, "thread {}: node {} -> {}", t.id, t.sceneID.empty() ? "(none)" : t.sceneID, scene);
 					t.sceneID = scene;
 					t.meta = OStimData::GetScene(scene);
+					if (Debug::On()) Debug::Log(Debug::Cat::Scene, "thread {}: {}", t.id, Debug::SceneText(t.meta));
 					if (t.active) Face::Engine::OnSceneChanged(t);
 				});
 			});
@@ -172,7 +185,10 @@ namespace Scenes
 				Task([tid, gen, speed]() {
 					std::scoped_lock l(g_lock);
 					if (gen != g_generation) return;
-					if (auto it = g_threads.find(tid); it != g_threads.end()) it->second.speed = speed;
+					if (auto it = g_threads.find(tid); it != g_threads.end()) {
+						if (it->second.speed != speed) Debug::Log(Debug::Cat::Scene, "thread {}: speed {} -> {}", tid, it->second.speed, speed);
+						it->second.speed = speed;
+					}
 				});
 			});
 		}
@@ -230,6 +246,7 @@ namespace Scenes
 			t = Thread{};
 			t.id = tid;
 			t.start = Now();
+			Debug::Log(Debug::Cat::Scene, "thread {} started", tid);
 			t.leadin = true;
 			t.normalPreWindow = true;
 			t.normalProbe = "thread-start";
@@ -249,8 +266,10 @@ namespace Scenes
 			}
 			auto& t = it->second;
 			if (!scene.empty() && scene != t.sceneID) {
+				Debug::Log(Debug::Cat::Scene, "thread {}: node {} -> {}", t.id, t.sceneID.empty() ? "(none)" : t.sceneID, scene);
 				t.sceneID = scene;
 				t.meta = OStimData::GetScene(scene);
+				if (Debug::On()) Debug::Log(Debug::Cat::Scene, "thread {}: {}", t.id, Debug::SceneText(t.meta));
 				if (t.active) Face::Engine::OnSceneChanged(t);
 			}
 			Refresh(tid);  // actor list can change with the scene (actors join/leave)
@@ -262,6 +281,7 @@ namespace Scenes
 			auto it = g_threads.find(tid);
 			auto* a = RE::TESForm::LookupByID<RE::Actor>(actorID);
 			if (it == g_threads.end() || !a || !it->second.active) return;
+			Debug::Log(Debug::Cat::Climax, "thread {}: OStim reports the orgasm of {}", tid, Debug::Label(a));
 			Face::Engine::OnOrgasm(it->second, a);
 #if !OSIS_LITE
 			Moans::OnOrgasm(a);
@@ -279,6 +299,10 @@ namespace Scenes
 				const float num = e->numArg;
 				const RE::FormID sender = e->sender ? e->sender->GetFormID() : 0;
 				const int tid = static_cast<int>(num);
+
+				if (Debug::On() && (name.starts_with("ostim_") || name.starts_with("SLED_") || name.starts_with("OSED_"))) {
+					Debug::Log(Debug::Cat::Event, "{} str='{}' num={:.2f} sender={}", name, str, num, Debug::Label(sender));
+				}
 
 				if (name == "ostim_thread_start") Task([tid]() { OnThreadStart(tid); });
 				else if (name == "ostim_thread_scenechanged") Task([tid, str]() { OnSceneChanged(tid, str); });
@@ -370,6 +394,7 @@ namespace Scenes
 		for (auto& [id, t] : g_threads) {
 			if (!t.active || now < t.nextTick) continue;
 			if (!WithinRange(t)) {
+				Debug::Log(Debug::Cat::Scene, "thread {}: out of range now, no longer directed", id);
 				Face::Engine::EndScene(t);
 				t.active = false;
 				continue;
@@ -429,6 +454,13 @@ namespace Scenes
 			for (auto& s : t.slots) {
 				if (auto* a = s.Get()) a_fn(a, s);
 			}
+		}
+	}
+
+	void ForEachThread(const std::function<void(const Thread&)>& a_fn)
+	{
+		for (auto& [id, t] : g_threads) {
+			if (t.active) a_fn(t);
 		}
 	}
 

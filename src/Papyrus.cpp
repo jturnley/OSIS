@@ -5,6 +5,8 @@
 
 #include "Papyrus.h"
 
+#include "Debug.h"
+
 namespace Papyrus
 {
 	namespace
@@ -104,23 +106,27 @@ namespace Papyrus
 	// ------------------------------------------------------------ NiOverride
 	void SetBodyMorph(RE::Actor* a_actor, const std::string& a_morph, const char* a_key, float a_value)
 	{
+		Debug::Log(Debug::Cat::Papyrus, "NiOverride.SetBodyMorph {} {} [{}] = {:.3f}", Debug::Label(a_actor), a_morph, a_key, a_value);
 		CallStatic("NiOverride", "SetBodyMorph",
 			RE::MakeFunctionArguments(Ref(a_actor), RE::BSFixedString(a_morph), RE::BSFixedString(a_key), std::move(a_value)));
 	}
 
 	void ClearBodyMorph(RE::Actor* a_actor, const std::string& a_morph, const char* a_key)
 	{
+		Debug::Log(Debug::Cat::Papyrus, "NiOverride.ClearBodyMorph {} {} [{}]", Debug::Label(a_actor), a_morph, a_key);
 		CallStatic("NiOverride", "ClearBodyMorph",
 			RE::MakeFunctionArguments(Ref(a_actor), RE::BSFixedString(a_morph), RE::BSFixedString(a_key)));
 	}
 
 	void ClearBodyMorphKeys(RE::Actor* a_actor, const char* a_key)
 	{
+		Debug::Log(Debug::Cat::Papyrus, "NiOverride.ClearBodyMorphKeys {} [{}]", Debug::Label(a_actor), a_key);
 		CallStatic("NiOverride", "ClearBodyMorphKeys", RE::MakeFunctionArguments(Ref(a_actor), RE::BSFixedString(a_key)));
 	}
 
 	void UpdateModelWeight(RE::Actor* a_actor)
 	{
+		Debug::Log(Debug::Cat::Papyrus, "NiOverride.UpdateModelWeight {} (a refresh of the whole body)", Debug::Label(a_actor));
 		CallStatic("NiOverride", "UpdateModelWeight", RE::MakeFunctionArguments(Ref(a_actor)));
 	}
 
@@ -138,6 +144,7 @@ namespace Papyrus
 
 	void AddOverlays(RE::Actor* a_actor)
 	{
+		Debug::Log(Debug::Cat::Papyrus, "NiOverride.AddOverlays {}", Debug::Label(a_actor));
 		CallStatic("NiOverride", "AddOverlays", RE::MakeFunctionArguments(Ref(a_actor)));
 	}
 
@@ -145,6 +152,7 @@ namespace Papyrus
 	// these calls, and RaceMenu only replays stored overrides onto new nodes.
 	void SetOverlayTexture(RE::Actor* a_actor, bool a_female, const std::string& a_node, const std::string& a_texture)
 	{
+		Debug::Log(Debug::Cat::Papyrus, "NiOverride overlay texture {} {} = {}", Debug::Label(a_actor), a_node, a_texture);
 		CallStatic("NiOverride", "AddNodeOverrideString",
 			RE::MakeFunctionArguments(Ref(a_actor), std::move(a_female), RE::BSFixedString(a_node), std::int32_t{ kTexture },
 				std::int32_t{ 0 }, RE::BSFixedString(a_texture), true));
@@ -152,6 +160,7 @@ namespace Papyrus
 
 	void SetOverlayTint(RE::Actor* a_actor, bool a_female, const std::string& a_node, std::int32_t a_rgb)
 	{
+		Debug::Log(Debug::Cat::Papyrus, "NiOverride overlay tint {} {} = {:06X}", Debug::Label(a_actor), a_node, static_cast<std::uint32_t>(a_rgb) & 0xFFFFFFu);
 		CallStatic("NiOverride", "AddNodeOverrideInt",
 			RE::MakeFunctionArguments(Ref(a_actor), std::move(a_female), RE::BSFixedString(a_node), std::int32_t{ kTintColor },
 				std::int32_t{ -1 }, std::move(a_rgb), true));
@@ -159,6 +168,7 @@ namespace Papyrus
 
 	void SetOverlayAlpha(RE::Actor* a_actor, bool a_female, const std::string& a_node, float a_alpha)
 	{
+		Debug::Log(Debug::Cat::Papyrus, "NiOverride overlay alpha {} {} = {:.2f}", Debug::Label(a_actor), a_node, a_alpha);
 		CallStatic("NiOverride", "AddNodeOverrideFloat",
 			RE::MakeFunctionArguments(Ref(a_actor), std::move(a_female), RE::BSFixedString(a_node), std::int32_t{ kAlpha },
 				std::int32_t{ -1 }, std::move(a_alpha), true));
@@ -166,6 +176,7 @@ namespace Papyrus
 
 	void SetOverlayGloss(RE::Actor* a_actor, bool a_female, const std::string& a_node, float a_glossiness, float a_specular)
 	{
+		Debug::Log(Debug::Cat::Papyrus, "NiOverride overlay gloss {} {} = {:.2f}, specular {:.2f}", Debug::Label(a_actor), a_node, a_glossiness, a_specular);
 		CallStatic("NiOverride", "AddNodeOverrideFloat",
 			RE::MakeFunctionArguments(Ref(a_actor), std::move(a_female), RE::BSFixedString(a_node), std::int32_t{ kGlossiness },
 				std::int32_t{ -1 }, std::move(a_glossiness), true));
@@ -176,6 +187,7 @@ namespace Papyrus
 
 	void SetOverlayMatte(RE::Actor* a_actor, bool a_female, const std::string& a_node)
 	{
+		Debug::Log(Debug::Cat::Papyrus, "NiOverride overlay matte {} {}", Debug::Label(a_actor), a_node);
 		// No glow or shine, so the overlay reads as colour in the skin rather than a sheen.
 		CallStatic("NiOverride", "AddNodeOverrideInt",
 			RE::MakeFunctionArguments(Ref(a_actor), std::move(a_female), RE::BSFixedString(a_node), std::int32_t{ kEmissiveColor },
@@ -185,6 +197,7 @@ namespace Papyrus
 
 	void ClearOverlay(RE::Actor* a_actor, bool a_female, const std::string& a_node)
 	{
+		Debug::Log(Debug::Cat::Papyrus, "NiOverride overlay cleared {} {}", Debug::Label(a_actor), a_node);
 		// Blank the slot (default texture, invisible) so other mods see it as free.
 		// Deliberately no RemoveNodeOverride: VM calls are not strictly ordered, and a
 		// late Remove would wipe an overlay that was just re-added to the same slot.
@@ -223,6 +236,7 @@ namespace Papyrus
 
 	void SetExpressionsEnabled(RE::Actor* a_actor, bool a_enabled, bool a_allowOverride)
 	{
+		Debug::Log(Debug::Cat::Papyrus, "OActor.SetExpressionsEnabled {} enabled={} allowOverride={}", Debug::Label(a_actor), a_enabled, a_allowOverride);
 		CallStatic("OActor", "SetExpressionsEnabled", RE::MakeFunctionArguments(std::move(a_actor), std::move(a_enabled), std::move(a_allowOverride)));
 	}
 
@@ -234,6 +248,7 @@ namespace Papyrus
 
 	void PlayExpression(RE::Actor* a_actor, const std::string& a_event, std::function<void(float)> a_done)
 	{
+		Debug::Log(Debug::Cat::Papyrus, "OActor.PlayExpression {} event={}", Debug::Label(a_actor), a_event);
 		Result cb;
 		if (a_done) cb = [done = std::move(a_done)](const RE::BSScript::Variable& v) { done(AsFloat(v)); };
 		CallStatic("OActor", "PlayExpression", RE::MakeFunctionArguments(std::move(a_actor), RE::BSFixedString(a_event)), std::move(cb));
@@ -241,11 +256,13 @@ namespace Papyrus
 
 	void ClearExpression(RE::Actor* a_actor)
 	{
+		Debug::Log(Debug::Cat::Papyrus, "OActor.ClearExpression {}", Debug::Label(a_actor));
 		CallStatic("OActor", "ClearExpression", RE::MakeFunctionArguments(std::move(a_actor)));
 	}
 
 	void EquipObject(RE::Actor* a_actor, const char* a_type, std::function<void(bool)> a_done)
 	{
+		Debug::Log(Debug::Cat::Papyrus, "OActor.EquipObject {} {}", Debug::Label(a_actor), a_type);
 		Result cb;
 		if (a_done) cb = [done = std::move(a_done)](const RE::BSScript::Variable& v) { done(AsBool(v)); };
 		CallStatic("OActor", "EquipObject", RE::MakeFunctionArguments(std::move(a_actor), RE::BSFixedString(a_type)), std::move(cb));
@@ -253,6 +270,7 @@ namespace Papyrus
 
 	void UnequipObject(RE::Actor* a_actor, const char* a_type)
 	{
+		Debug::Log(Debug::Cat::Papyrus, "OActor.UnequipObject {} {}", Debug::Label(a_actor), a_type);
 		CallStatic("OActor", "UnequipObject", RE::MakeFunctionArguments(std::move(a_actor), RE::BSFixedString(a_type)));
 	}
 
@@ -270,26 +288,31 @@ namespace Papyrus
 
 	void SetExcitementMultiplier(RE::Actor* a_actor, float a_multiplier)
 	{
+		Debug::Log(Debug::Cat::Papyrus, "OActor.SetExcitementMultiplier {} x{:.3f}", Debug::Label(a_actor), a_multiplier);
 		CallStatic("OActor", "SetExcitementMultiplier", RE::MakeFunctionArguments(std::move(a_actor), std::move(a_multiplier)));
 	}
 
 	void ModifyExcitement(RE::Actor* a_actor, float a_amount)
 	{
+		Debug::Log(Debug::Cat::Papyrus, "OActor.ModifyExcitement {} {:+.2f}", Debug::Label(a_actor), a_amount);
 		CallStatic("OActor", "ModifyExcitement", RE::MakeFunctionArguments(std::move(a_actor), std::move(a_amount), false));
 	}
 
 	void StallClimax(RE::Actor* a_actor)
 	{
+		Debug::Log(Debug::Cat::Papyrus, "OActor.StallClimax {}", Debug::Label(a_actor));
 		CallStatic("OActor", "StallClimax", RE::MakeFunctionArguments(std::move(a_actor)));
 	}
 
 	void PermitClimax(RE::Actor* a_actor)
 	{
+		Debug::Log(Debug::Cat::Papyrus, "OActor.PermitClimax {}", Debug::Label(a_actor));
 		CallStatic("OActor", "PermitClimax", RE::MakeFunctionArguments(std::move(a_actor)));
 	}
 
 	void ForceClimax(RE::Actor* a_actor)
 	{
+		Debug::Log(Debug::Cat::Papyrus, "OActor.Climax {} (forced)", Debug::Label(a_actor));
 		CallStatic("OActor", "Climax", RE::MakeFunctionArguments(std::move(a_actor), true));
 	}
 
@@ -332,11 +355,13 @@ namespace Papyrus
 
 	void NavigateTo(std::int32_t a_thread, const std::string& a_scene)
 	{
+		Debug::Log(Debug::Cat::Papyrus, "OThread.NavigateTo thread {} -> {}", a_thread, a_scene);
 		CallStatic("OThread", "NavigateTo", RE::MakeFunctionArguments(std::move(a_thread), RE::BSFixedString(a_scene)));
 	}
 
 	void WarpTo(std::int32_t a_thread, const std::string& a_scene, bool a_fades)
 	{
+		Debug::Log(Debug::Cat::Papyrus, "OThread.WarpTo thread {} -> {} fades={}", a_thread, a_scene, a_fades);
 		CallStatic("OThread", "WarpTo", RE::MakeFunctionArguments(std::move(a_thread), RE::BSFixedString(a_scene), std::move(a_fades)));
 	}
 
@@ -348,22 +373,26 @@ namespace Papyrus
 
 	void StartAutoMode(std::int32_t a_thread)
 	{
+		Debug::Log(Debug::Cat::Papyrus, "OThread.StartAutoMode thread {}", a_thread);
 		CallStatic("OThread", "StartAutoMode", RE::MakeFunctionArguments(std::move(a_thread)));
 	}
 
 	void StopAutoMode(std::int32_t a_thread)
 	{
+		Debug::Log(Debug::Cat::Papyrus, "OThread.StopAutoMode thread {}", a_thread);
 		CallStatic("OThread", "StopAutoMode", RE::MakeFunctionArguments(std::move(a_thread)));
 	}
 
 	// ------------------------------------------------------------ victim voice
 	void StartCombat(RE::Actor* a_who, RE::Actor* a_target)
 	{
+		Debug::Log(Debug::Cat::Papyrus, "StartCombat {} on {}", Debug::Label(a_who), Debug::Label(a_target));
 		CallMethod(a_who, "Actor", "StartCombat", RE::MakeFunctionArguments(std::move(a_target)));
 	}
 
 	void StopCombat(RE::Actor* a_actor)
 	{
+		Debug::Log(Debug::Cat::Papyrus, "StopCombat {}", Debug::Label(a_actor));
 		CallMethod(a_actor, "Actor", "StopCombat", RE::MakeFunctionArguments());
 	}
 
@@ -374,6 +403,7 @@ namespace Papyrus
 
 	void MuteOStim(RE::Actor* a_actor)
 	{
+		Debug::Log(Debug::Cat::Papyrus, "OActor.Mute {}", Debug::Label(a_actor));
 		CallStatic("OActor", "Mute", RE::MakeFunctionArguments(std::move(a_actor)));
 	}
 

@@ -41,5 +41,7 @@ namespace Skin
 	// How many slots the enabled effects with a texture actually need.
 	[[nodiscard]] int FaceSlotsNeeded();   // skee64.ini [Overlays/Face] iNumOverlays
 	[[nodiscard]] std::string Status();
+	// For the debug trace: which overlays this actor has on, and their slots.
+	[[nodiscard]] std::string Describe(RE::Actor* a_actor);
 	[[nodiscard]] std::string ResolvedPath(int a_effect);  // 0 blush, 1 saliva, 2 tear
 }

@@ -22,7 +22,8 @@ namespace Settings
 		inline float fNPCSceneRadius = 4000.0f;  // NPC-only scenes farther than this are ignored
 		inline bool bPulseBus = true;         // emit SLED_* / OSED_* mod events for other mods
 		inline bool bAnimationHooks = true;   // per-frame face/toe writes after animation (read at startup)
-		inline bool bDebug = false;
+		inline bool bDebug = false;           // the debug trace, OSIS-Debug.log (Debug.h): everything the plugin does or decides
+		inline float fDebugSnapshotSeconds = 1.0f;  // how often the trace says where every actor stands
 		inline int iSettingsRevision = 1;     // an INI without it was written by an older version: revision 1 resets the player's personality to Balanced, once
 		inline std::atomic_bool bResetPlayerPin = false;  // set when this run did that: the cosave's automatic personality for the player is dropped on load
 	}
@@ -322,6 +323,8 @@ namespace Settings
 
 	void Load();
 	bool Save();
+	// Every persisted setting as "Section.key" and its value as the INI would write it, for the debug trace.
+	[[nodiscard]] std::vector<std::pair<std::string, std::string>> DumpAll();
 	// Startup: write OSIS.ini and morphs.json when missing, and add to the INI any setting it lacks.
 	void EnsureFiles();
 	void LoadTables();

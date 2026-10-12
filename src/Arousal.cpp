@@ -4,6 +4,7 @@
 // repository. Distributed WITHOUT ANY WARRANTY. <https://www.gnu.org/licenses/>
 
 #include "Arousal.h"
+#include "Debug.h"
 
 #include "Body.h"
 #include "Compat.h"
@@ -508,6 +509,23 @@ namespace Arousal
 		}
 	}
 
+	std::string Describe(RE::Actor* a)
+	{
+		if (!a) return "none";
+		std::scoped_lock l(g_stateLock);
+		const auto it = g_states.find(a->GetFormID());
+		if (it == g_states.end()) return "not tracked";
+		const auto& st = it->second;
+		std::string blush;
+		for (std::size_t i = 0; i < st.blushNodes.size(); ++i) {
+			blush += std::format("{}{}={:.2f}", blush.empty() ? "" : " ", st.blushNodes[i], i < st.blushAlpha.size() ? st.blushAlpha[i] : 0.0f);
+		}
+		return std::format("arousal {:.0f}{} ({}) target {:.2f} level {:.3f} shown {:.2f} | OStim excitement {:.2f} rising {:.3f}/s boost {:.2f} | flushMult {:.2f} faceFlush {:.2f} blushGate {:.2f} | "
+						   "personality {} | futa-paused={} seen={} | {} morph(s) set | body blush [{}]",
+			st.arousal, st.haveArousal ? "" : " (none from a mod)", st.why, st.target, st.level, st.shown, st.exc, st.excRate, st.boost, st.flushMult, st.faceFlush, st.blushGate,
+			Face::Engine::PersonalityName(st.pers), st.penisPaused, st.penisSeen, std::ranges::count_if(st.applied, [](float v) { return !std::isnan(v) && v != 0.0f; }), blush);
+	}
+
 	void Init()
 	{
 		auto* dh = RE::TESDataHandler::GetSingleton();
@@ -674,7 +692,8 @@ namespace Arousal
 			}
 			if (changed) {
 				Papyrus::UpdateModelWeight(a);
-				logger::debug("{:08X} {} arousal={:.0f} target={:.2f} ({}) level={:.3f} shown={:.2f}", a->GetFormID(), st.name, st.arousal, st.target, st.why, st.level, st.shown);
+				Debug::Log(Debug::Cat::Arousal, "{}: morphs updated: arousal {:.0f}, target {:.2f} ({}), level {:.3f}, shown {:.2f}, personality {}", Debug::Label(a), st.arousal, st.target, st.why, st.level, st.shown,
+					Face::Engine::PersonalityName(st.pers));
 			}
 		}
 		// Anyone not processed this tick keeps their state through the grace period, then

@@ -33,4 +33,6 @@ namespace Body
 	void Update(RE::Actor* a_actor, float a_delta);             // animation hook
 
 	[[nodiscard]] std::string Status();
+	// For the debug trace: this actor's curl, genital bend, head tilt and PPA claims.
+	[[nodiscard]] std::string Describe(RE::Actor* a_actor);
 }

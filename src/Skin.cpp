@@ -4,6 +4,7 @@
 // repository. Distributed WITHOUT ANY WARRANTY. <https://www.gnu.org/licenses/>
 
 #include "Skin.h"
+#include "Debug.h"
 
 #include "Arousal.h"
 #include "Compat.h"
@@ -134,7 +135,9 @@ namespace Skin
 			ClaimFaceSlots(a, st);
 			const int slot = st.slot[effect];
 			if (path.empty()) {
-				g_status = std::format("no texture for effect {}", effect);
+				const auto msg = std::format("no texture for effect {}", effect);
+				if (g_status != msg) Debug::Log(Debug::Cat::Skin, "{}: {}", Debug::Label(a), msg);
+				g_status = msg;
 				return;
 			}
 			if (!FsUtil::TextureExistsCached(path)) {
@@ -145,10 +148,13 @@ namespace Skin
 				return;
 			}
 			if (slot < 0) {
-				g_status = std::format("no free face overlay slot (skee64.ini has {}, other mods hold the rest)", g_faceSlots);
+				const auto msg = std::format("no free face overlay slot (skee64.ini has {}, other mods hold the rest)", g_faceSlots);
+				if (g_status != msg) Debug::Log(Debug::Cat::Skin, "{}: {}", Debug::Label(a), msg);
+				g_status = msg;
 				return;
 			}
 			const auto node = Node(slot);
+			if (!st.on[effect]) Debug::Log(Debug::Cat::Skin, "{}: {} overlay applied in face slot {} at alpha {:.2f}, held {:.1f} s ({})", Debug::Label(a), std::array{ "blush", "saliva", "tear" }[effect], slot, alpha, holdSeconds, path);
 			Papyrus::AddOverlays(a);
 			Papyrus::SetOverlayTexture(a, st.female, node, path);
 			Papyrus::SetOverlayTint(a, st.female, node, kTint[effect]);
@@ -162,6 +168,7 @@ namespace Skin
 		void Clear(RE::Actor* a, State& st, int effect)
 		{
 			if (!st.on[effect]) return;
+			Debug::Log(Debug::Cat::Skin, "{}: {} overlay cleared (slot {})", Debug::Label(a), std::array{ "blush", "saliva", "tear" }[effect], st.slot[effect]);
 			// The slot this effect was painted into, not a recomputed one: clearing the wrong node
 			// would wipe whatever mod now holds it.
 			if (const int slot = st.slot[effect]; slot >= 0) Papyrus::ClearOverlay(a, st.female, Node(slot));
@@ -532,6 +539,23 @@ namespace Skin
 		std::scoped_lock l(g_lock);
 		auto& st = Track(a, female);
 		Apply(a, st, kBlush, 0.8f, 6.0f);
+	}
+
+	std::string Describe(RE::Actor* a)
+	{
+		if (!a) return "none";
+		std::scoped_lock l(g_lock);
+		const auto it = g_states.find(a->GetFormID());
+		if (it == g_states.end()) return "no overlay state";
+		const auto& st = it->second;
+		const float now = Scenes::Now();
+		std::string out;
+		static constexpr std::array names{ "blush", "saliva", "tear" };
+		for (int e = 0; e < kCount; ++e) {
+			out += std::format("{}{} {} (slot {}{})", out.empty() ? "" : " | ", names[static_cast<std::size_t>(e)], st.on[static_cast<std::size_t>(e)] ? "on" : "off", st.slot[static_cast<std::size_t>(e)],
+				st.on[static_cast<std::size_t>(e)] && st.until[static_cast<std::size_t>(e)] > 0.0f ? std::format(", {:.1f} s left", st.until[static_cast<std::size_t>(e)] - now) : std::string());
+		}
+		return out + std::format(" | blush alpha {:.2f} | female={} distress={} victim={} broken={} | saliva beats {}", st.blushAlpha, st.female, st.distress, st.victim, st.broken, st.salivaCount);
 	}
 
 	std::string Status()

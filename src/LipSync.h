@@ -22,6 +22,8 @@ namespace LipSync
 	void Poll();           // main thread
 
 	[[nodiscard]] std::string Status();
+	// For the debug trace: the clip this actor's mouth is following, and why it is not following one. Main thread.
+	[[nodiscard]] std::string Describe(RE::Actor* a_actor);
 	[[nodiscard]] std::size_t EnvelopeCount();
 
 	// For Voice: is this sound file one of OStim's voice-set sounds (moans, climax, reactions,

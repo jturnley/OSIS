@@ -111,6 +111,8 @@ namespace Face::Output
 	void SetBlinkHold(RE::Actor* a_actor, bool a_hold);
 	// The phonemes as the face renders them right now, whoever wrote them. Main thread. False when the actor has no face data.
 	[[nodiscard]] bool ReadPhonemes(RE::Actor* a_actor, std::array<float, kPhonemes>& a_out);
+	// For the debug trace: the writer's flags for this actor, what it is asked to show, and what the game is rendering right now. Main thread.
+	[[nodiscard]] std::string Describe(RE::Actor* a_actor);
 
 	// Ease everything back to neutral, then stop writing (ResetMfg equivalent).
 	void Release(RE::Actor* a_actor, float a_speed = 0.6f);

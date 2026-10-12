@@ -47,6 +47,27 @@ Settings live in the SKSE Menu Framework (section "OSIS") and in
 - `ostim_event` (annotation beats) is sent with custom Papyrus arguments and never reaches
   SKSE's C++ mod-event source, so event beats are unavailable in the DLL.
 
+## The debug trace
+
+`Debug.h/.cpp`. `OSIS.log` takes info and above, always (a sink at level info). The logger's second sink is a `TraceSink` that holds no file until `Debug::SetEnabled(true)`; then it
+takes every level, the info lines included, so the trace is a superset of `OSIS.log`, and the logger's own level goes to debug. The sink is always in the logger so switching it on
+and off changes no sink list while other threads log. The first `Open()` of a launch moves an existing non-empty `OSIS-Debug.log` to `OSIS-Debug.previous.log`, so a crashed
+session's trace is not wiped by the next start; each line is flushed as it is written.
+
+`Debug::Log(cat, fmt, args...)` formats only when `On()` (a relaxed atomic); `Debug::Label(actor)` is a small `ActorRef` that a `std::formatter` turns into `Name(0000ABCD)` at write
+time, so an argument costs nothing while it is off. Callers whose arguments are expensive (`SceneText`, `ExplainRules`, `Preset`) check `On()` first.
+
+`Debug::Tick` (scheduler, 20 Hz) writes the `[snap]` block every `fDebugSnapshotSeconds`: the thread's line and each slot's line are copied under `Scenes::Lock()`, which is then
+released before `Output::Describe`, `Body::Describe`, `Arousal::Describe`, `Skin::Describe`, `LipSync::Describe` and `Moans::Describe` take their own locks, so the snapshot never
+holds the scene's lock and a module's together. `Output::Describe` gives what the writer was asked for next to what the game is rendering (`phoneme3`, `modifier3`, `expression3`),
+which is the line that separates "the Director asked for a flat face" from "something overwrote it". The personality in a `[snap]` is `Archetype()`'s, not the slot's copy, which
+is only what the Director last used.
+
+Decisions are logged where they are made: `ApplyArc` (the face and its inputs), `ApplyPersonalityFace` (which personality rule fired), `Breathe`, `LibraryPose` and `PickClimaxClip`
+(picks), `UpdateExcitementRates` and `UpdateClimaxControl` (the factors and the reason), `Archetype`/`PinPersonality` (`ExplainRules`), `Scenes` (threads, nodes, events), the `Papyrus`
+wrappers (every call out), and the setters in `Output`, `Body`, `Skin`, `Arousal`, `LipSync` and `Moans`. State changes are logged when they change (a lip-sync wait, a moan gate,
+a tone flag), not every tick.
+
 ## Face ownership
 - **Director** (default): OSED computes the full grammar and writes every frame.
   `OActor.SetExpressionsEnabled(actor, false, AllowOverride=true)` switches OStim's face

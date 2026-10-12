@@ -6,6 +6,7 @@
 #include "Pulse.h"
 
 #include "Arousal.h"
+#include "Debug.h"
 #include "Body.h"
 #include "Scenes.h"
 #include "Settings.h"
@@ -30,6 +31,7 @@ namespace Pulse
 		// Papyrus formatted the id as a signed Int ("" + a.GetFormID()), so ESL ids go negative.
 		const auto id = a_actor ? static_cast<std::int32_t>(a_actor->GetFormID()) : 0;
 		SKSE::ModCallbackEvent ev{ a_event, std::format("{}|{}", a_thread, id), a_value, nullptr };
+		Debug::Log(Debug::Cat::Event, "sent {} thread {} {} value {:.2f}", a_event, a_thread, Debug::Label(a_actor), a_value);
 		src->SendEvent(&ev);
 	}
 

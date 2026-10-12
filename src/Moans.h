@@ -29,6 +29,8 @@ namespace Moans
 	void OnOrgasm(RE::Actor* a_actor);  // main thread: OStim says this actor climaxed
 	void Clear();   // game load
 	[[nodiscard]] std::string Status();
+	// For the debug trace: this actor's moan clock and what it is waiting for. Main thread.
+	[[nodiscard]] std::string Describe(RE::Actor* a_actor);
 	// What OStim's own moan settings are right now, for the menu. False when they cannot be read (OStim.esp missing), with a_text saying so.
 	// Does not take the settings lock.
 	[[nodiscard]] bool OStimSettings(std::string& a_text);

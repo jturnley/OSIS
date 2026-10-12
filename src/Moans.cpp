@@ -5,6 +5,8 @@
 
 #include "Moans.h"
 
+#include "Debug.h"
+
 #include "Face/Engine.h"
 #include "LipSync.h"
 #include "Scenes.h"
@@ -23,6 +25,7 @@ namespace Moans
 			float playedAt = 0.0f;
 			float interval = 0.0f;    // seconds to wait once it has ended
 			bool climaxPending = false;  // OStim reported their orgasm and we have not played the climax yet
+			std::string gate;            // what the next moan is waiting for, for the debug trace
 		};
 
 		std::unordered_map<RE::FormID, State> g_state;  // main thread only
@@ -175,6 +178,7 @@ namespace Moans
 			++g_climaxPlayed;
 			g_last = std::format("{}: CLIMAX, {} stage {} ({} list)", a_actor->GetDisplayFullName(), resolved.set->name, choice.index, choice.muffled ? "muffled" : "plain");
 			if (g_climaxPlayed <= 3) logger::info("Moans: {}", g_last);
+			Debug::Log(Debug::Cat::Moan, "{}", g_last);
 			return true;
 		}
 
@@ -200,17 +204,23 @@ namespace Moans
 			}
 			if (a_now < st.nextAt) return;
 
-			auto defer = [&](float a_seconds) { st.nextAt = a_now + a_seconds; };
+			auto defer = [&](float a_seconds, const char* a_why) {
+				st.nextAt = a_now + a_seconds;
+				if (Debug::On() && st.gate != a_why) {
+					st.gate = a_why;
+					Debug::Log(Debug::Cat::Moan, "{}: next moan waits: {}", Debug::Label(a_actor), a_why);
+				}
+			};
 
-			if (a_actor->IsDead() || !a_actor->Get3D()) return defer(1.0f);
+			if (a_actor->IsDead() || !a_actor->Get3D()) return defer(1.0f, "dead or no 3D");
 			// Their own orgasm: the climax sound is OStim's, and a moan on top of it is noise.
-			if (a_slot.climaxing || a_slot.broken) return defer(0.5f);
+			if (a_slot.climaxing || a_slot.broken) return defer(0.5f, a_slot.climaxing ? "their own orgasm" : "broken victim");
 			// Someone else holds the mouth: a spoken line (a dialogue mod, DDF) or an expression override.
-			if (a_now < a_slot.externalMouthUntil || a_slot.exprOverride) return defer(0.5f);
+			if (a_now < a_slot.externalMouthUntil || a_slot.exprOverride) return defer(0.5f, a_slot.exprOverride ? "OStim's expression override holds the mouth" : "another mod holds the mouth");
 			// OStim's own rule: no moan while the actor is talking (the flag is not reliable on the player).
-			if (!a_actor->IsPlayerRef() && a_actor->GetActorRuntimeData().voiceTimer > 0.0f) return defer(0.5f);
+			if (!a_actor->IsPlayerRef() && a_actor->GetActorRuntimeData().voiceTimer > 0.0f) return defer(0.5f, "they are speaking");
 			// A climax or a reaction of OStim's is playing on them.
-			if (LipSync::VoiceBusyUntil(a_actor) > a_now) return defer(0.25f);
+			if (LipSync::VoiceBusyUntil(a_actor) > a_now) return defer(0.25f, "an OStim climax or reaction sound is playing on them");
 
 			const auto ctx = VoiceModel::Context(a_actor);
 			if (!ctx.inScene) return;
@@ -220,7 +230,7 @@ namespace Moans
 					std::scoped_lock l(g_statusLock);
 					++g_notAllowed;
 				}
-				return defer(1.0f);
+				return defer(1.0f, "no action of theirs lets them moan");
 			}
 
 			const auto resolved = VoiceModel::Resolve(a_actor);
@@ -229,7 +239,7 @@ namespace Moans
 					std::scoped_lock l(g_statusLock);
 					++g_noSet;
 				}
-				return defer(2.0f);
+				return defer(2.0f, "no voice set found for them");
 			}
 			const auto choice = VoiceModel::Select(resolved.set->moan, ctx.muffled, a_actor, ctx.partner);
 			if (!choice.entry) {
@@ -237,7 +247,7 @@ namespace Moans
 					std::scoped_lock l(g_statusLock);
 					++g_noEntry;
 				}
-				return defer(1.0f);
+				return defer(1.0f, "no entry's condition holds (or the muffled list is empty)");
 			}
 
 			const auto played = LipSync::PlayDescriptor(a_actor, choice.entry->sound, a_cfg.volume);
@@ -246,7 +256,7 @@ namespace Moans
 				++g_failed;
 				g_last = "failed: " + played.text;
 				if (g_failed <= 5) logger::warn("Moans: {}", played.text);
-				return defer(2.0f);
+				return defer(2.0f, "the sound could not be played");
 			}
 
 			const float interval = NextInterval(choice.entry->interval, a_cfg, a_slot.arch);
@@ -260,6 +270,8 @@ namespace Moans
 			g_last = std::format("{}: {} stage {} ({} list), then {:.2f} s", a_actor->GetDisplayFullName(), resolved.set->name, choice.index,
 				choice.muffled ? "muffled" : "plain", interval);
 			if (g_played <= 3) logger::info("Moans: first moans: {}", g_last);
+			st.gate.clear();
+			Debug::Log(Debug::Cat::Moan, "{}", g_last);
 		}
 	}
 
@@ -298,6 +310,17 @@ namespace Moans
 	void Clear()
 	{
 		g_state.clear();
+	}
+
+	std::string Describe(RE::Actor* a)
+	{
+		if (!a) return "none";
+		const auto it = g_state.find(a->GetFormID());
+		if (it == g_state.end()) return "not tracked (the takeover is off, or they are not painted)";
+		const auto& st = it->second;
+		const float now = Scenes::Now();
+		return std::format("{} | next moan in {:.1f} s (interval {:.2f} s) | climax pending={} | waiting for: {}", st.playing ? std::format("moan sounding (sound {}, {:.1f} s ago)", st.soundID, now - st.playedAt) : std::string("quiet"),
+			std::max(0.0f, st.nextAt - now), st.interval, st.climaxPending, st.gate.empty() ? "nothing" : st.gate);
 	}
 
 	std::string Status()

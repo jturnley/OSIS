@@ -27,6 +27,8 @@ namespace Arousal
 		std::string why; // strongest factor
 	};
 
+	// For the debug trace: this actor's arousal, the target and level of the morphs, and the body blush rows. Main thread.
+	[[nodiscard]] std::string Describe(RE::Actor* a_actor);
 	void Init();          // kDataLoaded: detect arousal mods and RaceMenu overlay slots
 	void OnGameLoad();    // forget per-actor state
 	void Tick();          // main thread; runs every fInterval

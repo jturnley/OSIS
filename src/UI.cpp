@@ -8,6 +8,7 @@
 #include "Arousal.h"
 #include "Body.h"
 #include "Compat.h"
+#include "Debug.h"
 #include "Face/Engine.h"
 #include "Face/PPA.h"
 #include "Face/Output.h"
@@ -327,8 +328,16 @@ namespace
 				"Scenes without the player that start farther away than this are left alone: too far to watch, and every "
 				"painted actor costs a little work each frame.");
 			if (ig::Checkbox("Debug logging", &bDebug)) {
-				spdlog::set_level(bDebug ? spdlog::level::debug : spdlog::level::info);
+				Debug::SetEnabled(bDebug);
 				g_dirty = true;
+			}
+			if (ig::IsItemHovered()) {
+				ig::SetTooltip("Writes OSIS-Debug.log next to OSIS.log: everything OSIS does or decides, a line each, and every second a line per actor with their personality, phase, "
+				               "excitement, who owns the face and what the game is rendering. The last session's file is kept as OSIS-Debug.previous.log. Costs a little disk and a little time.");
+			}
+			if (bDebug) {
+				SliderF("Debug: seconds between actor snapshots", fDebugSnapshotSeconds, 0.25f, 10.0f, "%.2f", "How often the debug log says where every actor in a scene stands.");
+				ig::TextDisabled("%s", Debug::Path().c_str());
 			}
 
 			ig::SeparatorText("Modules");

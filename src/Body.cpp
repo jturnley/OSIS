@@ -4,6 +4,7 @@
 // repository. Distributed WITHOUT ANY WARRANTY. <https://www.gnu.org/licenses/>
 
 #include "Body.h"
+#include "Debug.h"
 
 #include "Compat.h"
 #include "Scheduler.h"
@@ -333,6 +334,7 @@ namespace Body
 			if (!Animatable(a)) return;
 			it = g_states.emplace(a->GetFormID(), State{}).first;
 		}
+		if (std::abs(it->second.genitalTarget - level) >= 0.05f) Debug::Log(Debug::Cat::Body, "{}: genital bend target {:.2f} (was {:.2f})", Debug::Label(a), level, it->second.genitalTarget);
 		it->second.genitalTarget = level;
 		g_count = g_states.size();
 	}
@@ -384,6 +386,7 @@ namespace Body
 			if (!Animatable(a)) return;
 			it = g_states.emplace(a->GetFormID(), State{}).first;
 		}
+		if (std::abs(it->second.tiltTarget - degrees) > 0.5f) Debug::Log(Debug::Cat::Body, "{}: head tilt target {:.1f} deg about ({:.2f}, {:.2f}) (was {:.1f})", Debug::Label(a), degrees, axis.x, axis.y, it->second.tiltTarget);
 		it->second.tiltTarget = degrees;
 		it->second.tiltAxis = axis;
 		g_count = g_states.size();
@@ -464,6 +467,22 @@ namespace Body
 		g_ppa.clear();
 		g_count = 0;
 		g_status = "cleared";
+	}
+
+	std::string Describe(RE::Actor* a)
+	{
+		if (!a) return "none";
+		std::scoped_lock l(g_lock);
+		const auto id = a->GetFormID();
+		std::string claim = "none";
+		if (const auto c = g_ppa.find(id); c != g_ppa.end()) claim = std::format("genitals={} hands={} (lapses in {:.1f} s)", c->second.genitals, c->second.hands, c->second.until - Scenes::Now());
+		const auto it = g_states.find(id);
+		if (it == g_states.end()) return "no bone state | PPA claim: " + claim;
+		const auto& st = it->second;
+		const float now = Scenes::Now();
+		return std::format("curl {:.2f} (sustain {:.2f} -> {:.2f}, began {:.1f} s ago, hold {:.1f} s; bones: {} toe + {} per-toe, {} finger) | genital bend {:.2f} -> {:.2f} ({} bones) | head tilt {:.1f} -> {:.1f} deg | PPA claim: {}",
+			st.magnitude, st.sustain, st.sustainTarget, st.start > 0.0f ? now - st.start : 0.0f, st.hold, st.toes.size(), st.toeBones.size(), st.fingers.size(), st.genital, st.genitalTarget,
+			st.genitals.size(), st.tilt, st.tiltTarget, claim);
 	}
 
 	std::string Status()

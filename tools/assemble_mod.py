@@ -377,7 +377,9 @@ def assemble(build_dir, data_dirs, edition, without):
         if release_label():
             beta = ("\n> **This is a beta.** It is complete enough to use but has had limited testing. Back up your save, and send\n"
                     "> `Documents/My Games/Skyrim Special Edition/SKSE/OSIS.log` with any report. For a face problem, press\n"
-                    "> \"Probe faces\" on the Face page first and play for a minute.\n")
+                    "> \"Probe faces\" on the Face page first and play for a minute. For anything you cannot explain, tick\n"
+                    "> General > \"Debug logging\", repeat it, and send `OSIS-Debug.log` from the same folder too: it records what\n"
+                    "> OSIS did and decided, second by second, and can be large.\n")
             known = ("\n## Known issues in this beta\n\n"
                      "- A one-frame blink of eyes, brows and mood can show when a scene moves to a new animation node.\n"
                      "- PPA sometimes stops moving a penis for a few seconds and logs \"isn't managed by havok\" for the actor. Seen in testing; the cause is not known.\n"

@@ -4,6 +4,7 @@
 // repository. Distributed WITHOUT ANY WARRANTY. <https://www.gnu.org/licenses/>
 
 #include "Face/Output.h"
+#include "Debug.h"
 
 #include "Scenes.h"
 
@@ -423,6 +424,7 @@ namespace Face::Output
 	{
 		std::scoped_lock l(g_lock);
 		auto* st = Get(a, true);
+		if (st && st->layered != layered) Debug::Log(Debug::Cat::Face, "{}: face writer {} (OStim's own writer is {})", Debug::Label(a), layered ? "layered over OStim's" : "owns the face", layered ? "on" : "off");
 		if (st) st->layered = layered;
 	}
 
@@ -431,6 +433,7 @@ namespace Face::Output
 		std::scoped_lock l(g_lock);
 		auto* st = Get(a, false);
 		if (!st || st->suspended == suspended) return;
+		Debug::Log(Debug::Cat::Face, "{}: face writing {}", Debug::Label(a), suspended ? "suspended (another mod owns this face)" : "resumed");
 		st->suspended = suspended;
 		// Coming back: the other mod left its own values in the face data, so re-read them
 		// before blending, or the first frame snaps.
@@ -456,6 +459,7 @@ namespace Face::Output
 		std::scoped_lock l(g_lock);
 		auto* st = Get(a, false);
 		if (!st || st->mouthOwned == owned) return;
+		Debug::Log(Debug::Cat::Mouth, "{}: the mouth is {}", Debug::Label(a), owned ? "ours again" : "handed over (not written)");
 		st->mouthOwned = owned;
 		if (owned) st->reseedMouth = true;
 	}
@@ -467,6 +471,8 @@ namespace Face::Output
 		auto* st = Get(a, true);
 		if (!st) return;
 		if (st->track != env || std::abs(st->trackStart - start) > 0.05f) {
+			Debug::Log(Debug::Cat::Mouth, "{}: lip-sync track {} ({:.2f} s long, started {:.2f} s ago, gain {:.2f}, max open {:.2f})", Debug::Label(a),
+				st->track == env ? "re-anchored" : "started", env->Duration(), Scenes::Now() - start, params.gain, params.maxOpen);
 			if (Scenes::Now() < g_probeUntil.load()) {
 				++st->probe.trackStarts;
 				if (st->track == env) {
@@ -496,9 +502,48 @@ namespace Face::Output
 		return true;
 	}
 
+	std::string Describe(RE::Actor* a)
+	{
+		if (!a) return "none";
+		std::string ours;
+		{
+			std::scoped_lock l(g_lock);
+			const auto it = g_states.find(a->GetFormID());
+			if (it == g_states.end()) {
+				ours = "no face state (nothing of ours has been written for this actor)";
+			} else {
+				const auto& st = it->second;
+				std::array<float, kPhonemes> ph{};
+				std::array<float, kModifiers> mod{};
+				std::array<float, kExpressions> ex{};
+				for (int i = 0; i < kPhonemes; ++i) ph[i] = st.ph[i].used ? st.ph[i].target : 0.0f;
+				for (int i = 0; i < kModifiers; ++i) mod[i] = st.mod[i].used ? st.mod[i].target : 0.0f;
+				for (int i = 0; i < kExpressions; ++i) ex[i] = st.expr[i].used ? st.expr[i].target : 0.0f;
+				ours = std::format("flags[layered={} suspended={} mouthOwned={} floor={:.2f} blinkHold={} blinkPulse={} releasing={} lipTrack={} (open {:.2f}, blend {:.2f})] "
+								   "asked[mouth [{}] eyes+brows [{}] mood [{}]]",
+					st.layered, st.suspended, st.mouthOwned, st.mouthFloor, st.blinkHold, st.pulseOn, st.releasing, st.TrackActive(Scenes::Now()), st.trackOpen, st.trackBlend,
+					Debug::Channels(ph.data(), kPhonemes, Debug::PhonemeName), Debug::Channels(mod.data(), kModifiers, Debug::ModifierName),
+					Debug::Channels(ex.data(), kExpressions, Debug::ExpressionName));
+			}
+		}
+		std::string shown = "no face data";
+		if (auto* fg = a->GetFaceGenAnimationData()) {
+			std::array<float, kPhonemes> ph{};
+			std::array<float, kModifiers> mod{};
+			std::array<float, kExpressions> ex{};
+			for (std::uint32_t i = 0; i < kPhonemes; ++i) ph[i] = Val(fg->phoneme3, i);
+			for (std::uint32_t i = 0; i < kModifiers; ++i) mod[i] = Val(fg->modifier3, i);
+			for (std::uint32_t i = 0; i < kExpressions; ++i) ex[i] = Val(fg->expression3, i);
+			shown = std::format("rendered[mouth [{}] eyes+brows [{}] mood [{}]]", Debug::Channels(ph.data(), kPhonemes, Debug::PhonemeName),
+				Debug::Channels(mod.data(), kModifiers, Debug::ModifierName), Debug::Channels(ex.data(), kExpressions, Debug::ExpressionName));
+		}
+		return ours + " " + shown;
+	}
+
 	void PulseBlink(RE::Actor* a, float depth, float seconds, float delay)
 	{
 		if (!a || depth <= 0.0f || seconds <= 0.0f) return;
+		Debug::Log(Debug::Cat::Face, "{}: blink pulse depth {:.2f} for {:.2f} s, in {:.2f} s", Debug::Label(a), depth, seconds, delay);
 		std::scoped_lock l(g_lock);
 		auto* st = Get(a, true);
 		if (!st) return;
@@ -521,6 +566,7 @@ namespace Face::Output
 		std::scoped_lock l(g_lock);
 		auto* st = Get(a, hold);
 		if (!st || st->blinkHold == hold) return;
+		Debug::Log(Debug::Cat::Face, "{}: lids {}", Debug::Label(a), hold ? "held open (blinks only on pulse)" : "back to the engine's own blinking");
 		st->blinkHold = hold;
 		if (hold) {
 			for (int i = kBlinkL; i <= kBlinkR; ++i) st->mod[i].Set(st->blinkPose, 0.35f);
@@ -539,6 +585,7 @@ namespace Face::Output
 		std::scoped_lock l(g_lock);
 		auto* st = Get(a, false);
 		if (!st) return;
+		Debug::Log(Debug::Cat::Face, "{}: face released (easing to neutral over {:.2f} s)", Debug::Label(a), speed);
 		for (auto& c : st->ph) c.Set(0.0f, speed);
 		for (auto& c : st->mod) {
 			if (c.used) c.Set(0.0f, speed);

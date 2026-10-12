@@ -6,6 +6,7 @@
 #include "Arousal.h"
 #include "Body.h"
 #include "Compat.h"
+#include "Debug.h"
 #include "Face/Engine.h"
 #include "Face/Library.h"
 #include "Face/Output.h"
@@ -59,6 +60,7 @@ namespace Scheduler
 #endif
 			Skin::Tick();
 			Arousal::Tick();
+			Debug::Tick();
 
 			std::vector<std::function<void()>> due;
 			{
@@ -102,8 +104,12 @@ namespace
 		if (!path) return;
 		*path /= "OSIS.log";
 
+		// Two sinks. OSIS.log takes info and above, always. The second is the debug trace (Debug.h): it holds no file until debug logging is on, and then gets
+		// everything, the info lines included. The logger passes debug messages on only while debug logging is on (Debug::SetEnabled sets its level).
 		auto sink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(path->string(), true);
-		auto log = std::make_shared<spdlog::logger>("global log", std::move(sink));
+		sink->set_level(spdlog::level::info);
+		auto traceSink = Debug::MakeSink(path->parent_path());
+		auto log = std::make_shared<spdlog::logger>("global log", spdlog::sinks_init_list{ std::move(sink), std::move(traceSink) });
 		log->set_level(spdlog::level::info);
 		log->flush_on(spdlog::level::debug);
 		spdlog::set_default_logger(std::move(log));

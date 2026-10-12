@@ -4,6 +4,7 @@
 // repository. Distributed WITHOUT ANY WARRANTY. <https://www.gnu.org/licenses/>
 
 #include "Face/Internal.h"
+#include "Debug.h"
 
 #include "Body.h"
 #include "Compat.h"
@@ -181,6 +182,9 @@ namespace Face::Engine
 				if (!base) continue;  // applied on a later tick, once OStim's own rate is known
 				Papyrus::SetExcitementMultiplier(a, *base * want);
 				logger::info("Consent: {:08X} {} excitement rate x{:.2f} of OStim's {:.2f}", id, a->GetDisplayFullName(), want, *base);
+				Debug::Log(Debug::Cat::Control, "{}: excitement rate x{:.2f} of OStim's {:.2f} = {:.3f} | personality {} | consent={} victimKnown={} | settings: wild x{:.2f} stoic x{:.2f} dominant x{:.2f} crazed drive x{:.2f} victim x{:.2f} aggressor x{:.2f}",
+					Debug::Label(a), want, *base, *base * want, PersonalityName(Archetype(a)), t.consent, t.victimKnown, S::fWildExcitementMult, S::fStoicExcitementMult, S::fDominantExcitementMult,
+					S::fCrazedDriveMult, S::fVictimExcitementMult, S::fAggressorExcitementMult);
 				s.excitementFactor = want;
 			}
 		}
@@ -220,6 +224,7 @@ namespace Face::Engine
 				auto* a = s.Get();
 				if (!a) continue;
 				bool want = false;
+				const char* why = !S::bPersonalityControl ? "personality control is off" : (!t.consent ? "the scene is not consensual" : (t.slots.size() < 2 ? "fewer than two actors" : "no dominant or crazed actor decides this one"));
 				if (on) {
 					bool dominantOther = false, dominantClimaxing = false, partnerOther = false, partnerClimaxing = false;
 					for (std::size_t j = 0; j < t.slots.size(); ++j) {
@@ -235,6 +240,7 @@ namespace Face::Engine
 					}
 					if (pers[i] != Pers::kDominant && dominantOther) {
 						want = !dominantClimaxing && !s.climaxing;
+						why = dominantClimaxing ? "the dominant is climaxing now" : (s.climaxing ? "their own orgasm is under way" : "waiting for the dominant's orgasm");
 						// Held at the edge: the clock for how long they are made to wait.
 						if (want && s.holdSince <= 0.0f && Raw(a) >= 97) s.holdSince = now;
 						if (want && s.holdSince > 0.0f && now - s.holdSince > S::fControlMaxHold) {
@@ -244,11 +250,15 @@ namespace Face::Engine
 						}
 					} else if (pers[i] == Pers::kCrazed && partnerOther) {
 						want = !partnerClimaxing && !s.climaxing;
+						why = partnerClimaxing ? "their partner is climaxing now" : (s.climaxing ? "their own orgasm is under way" : "crazed: waiting for their partner's orgasm");
 					}
 				}
 				if (!want) s.holdSince = 0.0f;
 				if (want) {
-					if (!s.stallActive) logger::info("Control: {:08X} {} ({}) climax held", a->GetFormID(), a->GetDisplayFullName(), PersonalityName(pers[i]));
+					if (!s.stallActive) {
+						logger::info("Control: {:08X} {} ({}) climax held", a->GetFormID(), a->GetDisplayFullName(), PersonalityName(pers[i]));
+						Debug::Log(Debug::Cat::Control, "{}: climax held ({}), raw excitement {}", Debug::Label(a), why, Raw(a));
+					}
 					s.stallActive = true;
 					if (now - s.stallIssuedAt >= 4.0f) {
 						Papyrus::StallClimax(a);
@@ -259,6 +269,7 @@ namespace Face::Engine
 					Papyrus::PermitClimax(a);
 					s.permitRepeatAt = now + 2.5f;  // said once more, in case OStim had not yet taken the first
 					logger::info("Control: {:08X} {} climax permitted", a->GetFormID(), a->GetDisplayFullName());
+					Debug::Log(Debug::Cat::Control, "{}: climax permitted ({}), held for {:.1f} s, raw excitement {}", Debug::Label(a), why, s.holdSince > 0.0f ? now - s.holdSince : 0.0f, Raw(a));
 				} else if (s.permitRepeatAt > 0.0f && now >= s.permitRepeatAt) {
 					Papyrus::PermitClimax(a);
 					s.permitRepeatAt = 0.0f;
@@ -1369,6 +1380,22 @@ namespace Face::Engine
 			return FallbackPersonality(a);
 		}
 
+		// For the debug trace: what each rule says about this actor, in the order ResolvePersonality tries them.
+		std::string ExplainRules(RE::Actor* a)
+		{
+			if (!a) return "none";
+			auto* avo = a->AsActorValueOwner();
+			auto has = [&](RE::BGSKeyword* k) { return k && a->HasKeyword(k); };
+			auto name = [](int p) { return p >= 0 ? PersonalityName(p) : "none"; };
+			auto* b = a->GetActorBase();
+			const std::uint32_t h = b ? (b->GetFormID() * 2654435761u) >> 8 : 0;
+			const int roll = NewPersonalityRoll(a);
+			return std::format("SPID {} | keywords stoic={} vocal={} shy={} dominant={} | voice set '{}' -> {} | vanilla AI aggression {:.0f} confidence {:.0f} -> {} | new-type roll {:.3f} vs share {:.2f} -> {} | weighted fallback -> {}",
+				name(SPIDArchetype(a)), has(g_kStoic), has(g_kVocal), has(g_kShy), has(g_kDominant), VoiceName(a), name(S::bVoiceArchetype ? VoiceArchetype(a) : -1),
+				avo->GetActorValue(RE::ActorValue::kAggression), avo->GetActorValue(RE::ActorValue::kConfidence), name(VanillaAIPersonality(a)),
+				static_cast<float>(h % 1000u) / 1000.0f, S::fNewPersonalityShare, roll >= 0 ? PersonalityName(roll) : "not rolled", PersonalityName(FallbackPersonality(a)));
+		}
+
 		// Settle an actor's personality the first time it is needed, so it is the same in every scene and every load.
 		// The SPID distribution is a roll made when the game loads, not a property of the actor: in the 1.9.3 test
 		// the same two actresses came out bold and fierce in one run and shy in the next, and the faces they were
@@ -1382,6 +1409,7 @@ namespace Face::Engine
 				g_npcPersonality[a->GetFormID()] = arch | kPinnedFlag;
 			}
 			logger::info("Personality: {} ({:08X}) pinned as {} ({})", a->GetDisplayFullName(), a->GetFormID(), PersonalityName(arch), why);
+			if (Debug::On()) Debug::Log(Debug::Cat::Pers, "{}: pinned as {} by {} | {}", Debug::Label(a), PersonalityName(arch), why, ExplainRules(a));
 		}
 	}
 
@@ -1476,6 +1504,7 @@ namespace Face::Engine
 	{
 		if (!a || a->IsPlayerRef() || !IsHuman(a) || a->IsChild()) return;
 		std::scoped_lock l(g_dataLock);
+		Debug::Log(Debug::Cat::Pers, "{}: personality {} by hand", Debug::Label(a), arch < 0 ? std::string("cleared (the rules decide again)") : std::format("set to {}", PersonalityName(EditionPersonality(arch))));
 		if (arch < 0) g_npcPersonality.erase(a->GetFormID());
 		else g_npcPersonality[a->GetFormID()] = PersonalityAvailable(EditionPersonality(arch)) ? EditionPersonality(arch) : 0;
 	}
@@ -1485,7 +1514,9 @@ namespace Face::Engine
 	std::size_t ForgetPinnedPersonalities()
 	{
 		std::scoped_lock l(g_dataLock);
-		return std::erase_if(g_npcPersonality, [](const auto& kv) { return (kv.second & kPinnedFlag) != 0; });
+		const auto n = std::erase_if(g_npcPersonality, [](const auto& kv) { return (kv.second & kPinnedFlag) != 0; });
+		Debug::Log(Debug::Cat::Pers, "every automatic personality forgotten ({} of them); they are worked out again from the current rules", n);
+		return n;
 	}
 
 	std::unordered_map<RE::FormID, int> NpcPersonalities()
@@ -1606,6 +1637,10 @@ namespace Face::Engine
 #endif
 
 	// ---- lifecycle
+	namespace
+	{
+		std::unordered_map<int, std::string> g_toneSig;  // what the trace last said about each thread's tone, so only a change is a line
+	}
 	void RefreshDerived(Thread& t, bool sceneChanged)
 	{
 		std::scoped_lock l(Settings::lock);
@@ -1655,6 +1690,15 @@ namespace Face::Engine
 		}
 		for (auto& s : t.slots) s.victim = !t.consent && s.Get() && IsSubmissive(t, s);
 		UpdateNormalStateFlag(t, sceneChanged);
+		if (Debug::On()) {
+			const auto sig = std::format("consent={} forced={} rough={} loving={} oral={} victimKnown={} spellVictim={} acceptedBySubmissive={} maxSpeed={} normalState={} ({})", t.consent, t.toneForced, t.toneRough,
+				t.toneLoving, t.sceneOral, t.victimKnown, t.spellNonConsent, t.acceptedBySubmissive, t.maxSpeed, t.normalActive ? "pre-animation" : "scene", t.normalProbe);
+			auto& last = g_toneSig[t.id];
+			if (last != sig) {
+				last = sig;
+				Debug::Log(Debug::Cat::Scene, "thread {}: {}", t.id, sig);
+			}
+		}
 	}
 
 	float TickInterval(const Thread& t)
@@ -1689,7 +1733,16 @@ namespace Face::Engine
 			}
 		}
 #endif
-		logger::debug("thread {} ready: scene={} actors={} player={}", t.id, t.sceneID, t.slots.size(), t.hasPlayer);
+		if (Debug::On()) {
+			Debug::Log(Debug::Cat::Scene, "thread {} ready: scene={} actors={} player={}", t.id, t.sceneID, t.slots.size(), t.hasPlayer);
+			for (auto& sl : t.slots) {
+				if (auto* a = sl.Get()) {
+					std::string source;
+					const int pers = Archetype(a, &source);
+					Debug::Log(Debug::Cat::Pers, "thread {} slot {}: {} is {} ({}), {}", t.id, sl.pos, Debug::Label(a), PersonalityName(pers), source, sl.painted ? "painted" : "not painted");
+				}
+			}
+		}
 #if !OSIS_LITE
 		Voice::Sync(t);
 		SceneLock::OnThreadReady(t);
@@ -1759,6 +1812,8 @@ namespace Face::Engine
 		if (S::bClimaxPool && t.consent) PickClimaxClip(t, *s, Archetype(a));
 		else s->climaxKind = -1;
 		s->climaxUntil = now + ClimaxLength(*s);
+		Debug::Log(Debug::Cat::Climax, "{}: orgasm #{} (gap {:.1f} s, rapid run {}), climax face {}{} for {:.1f} s, personality {}", Debug::Label(a), s->orgasms, s->orgasmGap, s->rapidRun,
+			s->climaxKind >= 0 ? std::format("kind {} (0 long, 1 short, 2 rapid long, 3 rapid short)", s->climaxKind) : std::string("built-in template"), s->climaxFromPool ? std::format(" '{}'", s->climaxName) : std::string(), s->climaxUntil - now, PersonalityName(Archetype(a)));
 		s->afterglowUntil = 0.0f;  // a new orgasm ends any afterglow
 		s->climaxing = true;
 		t.orgasm = true;  // somebody's climax is in progress: gaze and the thread-level consumers follow this
@@ -1860,6 +1915,7 @@ namespace Face::Engine
 		SceneLock::OnSceneEnd(t);
 #endif
 		t.active = false;
+		g_toneSig.erase(t.id);
 		Pulse::SceneEnd(t.id);
 		logger::debug("thread {} ended", t.id);
 	}

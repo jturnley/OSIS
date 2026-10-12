@@ -3,6 +3,23 @@
 ## Unreleased (after 2.0 beta 2, hotfix 3)
 
 ### Changed
+- **A debug log that tracks everything** (General > "Debug logging", `bDebug`, off by default). With it on, OSIS writes `OSIS-Debug.log` next to `OSIS.log` (the previous session's
+  file is kept as `OSIS-Debug.previous.log`, so the trace of a session that crashed survives the next launch). `OSIS.log` is unchanged; the debug file holds everything in it plus one
+  line for each thing the plugin does or decides, tagged `[scene]`, `[pers]`, `[face]`, `[breath]`, `[mouth]`, `[moan]`, `[climax]`, `[control]`, `[body]`, `[arousal]`, `[skin]`,
+  `[event]`, `[papyrus]`, `[settings]` and `[snap]`:
+  - the INI as loaded, and every setting changed in the menu (`Face.fWildExcitementMult: 1.500 -> 1.300`);
+  - scenes: a thread starting and ending, who is in it, every node with its tags and its actions (who does what to whom), speed changes, the tone flags (consent, rough, forced,
+    victim) when they change, OStim's own events in and OSIS's out;
+  - personalities: who has which and why, with what each rule said (SPID, keywords, voice set, the AI values, the roll, the fallback), and every change made by hand;
+  - the face: for every actor and every Director update, the phase, the excitement, the pool or template it came from, the strength and ease, and every mouth, eye, brow and mood
+    channel it asked for; which rule each personality applied (stoic's muting, shy's conflict, timid's peek, crazed's brow look); the breath clock's beat; blinks; who holds the mouth
+    and the lids; the lip-sync clip and why a mouth is not following one;
+  - climax: each orgasm, the climax face picked, why a climax is held or permitted, and the excitement rate with every factor behind it;
+  - the body: curl, genital bend, head tilt and PPA's claims; morph updates; overlays; the Director's own moans and what each is waiting for; every call out to OStim and
+    NiOverride;
+  - and every `fDebugSnapshotSeconds` (1 s) a `[snap]` block per actor: personality and its source, phase, excitement, who owns each part of the face, the values it was asked for,
+    **the values the game is rendering**, body, arousal, overlays, lip-sync and moan state.
+  Almost nothing is computed or written while it is off. Nothing is written to the file until it is switched on.
 - **The player is Balanced by default.** The rules used to pick a personality for the player like anyone else (Vanilla AI values, a seeded roll for the newer types), and one
   player came out Timid and complained that their eyes were always shut. `iPlayerPersonality` now defaults to Balanced instead of Auto, and every existing INI is reset
   to it once: an INI without the new `[General] iSettingsRevision` key (everything written before this build) has the player's choice, automatic or picked by hand, set to

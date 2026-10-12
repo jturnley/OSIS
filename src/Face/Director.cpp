@@ -8,6 +8,7 @@
 // every eye/brow write went to a wrong Mfg id). With per-frame output it is the default.
 
 #include "Face/Internal.h"
+#include "Debug.h"
 
 #include "Face/Buildup.h"
 #include "Body.h"
@@ -551,6 +552,7 @@ namespace Face::Engine::detail
 						s.buildRecent[static_cast<std::size_t>(s.buildRecentPos++ % static_cast<int>(s.buildRecent.size()))] = ownOption;
 						s.libLast = nullptr;
 						s.libLastName = "Own/" + Buildup::Name(ownOption);
+						Debug::Log(Debug::Cat::Face, "{}: build-up face picked: {} (stage {}, raw excitement {})", Debug::Label(a), s.libLastName, stage, raw);
 						s.libHave = true;
 					}
 				}
@@ -566,6 +568,7 @@ namespace Face::Engine::detail
 							s.libOvrMask);  // what an override owns is not the underlying pool's to set
 						s.libLast = pick;
 						s.libLastName = pick->file;
+						Debug::Log(Debug::Cat::Face, "{}: pool face picked: {} (raw excitement {}, speed {}/{}, personality {})", Debug::Label(a), pick->file, raw, t.speed, t.maxSpeed, PersonalityName(arch));
 						s.buildOption = -1;
 						s.libHave = true;
 					}
@@ -1103,6 +1106,7 @@ namespace Face::Engine::detail
 				// Tolerates it; not into it, and waiting for the partner to be done. Not unhappy, not in pain: nothing negative. What shows is muted,
 				// most of all at the plateau and the climax; the lids a little low, the eyes drifting off.
 				const float mute = (dom == kPlateau || dom == kClimax) ? 0.45f : 0.65f;
+				Debug::Log(Debug::Cat::Face, "{}: stoic rule: everything muted x{:.2f}{}", Debug::Label(s.id), mute, (building || dom == kAfterglow) ? ", lids a little low, eyes drifting" : "");
 				for (int i = 0; i < 16; ++i) e[i] *= mute;
 				for (int i = 18; i <= 23; ++i) e[i] *= mute;
 				e[16] *= mute;  // (lids that squeeze shut included)
@@ -1120,6 +1124,7 @@ namespace Face::Engine::detail
 			case Pers::kShy: {
 				// Conflicted: the brows worried, the lips pressed, the mouth small, the eyes down, the mood sad while the guilt is strong.
 				const float c = ShyConflict(dom, enj);
+				Debug::Log(Debug::Cat::Face, "{}: shy rule: conflict {:.2f}{}", Debug::Label(s.id), c, c <= 0.0f ? " (over it: pleasure shows)" : (c > 0.45f ? " (sad mood, worried brows, lips pressed, eyes down)" : " (worried brows, small mouth, eyes down)"));
 				if (c <= 0.0f) {
 					// Overridden: at the plateau and the climax it is pleasure, whatever the pick had.
 					if (building) SwapClashingMood(e, kNotHappy, 10, 0.5f);
@@ -1145,6 +1150,7 @@ namespace Face::Engine::detail
 				float close = dom == kAnticipation ? 0.35f : 0.60f + 0.30f * ClampF((static_cast<float>(enj) - 20.0f) / 60.0f, 0.0f, 1.0f);
 				if (dom == kPlateau) close = 0.92f;
 				if (dom == kAfterglow) close = 0.55f;
+				Debug::Log(Debug::Cat::Face, "{}: timid rule: eyes {} (lids {:.2f}, enjoying it a lot: no anger or disgust)", Debug::Label(s.id), building && TimidPeeking(t, seed) ? "peeking at the partner" : "shut", close);
 				if (building && TimidPeeking(t, seed)) {
 					e[16] = e[17] = 0.0f;
 					e[24] = e[25] = e[26] = e[27] = 0.0f;
@@ -1160,6 +1166,7 @@ namespace Face::Engine::detail
 			case Pers::kVocal:
 				// No control over themselves: what shows is surprise at their own reactions, and nothing guarded.
 				if (building && enj >= 35) {
+					Debug::Log(Debug::Cat::Face, "{}: vocal rule: surprise at their own reactions, nothing guarded (heat {:.2f})", Debug::Label(s.id), heat);
 					SwapClashingMood(e, kNotHappy, 12, 0.6f);
 					Add2(e, 22, 0.15f * heat);
 					e[28] *= 0.7f;
@@ -1171,6 +1178,7 @@ namespace Face::Engine::detail
 				// when the partner is at the edge, held there or climaxing - the effect they have.
 				if (!building) break;
 				const bool react = PartnerReacting(t, s);
+				Debug::Log(Debug::Cat::Face, "{}: dominant rule: smug narrowed look, one brow up; partner {} at the edge or climaxing", Debug::Label(s.id), react ? "is" : "is not");
 				SwapClashingMood(e, (1u << 1) | (1u << 3) | (1u << 5), 10, react ? 0.8f : 0.45f);
 				Add(e, 22, (react ? 0.40f : 0.25f) * heat);
 				Add2(e, 28, react ? 0.18f : 0.10f);
@@ -1180,6 +1188,7 @@ namespace Face::Engine::detail
 			case Pers::kWild:
 				// Every moment of it is good, and they make the most of it: never fear, sadness or doubt; a smile that grows with the pleasure.
 				if (building) {
+					Debug::Log(Debug::Cat::Face, "{}: wild rule: never fear, sadness or doubt; a smile that grows with the pleasure (heat {:.2f})", Debug::Label(s.id), heat);
 					SwapClashingMood(e, kNotHappy, 10, 0.6f);
 					e[5] = std::max(e[5], 0.18f * heat);
 				}
@@ -1202,6 +1211,8 @@ namespace Face::Engine::detail
 				const int downLead = flip ? 18 : 19, downTrail = flip ? 19 : 18;  // BrowDown L / R
 				const int upLead = flip ? 22 : 23, upTrail = flip ? 23 : 22;      // BrowUp L / R
 				const float weight = 0.6f + 0.4f * heat;
+				Debug::Log(Debug::Cat::Face, "{}: crazed rule: {} | brows look {} ({}), lead side {}, weight {:.2f} | lids held open, no squint, grin (Eee) under it", Debug::Label(s.id),
+					creepy ? "creepy look (the partner is climaxing): smile at full, brows at their lowest" : "yandere stare", look, look == 0 ? "the menace" : (look == 1 ? "the manic" : "the unevenness"), flip ? "left" : "right", weight);
 				if (look == 0) {  // the menace
 					e[downLead] = (creepy ? 0.85f : 0.55f) * weight;
 					e[downTrail] = (creepy ? 0.55f : 0.30f) * weight;
@@ -1232,6 +1243,7 @@ namespace Face::Engine::detail
 			case Pers::kSubmissive:
 				// In a rough scene they accepted: the brows come together and lift, the lids narrow - pleading, and taking it.
 				if (building && (t.toneRough || t.toneForced)) {
+					Debug::Log(Debug::Cat::Face, "{}: submissive rule: accepted a rough scene: brows together and lifted, lids narrowed (heat {:.2f})", Debug::Label(s.id), heat);
 					Add2(e, 20, 0.22f * heat);
 					Add2(e, 22, 0.12f * heat);
 					Add2(e, 28, 0.10f * heat);
@@ -1490,6 +1502,7 @@ namespace Face::Engine::detail
 		const bool isLong = RandFloat(0.0f, 1.0f) < pLong;
 		s.climaxKind = r > 0.0f ? (isLong ? kRapidLong : kRapidShort) : (isLong ? kStdLong : kStdShort);
 		s.climaxName = std::string(v.name) + "/" + ClimaxKindName(s.climaxKind);
+		Debug::Log(Debug::Cat::Climax, "{}: climax face picked: {} (variant {}, chance of a long one {:.2f}, plateau {}, personality {})", Debug::Label(s.id), s.climaxName, s.climaxVariant, pLong, t.plateau, PersonalityName(arch));
 	}
 
 	void ApplyArc(Thread& t, Slot& s, RE::Actor* a, int idx, bool yieldMouth)
@@ -1637,6 +1650,12 @@ namespace Face::Engine::detail
 		// A pool changes slowly, so it also moves slowly: a longer ease than the templates need.
 		const float ease = usingLib ? std::max(S::fTransition, 0.9f) : (dom == kClimax && s.climaxFromPool ? std::max(S::fTransition, 0.8f) : S::fTransition);
 		Output::ApplyPreset(a, e, breathHoldsMouth || yieldMouth, eStr, mStr, strength, ease);
+		if (Debug::On()) {
+			Debug::Log(Debug::Cat::Face, "{}: {} ({}) arc {} | phase {} enj {} (eff {}, phase {}) raw {} phrase {} | role {} tone {} scenario {} posRole {} overwhelm {:.2f} | pool {} climax-from-pool {} override {} mouth-handed-over {} | victim {} submissive {} asleep {} gag {}/{} blindfold {}",
+				Debug::Label(a), PersonalityName(pers), archSource, idx, DomName(dom), s.enj, enjEff, enjPhase, rawEnj, phrase, role, tone, ScenarioName(scenario), posRole, overwhelm,
+				usingLib ? s.libLastName : std::string("built-in template"), s.climaxFromPool, overriding, yieldMouth, victim, sub, asleep, gagC, gagR, blind);
+			Debug::Log(Debug::Cat::Face, "{}:   strength x{:.2f} (eyes) x{:.2f} (mouth) global {:.2f} ease {:.2f} s -> {}", Debug::Label(a), eStr, mStr, strength, ease, Debug::Preset(e));
+		}
 		SetOwners(s, usingLib ? "Library/" + s.libLastName + (s.libFallback ? " (no act in the scene: stimulation pool)" : "")
 				: (dom == kClimax && s.climaxFromPool ? "Climax/" + s.climaxName : std::string(DomName(dom)) + "/" + ScenarioName(scenario)),
 				yieldMouth ? MouthOwnerLabel(t, s, a, true) : (overriding ? "Library override/" + s.libOvrName : std::string("OSED arc")),
@@ -1689,6 +1708,7 @@ namespace Face::Engine::detail
 			s.blinkNextAt = now + every * RandFloat(0.4f, 1.0f);
 		} else if (now >= s.blinkNextAt) {
 			Output::PulseBlink(a, 1.0f, RandFloat(0.18f, 0.26f), 0.0f);
+			Debug::Log(Debug::Cat::Face, "{}: crazed blink (about every {:.0f} s)", Debug::Label(a), every);
 			if (RandInt(0, 4) == 0) Output::PulseBlink(a, 1.0f, RandFloat(0.16f, 0.22f), 0.30f);
 			s.blinkNextAt = now + every * RandFloat(0.6f, 1.4f);
 		}
@@ -1726,7 +1746,17 @@ namespace Face::Engine::detail
 
 	void Breathe(Thread& t, Slot& s, RE::Actor* a, int idx)
 	{
-		SetOwners(s, s.faceOwner, "Breath clock", "Breath clock", s.headOwner);
+	// Says where the beat ended up, whichever of the many returns below it left by.
+	struct Exit
+	{
+		Slot& s;
+		RE::Actor* a;
+		~Exit()
+		{
+			if (Debug::On()) Debug::Log(Debug::Cat::Breath, "{}: beat done: mouth '{}', eyes '{}'", Debug::Label(a), s.mouthOwner, s.eyeOwner);
+		}
+	} exitNote{ s, a };
+	SetOwners(s, s.faceOwner, "Breath clock", "Breath clock", s.headOwner);
 		if (S::bDeviceAware) {
 			if (IsGagClosed(a)) {
 				SetPh(a, 0, 3, 0.5f);
@@ -1801,6 +1831,8 @@ namespace Face::Engine::detail
 		}
 
 		const int lidFloor = t.consent && enjEff >= 50 ? ClampI(12 + (enjEff - 50) / 3, 0, 38) : 0;
+		Debug::Log(Debug::Cat::Breath, "{}: beat p={}/{} cycle #{} | moan={} size={} (vocal chance {}%) af={:.2f} | lid floor {} | enj {} | personality {}{}{}", Debug::Label(a), p, cyc, cycleIdx, vocal, val, vchance, af, lidFloor,
+			enjEff, PersonalityName(pers), crazed ? " (crazed breathing)" : "", t.consent ? "" : " (not consensual)");
 
 		if (!S::bMouthVariety || !t.consent) {
 			const int dv = !t.consent ? ClampI(val + (t.tick % 2) * 3, 0, 70) : val;
