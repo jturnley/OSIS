@@ -12,6 +12,7 @@
 #include "Pulse.h"
 #include "Settings.h"
 #if !OSIS_LITE
+#	include "Moans.h"
 #	include "SpellCast.h"
 #endif
 
@@ -262,6 +263,9 @@ namespace Scenes
 			auto* a = RE::TESForm::LookupByID<RE::Actor>(actorID);
 			if (it == g_threads.end() || !a || !it->second.active) return;
 			Face::Engine::OnOrgasm(it->second, a);
+#if !OSIS_LITE
+			Moans::OnOrgasm(a);
+#endif
 		}
 
 		class EventSink final : public RE::BSTEventSink<SKSE::ModCallbackEvent>
@@ -417,6 +421,16 @@ namespace Scenes
 
 	// Like the others, under Scenes::Lock() (the caller holds it).
 	bool AnyActive() { return !g_threads.empty(); }
+
+	void ForEachActor(const std::function<void(RE::Actor*, const Slot&)>& a_fn)
+	{
+		for (auto& [id, t] : g_threads) {
+			if (!t.active) continue;
+			for (auto& s : t.slots) {
+				if (auto* a = s.Get()) a_fn(a, s);
+			}
+		}
+	}
 
 	std::vector<ThreadStatus> Snapshot()
 	{

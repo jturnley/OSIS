@@ -174,6 +174,14 @@ namespace Settings
 #if !OSIS_LITE
 				{ "Voice", "bEnabled", &Voice::bEnabled },
 				{ "Voice", "bVictimNoMoans", &Voice::bVictimNoMoans },
+				{ "Voice", "bDirectorMuteMoans", &Voice::bDirectorMuteMoans },
+				{ "Voice", "bDirectorOwnMoans", &Voice::bDirectorOwnMoans },
+				{ "Voice", "bDirectorOwnClimax", &Voice::bDirectorOwnClimax },
+				{ "Voice", "bUseOStimMoanSettings", &Voice::bUseOStimMoanSettings },
+				{ "Voice", "fOwnMoanVolume", &Voice::fOwnMoanVolume },
+				{ "Voice", "fOwnMoanIntervalMin", &Voice::fOwnMoanIntervalMin },
+				{ "Voice", "fOwnMoanIntervalMax", &Voice::fOwnMoanIntervalMax },
+				{ "Voice", "bOwnMoanPersonality", &Voice::bOwnMoanPersonality },
 				{ "Voice", "iVictimVoice", &Voice::iVictimVoice },
 				{ "Voice", "fInterval", &Voice::fInterval },
 				{ "Voice", "bMuteDialogue", &Voice::bMuteDialogue },
@@ -270,6 +278,9 @@ namespace Settings
 			Voice::fInterval = std::clamp(Voice::fInterval, 3.0f, 60.0f);
 			Voice::fResponderRange = std::clamp(Voice::fResponderRange, 256.0f, 8192.0f);
 			Voice::fShockSeconds = std::clamp(Voice::fShockSeconds, 0.0f, 10.0f);
+			Voice::fOwnMoanVolume = std::clamp(Voice::fOwnMoanVolume, 0.0f, 1.0f);
+			Voice::fOwnMoanIntervalMin = std::clamp(Voice::fOwnMoanIntervalMin, 0.1f, 20.0f);
+			Voice::fOwnMoanIntervalMax = std::clamp(Voice::fOwnMoanIntervalMax, Voice::fOwnMoanIntervalMin, 30.0f);
 		}
 
 		void ReadIni(const CSimpleIniA& ini)
@@ -478,7 +489,11 @@ namespace Settings
 					"; bYieldToDDF: stand down while Dynamic Dialogue Framework is installed (both drive the mouth)." },
 				{ "Voice",
 					"; The victim of a non-consensual scene: OStim moans muted, a cry for help that guards/allies answer, personality lines, a scream at the breaking climax, then hard breathing. Vanilla Skyrim.esm lines only.\n"
-					"; iVictimVoice: 0 silent, 1 breathing only, 2 full. iResponders: 0 nobody, 1 guards, 2 guards and allies." },
+					"; iVictimVoice: 0 silent, 1 breathing only, 2 full. iResponders: 0 nobody, 1 guards, 2 guards and allies.\n"
+					"; bDirectorMuteMoans: with Face > iMode = 2 (Director), mute OStim's voice-set sounds (moans, climax, reactions) on every actor whose face OSIS paints. Off by default.\n"
+					"; bDirectorOwnMoans: with the Director, OSIS plays the moans itself from OStim's voice sets (the entry the scene's speed picks, the muffled list when an action says so) and mutes only OStim's plain moans: climax sounds and reactions such as a spank are still OStim's. Intervals in seconds, counted from the end of a moan. Off by default.\n"
+					"; bDirectorOwnClimax: with bDirectorOwnMoans, OSIS also plays the climax sound at each orgasm (the voice set's climax list, muffled while an action says so) and mutes OStim's. A set whose climax has dialogue is left to OStim.\n"
+					"; bUseOStimMoanSettings: the time between moans and their volume are OStim's own (its MCM: Moan interval min / max and Moan volume, read from OStim.esp), the same for every actor. Off, or if they cannot be read: fOwnMoanVolume, fOwnMoanIntervalMin and fOwnMoanIntervalMax. A vocal actor ignores the interval and moans back to back." },
 				{ "Arousal",
 					"; Softbody Arousal. iSource: 0 auto (OSL first), 1 OSL Aroused, 2 SLO Aroused NG, 3 OStim excitement only.\n"
 					"; Body blush uses \"Body [Ovl#]\" slots iOverlayFirstSlot .. +iOverlaySlots-1; set skee64.ini [Overlays/Body] iNumOverlays to at least 12." },

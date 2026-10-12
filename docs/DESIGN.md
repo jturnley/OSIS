@@ -133,6 +133,13 @@ Lip-Sync down (`bYieldToDDF`); a Faces stand-down for it was tried and taken out
 Vocal (2) is loud by frequency: `Breathe` gives it the shortest breath cycle (2 beats) at any excitement and makes every cycle a moan, with the mouth
 kept partly open on the rest beat. The moan sound itself is OStim's (one global interval, `OStimMoanIntervalMin/Max`), so it is not per actor.
 
+**Director moans (`Moans.cpp`, `VoiceModel.cpp`, full edition only, off by default).** With `bDirectorOwnMoans` and the Director, OSIS plays each painted actor's moans
+and climax itself and mutes OStim's plain-moan files on them (`Voice.cpp`'s start hook and sweep; comments and reactions stay OStim's). `VoiceModel` parses OStim's voice
+sets and chooses as OStim does (the set from the name OStim reports, the entry whose perk condition holds, the muffled list while an action says muffled). The time
+between moans and their volume are OStim's own MCM values, three globals in `OStim.esp` (local IDs 0xE0A min and 0xE0B max, in milliseconds, 0xE0C volume), read through
+`ReadOStimSettings` when `bUseOStimMoanSettings` is on; `fOwnMoanVolume` / `fOwnMoanIntervalMin` / `Max` are the fallback. A voice-set entry's own interval overrides
+the random one, and a vocal actor's wait is a fixed 0.05 s (`kVocalGap`) whatever either says: the vocal personality is the loud one by never stopping.
+
 Crazed (8) is the stare: `SetGaze` keeps the look on the partner (and `ApplyHeadflow` the head), `UpdateCrazedBlink` (from `ApplyAll`, Director mode) holds the blink
 channels open with `Output::SetBlinkHold` and fires `Output::PulseBlink` about every `fCrazedBlinkSeconds`, and `ApplyPersonalityFace` writes the yandere face: a held
 smile (mood happy, Eee) under three slowly turning brow looks (menace, manic, uneven). The blink hold relies on the engine's blink living in the same modifier channels

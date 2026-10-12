@@ -5,6 +5,8 @@
 
 #include "LipSync.h"
 
+#include <deque>
+
 #include "Compat.h"
 #include "Face/Engine.h"
 #include "Face/Output.h"
@@ -52,6 +54,13 @@ namespace LipSync
 		std::string g_status = "not started";
 		std::string g_lastMatch = "none yet";
 		std::size_t g_descriptors = 0;
+		std::vector<RE::FormID> g_moanForms;          // under g_lock: the voice sets' plain moan/climax/reaction descriptors, for PlayMoanOn
+		std::deque<std::uint32_t> g_ownSounds;        // under g_lock: sound ids PlayMoanOn started, newest last (capped)
+		thread_local bool t_playingOwn = false;
+		std::unordered_set<Key, KeyHash> g_plain;        // plain-moan files, written once by SetPlainMoans, then read without a lock
+		std::unordered_set<Key, KeyHash> g_climax;       // climax-only files, same rules
+		std::atomic_bool g_plainFrozen = false;
+		std::unordered_map<RE::FormID, float> g_busy;    // under g_lock: actor -> scene time a voice-set sound of OStim's is expected to end
 
 		// ------------------------------------------------------------ voice sets
 		void CollectSounds(const json& j, std::vector<std::pair<std::string, RE::FormID>>& out, const char* a_key = "sound")
@@ -150,13 +159,15 @@ namespace LipSync
 					std::memcpy(&channels, body + 2, 2);
 					std::memcpy(&rate, body + 4, 4);
 					std::memcpy(&bits, body + 14, 2);
+					// WAVE_FORMAT_EXTENSIBLE (high-resolution exports): the real format is the first two bytes of the sub-format GUID.
+					if (format == 0xFFFE && size >= 40) std::memcpy(&format, body + 24, 2);
 				} else if (std::memcmp(data.data() + pos, "data", 4) == 0) {
 					samples = body;
 					sampleBytes = std::min<std::size_t>(size, data.size() - (pos + 8));
 				}
 				pos += 8 + size + (size & 1);
 			}
-			const bool pcm = format == 1 && (bits == 16 || bits == 24 || bits == 8);
+			const bool pcm = format == 1 && (bits == 16 || bits == 24 || bits == 32 || bits == 8);  // OSSO's Cute and Excited sets are 32-bit
 			const bool flt = format == 3 && bits == 32;
 			if (!samples || !channels || !rate || (!pcm && !flt)) {
 				// 0x0161 is xWMA: the usual contents of a .wav shipped by a compressed voice pack.
@@ -177,6 +188,11 @@ namespace LipSync
 					std::int16_t v;
 					std::memcpy(&v, p, 2);
 					return v / 32768.0f;
+				}
+				if (bits == 32) {
+					std::int32_t v;
+					std::memcpy(&v, p, 4);
+					return static_cast<float>(v) / 2147483648.0f;
 				}
 				if (bits == 24) {
 					const std::int32_t v = (static_cast<std::uint8_t>(p[0]) | (static_cast<std::uint8_t>(p[1]) << 8) | (static_cast<std::int8_t>(p[2]) << 16));
@@ -463,6 +479,27 @@ namespace LipSync
 			return n;
 		}
 
+		// Is this sound still playing? SEH: the audio thread owns the map. Nothing with a destructor may live here.
+		bool SoundIsPlaying(RE::BSAudioManager* am, std::uint32_t id) noexcept
+		{
+			__try {
+				const auto it = am->activeSounds.find(id);
+				if (it == am->activeSounds.end() || !it->second) return false;
+				return it->second->IsPlaying();
+			} __except (EXCEPTION_EXECUTE_HANDLER) {
+				return false;
+			}
+		}
+
+#if !OSIS_LITE
+		// A sound the Director takeover has muted for this actor (a plain moan, and a climax while the takeover owns those too).
+		bool TakenOver(RE::Actor* a_owner, const Key& a_key)
+		{
+			if (!g_plainFrozen.load(std::memory_order_acquire) || !Voice::IsPlainMuted(a_owner)) return false;
+			return g_plain.contains(a_key) || (Voice::OwnClimax() && g_climax.contains(a_key));
+		}
+#endif
+
 		// The actor a playing sound follows. OStim attaches moans to the actor's 3D root
 		// (SetObjectToFollow(actor->Get3D())); other mods may use a child node such as the head.
 		// Walk up to the first node the engine tagged with its owning reference. (The old code
@@ -528,6 +565,10 @@ namespace LipSync
 			const auto* winner = form->GetFile(-1);
 			if (!def || !definer || !winner) continue;
 			++g_descriptors;
+			{
+				std::scoped_lock l(g_lock);
+				g_moanForms.push_back(form->GetFormID());
+			}
 			descs.push_back({ def, std::string(winner->GetFilename()), LowerStr(std::string(definer->GetFilename())), form->GetLocalFormID() & 0xFFFFFF });
 			std::scoped_lock l(g_lock);
 			for (const auto& id : def->soundFiles) g_wanted.insert(ToKey(id));
@@ -576,6 +617,7 @@ namespace LipSync
 			const float cutoff = Scenes::Now() - 30.0f;
 			std::scoped_lock l(g_lock);
 			std::erase_if(g_clips, [cutoff](const auto& kv) { return kv.second.seen < cutoff; });
+			std::erase_if(g_busy, [cutoff](const auto& kv) { return kv.second < cutoff; });
 		}
 		if (n == 0) return;
 
@@ -597,13 +639,30 @@ namespace LipSync
 				++g_stats.noOwner;
 				continue;
 			}
+			// A voice-set sound of OStim's (a climax, a reaction) is on this actor: the takeover's moans wait for it. A muted copy of a
+			// plain moan makes no sound, so it does not count.
+			if (!IsOwnSound(p.soundID)) {
+				bool silentCopy = false;
+#if !OSIS_LITE
+				silentCopy = TakenOver(owner, p.key);
+#endif
+				if (!silentCopy) {
+					std::scoped_lock bl(g_lock);
+					auto& until = g_busy[owner->GetFormID()];
+					until = std::max(until, now + std::max(0.0f, env->Duration() - static_cast<float>(p.positionMS) / 1000.0f));
+				}
+			}
 			if (!Scenes::InAnyScene(owner)) {
 				++g_stats.notInScene;
 				continue;
 			}
 #if !OSIS_LITE
 			// A victim's moans are muted: no mouth to move.
-			if (Voice::IsSilenced(owner)) continue;
+			if (!IsOwnSound(p.soundID)) {
+				if (Voice::IsSilenced(owner)) continue;
+				// OStim's plain moans are muted for the Director takeover: no mouth to move for a silent sound.
+				if (TakenOver(owner, p.key)) continue;
+			}
 #endif
 			// Oral / dialogue: the mouth belongs to the animation or the voice line.
 			auto* t = Scenes::ThreadOf(owner);
@@ -708,4 +767,132 @@ namespace LipSync
 	}
 
 	RE::Actor* ActorOf(RE::NiAVObject* a_node) { return OwnerOf(a_node); }
+
+	bool PlayingOwn() { return t_playingOwn; }
+
+	bool IsOwnSound(std::uint32_t a_soundID)
+	{
+		std::scoped_lock l(g_lock);
+		return std::ranges::find(g_ownSounds, a_soundID) != g_ownSounds.end();
+	}
+
+	bool IsSoundPlaying(std::uint32_t a_soundID)
+	{
+		auto* am = RE::BSAudioManager::GetSingleton();
+		return am && SoundIsPlaying(am, a_soundID);
+	}
+
+	void SetPlainMoans(const std::vector<RE::FormID>& a_plain, const std::vector<RE::FormID>& a_climax, const std::vector<RE::FormID>& a_other)
+	{
+		auto keysOf = [](const std::vector<RE::FormID>& a_ids) {
+			std::unordered_set<Key, KeyHash> out;
+			for (const auto id : a_ids) {
+				auto* form = RE::TESForm::LookupByID<RE::BGSSoundDescriptorForm>(id);
+				auto* def = form && form->soundDescriptor ? skyrim_cast<RE::BGSStandardSoundDef*>(form->soundDescriptor) : nullptr;
+				if (!def) continue;
+				for (const auto& f : def->soundFiles) out.insert(ToKey(f));
+			}
+			return out;
+		};
+		const auto moans = keysOf(a_plain);
+		const auto climaxes = keysOf(a_climax);
+		const auto others = keysOf(a_other);
+		std::unordered_set<Key, KeyHash> plain, climax;
+		std::size_t shared = 0;
+		for (const auto& k : moans) {
+			if (others.contains(k) || climaxes.contains(k)) ++shared;
+			else plain.insert(k);
+		}
+		for (const auto& k : climaxes) {
+			if (others.contains(k) || moans.contains(k)) ++shared;
+			else climax.insert(k);
+		}
+		const auto nPlain = plain.size();
+		const auto nClimax = climax.size();
+		g_plain = std::move(plain);
+		g_climax = std::move(climax);
+		g_plainFrozen.store(true, std::memory_order_release);
+		logger::info("Lip-sync: {} plain-moan and {} climax sound files can be replaced by the Director takeover ({} shared between kinds, left alone)", nPlain, nClimax, shared);
+	}
+
+	bool IsPlainMoanResource(const RE::BSResource::ID& a_id)
+	{
+		if (!g_plainFrozen.load(std::memory_order_acquire)) return false;
+		return g_plain.contains(ToKey(a_id));
+	}
+
+	bool IsClimaxResource(const RE::BSResource::ID& a_id)
+	{
+		if (!g_plainFrozen.load(std::memory_order_acquire)) return false;
+		return g_climax.contains(ToKey(a_id));
+	}
+
+	void StopSound(std::uint32_t a_soundID)
+	{
+		RE::BSSoundHandle h;
+		h.soundID = a_soundID;
+		h.assumeSuccess = false;
+		h.state = RE::BSSoundHandle::AssumedState::kPlaying;
+		h.Stop();
+	}
+
+	float VoiceBusyUntil(RE::Actor* a_actor)
+	{
+		if (!a_actor) return 0.0f;
+		std::scoped_lock l(g_lock);
+		const auto it = g_busy.find(a_actor->GetFormID());
+		return it == g_busy.end() ? 0.0f : it->second;
+	}
+
+	Played PlayDescriptor(RE::Actor* a_actor, RE::FormID a_descriptor, float a_volume)
+	{
+		Played r;
+		auto* node = a_actor ? a_actor->Get3D() : nullptr;
+		if (!node) {
+			r.text = "no actor with a body to play on";
+			return r;
+		}
+		auto* am = RE::BSAudioManager::GetSingleton();
+		if (!am) {
+			r.text = "audio manager not available";
+			return r;
+		}
+		auto* form = RE::TESForm::LookupByID<RE::BGSSoundDescriptorForm>(a_descriptor);
+		if (!form) {
+			r.text = std::format("descriptor {:08X} no longer resolves", a_descriptor);
+			return r;
+		}
+		RE::BSSoundHandle handle;
+		// Flags 0x10 is what OStim passes for its own moans.
+		if (!am->GetSoundHandle(handle, form, 0x10)) {
+			r.text = std::format("the engine would not build a sound from {:08X}", a_descriptor);
+			return r;
+		}
+		{
+			// Before Play(): the start hook runs inside it and must let this one through.
+			std::scoped_lock l(g_lock);
+			g_ownSounds.push_back(handle.soundID);
+			while (g_ownSounds.size() > 64) g_ownSounds.pop_front();
+		}
+		handle.SetObjectToFollow(node);
+		handle.SetVolume(a_volume);
+		t_playingOwn = true;
+		r.ok = handle.Play();
+		t_playingOwn = false;
+		r.soundID = handle.soundID;
+		r.text = std::format("{} {:08X} on {} (sound {})", r.ok ? "played" : "Play() failed for", a_descriptor, a_actor->GetDisplayFullName(), handle.soundID);
+		return r;
+	}
+
+	std::string PlayMoanOn(RE::Actor* a_actor, float a_volume)
+	{
+		RE::FormID id = 0;
+		{
+			std::scoped_lock l(g_lock);
+			if (g_moanForms.empty()) return "no voice-set sound descriptors were found at load";
+			thread_local std::mt19937 rng{ std::random_device{}() };
+			id = g_moanForms[std::uniform_int_distribution<std::size_t>(0, g_moanForms.size() - 1)(rng)];
+		}
+		return PlayDescriptor(a_actor, id, a_volume).text;
+	}
 }

@@ -227,6 +227,8 @@ namespace Scenes
 	[[nodiscard]] Thread* ThreadOf(RE::Actor* a_actor);
 	[[nodiscard]] bool InAnyScene(RE::Actor* a_actor);
 	[[nodiscard]] bool AnyActive();  // an OStim scene is running
+	// Every actor of every active thread, with its slot. The caller holds Scenes::Lock().
+	void ForEachActor(const std::function<void(RE::Actor*, const Slot&)>& a_fn);
 
 	// UI snapshot
 	struct SlotStatus

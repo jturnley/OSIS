@@ -28,6 +28,8 @@ namespace Voice
 	void OnSceneEnd(Scenes::Thread& t);
 
 	[[nodiscard]] bool IsSilenced(RE::Actor* a);   // OStim's moans on this actor are muted
+	[[nodiscard]] bool OwnClimax();                // the takeover also owns the climax sounds, so those are muted on the same actors
+	[[nodiscard]] bool IsPlainMuted(RE::Actor* a); // only OStim's plain moans on this actor are muted (the Director takeover plays its own); climax and reactions are not
 	[[nodiscard]] std::string Status();
 
 	// Menu tests on the crosshair actor
