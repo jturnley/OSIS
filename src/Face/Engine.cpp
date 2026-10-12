@@ -1496,6 +1496,11 @@ namespace Face::Engine
 
 	void SetNpcPersonalities(std::unordered_map<RE::FormID, int> m)
 	{
+		// The settings reset every player to Balanced this run: an automatic (pinned) personality the save holds for the player goes too, so it does not
+		// come back if they choose Auto later. One the player set by hand (not pinned) stays.
+		if (Settings::General::bResetPlayerPin.load()) {
+			if (const auto it = m.find(0x14); it != m.end() && (it->second & kPinnedFlag)) m.erase(it);
+		}
 		std::scoped_lock l(g_dataLock);
 		g_npcPersonality = std::move(m);
 	}

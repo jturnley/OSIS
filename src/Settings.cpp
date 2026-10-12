@@ -32,6 +32,7 @@ namespace Settings
 				{ "General", "bPulseBus", &General::bPulseBus },
 				{ "General", "bAnimationHooks", &General::bAnimationHooks },
 				{ "General", "bDebug", &General::bDebug },
+				{ "General", "iSettingsRevision", &General::iSettingsRevision },
 
 				{ "Face", "bEnabled", &Face::bEnabled },
 				{ "Face", "iMode", &Face::iMode },
@@ -416,6 +417,7 @@ namespace Settings
 	void Load()
 	{
 		bool migratedStoic = false;
+		bool migratedRevision = false;
 		{
 			std::scoped_lock l(lock);
 			CSimpleIniA ini;
@@ -424,6 +426,13 @@ namespace Settings
 				logger::warn("Could not load {} - using defaults.", kIniPath);
 			} else {
 				ReadIni(ini);
+				// Revision 1 (2.0 beta 3): the player is Balanced again. The rules used to pick a personality for the player, and one of the picks was a timid player
+				// whose eyes were always shut. An INI from before the revision key existed has the player's choice (automatic or not) reset to Balanced once; the
+				// Personality page still offers every personality, and Auto.
+				if (!ini.GetValue("General", "iSettingsRevision")) {
+					Face::iPlayerPersonality = 0;
+					migratedRevision = true;
+				}
 				// A stoic's rate was 0.70 until 2.0 beta 2, hotfix 2, and an INI written by those still says so: 0.70 was the default, not a choice.
 				if (std::abs(Face::fStoicExcitementMult - 0.70f) < 0.0015f) {
 					Face::fStoicExcitementMult = 0.20f;
@@ -431,6 +440,11 @@ namespace Settings
 				}
 			}
 			Sanitize();
+		}
+		if (migratedRevision) {
+			General::bResetPlayerPin = true;
+			logger::info("Face: this INI predates the settings revision: the player's personality is Balanced now (Face > Personality changes it)");
+			if (!migratedStoic) SaveIni();
 		}
 		if (migratedStoic) {
 			logger::info("Face: fStoicExcitementMult was the old default 0.70; it is 0.20 now, so a stoic takes much more effort to bring to the edge.");

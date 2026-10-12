@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased (after 2.0 beta 2, hotfix 3)
+
+### Changed
+- **The player is Balanced by default.** The rules used to pick a personality for the player like anyone else (Vanilla AI values, a seeded roll for the newer types), and one
+  player came out Timid and complained that their eyes were always shut. `iPlayerPersonality` now defaults to Balanced instead of Auto, and every existing INI is reset
+  to it once: an INI without the new `[General] iSettingsRevision` key (everything written before this build) has the player's choice, automatic or picked by hand, set to
+  Balanced, and the automatic personality a save holds for the player is dropped on load. The Personality page still offers every personality and Auto, and what
+  you set from now on is kept. NPCs are untouched.
+
 ## 2.0 beta 2, hotfix 3 (plugin version 2.0.14)
 
 ### Changed

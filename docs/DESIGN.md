@@ -147,6 +147,10 @@ hotfix 3) the phonemes already matching PPA's winning mouth preset (`PPA::MouthM
 phonemes it does not set at most 0.20 when `OverridePhonemes`, a summed excess of at most 0.15; depth-scaled phonemes only bound the top). If neither shows within 6 s the mouth
 goes back to the Director and is offered again after 15 s.
 
+The player's personality is `Settings::Face::iPlayerPersonality`, Balanced (0) by default; Auto (-1) hands the player to `ResolvePersonality` like an NPC. `Settings::Load` resets an INI that
+has no `[General] iSettingsRevision` to Balanced once (`migratedRevision`) and sets `General::bResetPlayerPin`, so `SetNpcPersonalities` also drops the player's pinned (automatic) entry
+from the cosave that run. Revisions are the place for any future one-time reset of a setting.
+
 ## Body types
 Arousal morph rows and blush regions carry a `type` (`Settings::Arousal::BodyType`: any, CBBE/3BA, UBE). `IsUBE` in `Arousal.cpp` reads the
 race: an editor ID starting `00ube_`, or a name ending ` UBE` (UBE_AllRace.esp's 18 races), and `BodyMatch` keeps each row to its body. UBE

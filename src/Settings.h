@@ -23,6 +23,8 @@ namespace Settings
 		inline bool bPulseBus = true;         // emit SLED_* / OSED_* mod events for other mods
 		inline bool bAnimationHooks = true;   // per-frame face/toe writes after animation (read at startup)
 		inline bool bDebug = false;
+		inline int iSettingsRevision = 1;     // an INI without it was written by an older version: revision 1 resets the player's personality to Balanced, once
+		inline std::atomic_bool bResetPlayerPin = false;  // set when this run did that: the cosave's automatic personality for the player is dropped on load
 	}
 
 	// ---------------------------------------------------------------- face (OSED core)
@@ -116,7 +118,7 @@ namespace Settings
 
 		inline bool bSPIDPersonality = true;
 		inline bool bOBlushSync = true;
-		inline int iPlayerPersonality = -1;   // -1 auto, 0 balanced, 1 stoic, 2 vocal, 3 shy, 4 dominant, 5 timid, 6 submissive (full edition only), 7 wild, 8 crazed
+		inline int iPlayerPersonality = 0;    // 0 balanced (the default: the rules used to pick one, and a timid player complained that their eyes were always shut), -1 auto, 1 stoic, 2 vocal, 3 shy, 4 dominant, 5 timid, 6 submissive (full edition only), 7 wild, 8 crazed
 		// Where nothing else says (no SPID keyword, voice or AI value), this share of people get one of the newer personalities
 		// (timid, submissive, wild, crazed) instead of one of the first five.
 		inline float fNewPersonalityShare = 0.20f;

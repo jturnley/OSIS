@@ -279,7 +279,7 @@ keeps them following an arousal mod's number all the time, which costs resources
 
 Each actor gets a personality (stoic, vocal, shy, dominant, timid, wild, crazed{submissive} or none) the first time a
 scene needs it, from a SPID keyword, its voice type, its AI values or a seeded roll (mostly balanced, few dominant; the shipped SPID file hands out none). It is then kept in
-your save, so it is the same in every scene and after every load. Set one yourself on the Personality page (the
+your save, so it is the same in every scene and after every load. The player is Balanced unless you choose otherwise. Set one yourself on the Personality page (the
 player's, or the NPC under the crosshair); "Work every personality out again" forgets the automatic ones.
 
 - **Stoic**: tolerates sex but isn't into it, and is waiting for the partner to be done. Slow to build, muted at the plateau and the

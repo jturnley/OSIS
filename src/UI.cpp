@@ -667,6 +667,7 @@ namespace
 				iPlayerPersonality = kPersonalityIds[player];
 				g_dirty = true;
 			}
+			ig::TextDisabled("Balanced unless you choose otherwise. Auto lets the rules pick one for the player, which can give them a timid or a crazed look.");
 			Check("SPID personality keywords", bSPIDPersonality,
 				"A personality keyword SPID has put on an actor decides it (OSIS_Personality_Bashful, _Bold, _Soft, _Fierce, _Timid, _Wild and _Crazed (alias _Yandere)"
 #if !OSIS_LITE
