@@ -3,6 +3,10 @@
 ## Unreleased (after 2.0 beta 2, hotfix 3)
 
 ### Changed
+- **About 200 of OSSO's Dynamic voice-set moans were never lip-synced, levelled or analysed.** The log said "207 file(s) not installed" on two different installs. They are installed: OSSO's
+  DynamicVS records end each file name with a stray line break ("...wav\r\n"; 215 of its 216 such entries), the engine copes with it and OSIS's file lookup did not. The names are now
+  trimmed. The log also gives an example of a file that really is missing ("the game's resource system does not have it"). The 23 files the same log called "xWMA" are OSSO's 32-bit
+  Cute and Excited sets, which the 32-bit decode fix in this unreleased work already reads.
 - **The default edition no longer carries the full edition's `[Voice]` INI note.** The note describes the non-consensual victim's voice settings; it was compiled into the default edition's DLL
   although that edition has no such settings and never wrote the section. Behaviour is unchanged.
 - **The face follows what a moan sounds like, not only how loud it is** (both editions; Lip-Sync page; on by default). Every voice-set file is now also analysed when it is decoded:

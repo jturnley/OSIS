@@ -368,8 +368,13 @@ namespace LipSync
 		// or to Data\Sound ("fx\..."). The game's working directory is the game folder.
 		// Relative to Data, which is what the resource system wants: it looks in the loose files
 		// and in every mounted BSA. A leading Data\\ would make it look for Data\\Data\\...
-		std::string ResolveSoundPath(const std::string& a_anam)
+		std::string ResolveSoundPath(std::string a_anam)
 		{
+			// OSSO's DynamicVS records end their file names with a line break ("...wav\r\n"), which the engine copes with and a file lookup does not: trimmed,
+			// 200-odd more files decode.
+			const auto blank = [](char c) { return c == ' ' || c == '\t' || c == '\r' || c == '\n'; };
+			while (!a_anam.empty() && blank(a_anam.back())) a_anam.pop_back();
+			while (!a_anam.empty() && blank(a_anam.front())) a_anam.erase(a_anam.begin());
 			std::string lower = LowerStr(a_anam);
 			if (lower.starts_with("data\\") || lower.starts_with("data/")) return a_anam.substr(5);
 			if (lower.starts_with("sound\\") || lower.starts_with("sound/")) return a_anam;
@@ -445,7 +450,7 @@ namespace LipSync
 		void DecodeAll(std::vector<Match> files, std::size_t paired, std::chrono::steady_clock::time_point t0)
 		{
 			std::size_t decoded = 0, notFound = 0, notRiff = 0, encoding = 0;
-			std::string firstEncoding;
+			std::string firstEncoding, firstNotFound;
 			for (auto& m : files) {
 				try {
 					Skip why = Skip::kNone;
@@ -456,7 +461,10 @@ namespace LipSync
 						continue;
 					}
 					switch (why) {
-					case Skip::kNotFound: ++notFound; break;
+					case Skip::kNotFound:
+						++notFound;
+						if (firstNotFound.empty()) firstNotFound = m.path;
+						break;
 					case Skip::kNotRiff: ++notRiff; break;
 					case Skip::kEncoding:
 						++encoding;
@@ -472,7 +480,8 @@ namespace LipSync
 				logger::warn("Lip-sync: {} file(s) not installed, {} not a WAV container, {} in an encoding this cannot read "
 							 "(xWMA - a compressed voice pack). Those moans play, the mouth just does not follow them.",
 					notFound, notRiff, encoding);
-				if (!firstEncoding.empty()) logger::warn("Lip-sync: for example {}", firstEncoding);
+				if (!firstEncoding.empty()) logger::warn("Lip-sync: for example {} (not readable)", firstEncoding);
+				if (!firstNotFound.empty()) logger::warn("Lip-sync: for example {} (the game's resource system does not have it)", firstNotFound);
 			}
 			const auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - t0).count();
 			{
