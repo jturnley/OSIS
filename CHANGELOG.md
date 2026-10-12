@@ -3,6 +3,8 @@
 ## 2.0 beta 2, hotfix 3 (plugin version 2.0.14)
 
 ### Changed
+- **The default edition no longer carries the full edition's `[Voice]` INI note.** The note describes the non-consensual victim's voice settings; it was compiled into the default edition's DLL
+  although that edition has no such settings and never wrote the section. Behaviour is unchanged.
 - **The mouth hand-over to PPA no longer gives up on a mouth PPA is already driving.** From the Eldergleam reporter's log (hotfix 2): 19 hand-overs of a blowjob's mouth,
   13 of them "nothing moved Ashe's mouth in 6 s; it is not driving it here, so the Director has it back" and only 4 "is driving" (with a phoneme change of 3.58, 1.90,
   1.32 and 1.10, shrinking). The probe looked only for movement, but with Ahegao Expressions or OStim's own expression already holding the mouth open before the hand-over,

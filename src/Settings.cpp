@@ -462,9 +462,11 @@ namespace Settings
 				{ "LipSync",
 					"; Mouth follows the moan OStim plays (decoded from your voice-set .wav files at startup).\n"
 					"; bYieldToDDF: stand down while Dynamic Dialogue Framework is installed (both drive the mouth)." },
+#if !OSIS_LITE
 				{ "Voice",
 					"; The victim of a non-consensual scene: OStim moans muted, a cry for help that guards/allies answer, personality lines, a scream at the breaking climax, then hard breathing. Vanilla Skyrim.esm lines only.\n"
 					"; iVictimVoice: 0 silent, 1 breathing only, 2 full. iResponders: 0 nobody, 1 guards, 2 guards and allies." },
+#endif
 				{ "Arousal",
 					"; Softbody Arousal. iSource: 0 auto (OSL first), 1 OSL Aroused, 2 SLO Aroused NG, 3 OStim excitement only.\n"
 					"; Body blush uses \"Body [Ovl#]\" slots iOverlayFirstSlot .. +iOverlaySlots-1; set skee64.ini [Overlays/Body] iNumOverlays to at least 12." },
