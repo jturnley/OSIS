@@ -231,6 +231,72 @@ namespace Face::Buildup
 		};
 		constexpr int kOptionCount = static_cast<int>(sizeof(kOptions) / sizeof(kOptions[0]));
 
+		// What a stoic wears while it is only putting up with it (the first three stages): lids low or the eyes elsewhere, flat brows, a closed or barely parted mouth, a neutral
+		// mood. Nothing wide, smiling, pleading or soft. They are not in the stage tables above, whose 22 options a stage are all some kind of pleasure, so a stoic's weights could only make
+		// the least engaged of them likelier. They carry no stage (-1): Build takes the stage the face is shown at. Their index is kOptionCount + their place here.
+		constexpr Option kStoicOptions[] = {
+			{ -1, EyesHalfLid, BrowsNeutral, MouthClosedRelaxed, MoodNeutral, 0.00f },
+			{ -1, EyesHeavyLidDown, BrowsNeutral, MouthClosedRelaxed, MoodNeutral, 0.08f },
+			{ -1, EyesGlanceLeft, BrowsNeutral, MouthClosedRelaxed, MoodNeutral, 0.00f },
+			{ -1, EyesGlanceRight, BrowsNeutral, MouthClosedRelaxed, MoodNeutral, 0.00f },
+			{ -1, EyesOpenSoft, BrowsNeutral, MouthClosedRelaxed, MoodNeutral, -0.10f },
+			{ -1, EyesHalfLid, BrowsKnitLight, MouthPressed, MoodNeutral, 0.00f },
+			{ -1, EyesGlanceLeft, BrowsKnitLight, MouthPressed, MoodPuzzled, 0.00f },
+			{ -1, EyesLookDownShy, BrowsNeutral, MouthClosedRelaxed, MoodNeutral, 0.00f },
+			{ -1, EyesHalfLid, BrowsNeutral, MouthBreathOut, MoodNeutral, 0.00f },
+			{ -1, EyesSlowBlink, BrowsNeutral, MouthClosedRelaxed, MoodNeutral, 0.00f },
+			{ -1, EyesOpenSoft, BrowsLowered, MouthPressed, MoodNeutral, 0.00f },
+			{ -1, EyesGlanceRight, BrowsNeutral, MouthLipsParted, MoodPuzzled, 0.00f },
+			{ -1, EyesHeavyLidDown, BrowsKnitLight, MouthClosedRelaxed, MoodPuzzled, 0.00f },
+			{ -1, EyesOpenSoft, BrowsNeutral, MouthLipsParted, MoodNeutral, 0.00f },
+			{ -1, EyesEyeContact, BrowsNeutral, MouthClosedRelaxed, MoodNeutral, 0.00f },
+			{ -1, EyesHalfLid, BrowsLowered, MouthClosedRelaxed, MoodNeutral, 0.00f },
+		};
+		constexpr int kStoicCount = static_cast<int>(sizeof(kStoicOptions) / sizeof(kStoicOptions[0]));
+
+		// What a stoic wears as it nears the orgasm: shock, surprise and disbelief, as if it never expected sex to feel good. Wide or open eyes, brows lifted or pulled in puzzled, a gasp, a round O, a
+		// breath out in disbelief, the mood surprise or puzzled; nothing soft or smiling. Used in the heightened stage (half of the picks) and at the edge (all of them). Index: kOptionCount + kStoicCount + place here.
+		constexpr Option kStoicShockOptions[] = {
+			{ -1, EyesWideAttentive, BrowsHighRaise, MouthWideGasp, MoodSurprise, 0.00f },
+			{ -1, EyesWideAttentive, BrowsHighRaise, MouthRoundO, MoodSurprise, 0.05f },
+			{ -1, EyesWideAttentive, BrowsSoftRaise, MouthLipsParted, MoodSurprise, 0.00f },
+			{ -1, EyesOpenSoft, BrowsHighRaise, MouthPartedWide, MoodSurprise, 0.00f },
+			{ -1, EyesEyeContact, BrowsSoftRaise, MouthLipsParted, MoodPuzzled, 0.00f },
+			{ -1, EyesWideAttentive, BrowsKnitLight, MouthLipsParted, MoodPuzzled, 0.00f },
+			{ -1, EyesGlanceLeft, BrowsHighRaise, MouthRoundO, MoodSurprise, 0.00f },
+			{ -1, EyesGlanceRight, BrowsSoftRaise, MouthPartedWide, MoodSurprise, 0.05f },
+			{ -1, EyesOpenSoft, BrowsUnevenLeft, MouthLipsParted, MoodPuzzled, 0.00f },
+			{ -1, EyesWideAttentive, BrowsUnevenRight, MouthOpen, MoodSurprise, 0.00f },
+			{ -1, EyesEyeContact, BrowsHighRaise, MouthOpen, MoodSurprise, 0.05f },
+			{ -1, EyesOpenSoft, BrowsSoftRaise, MouthBreathOut, MoodSurprise, -0.05f },
+			{ -1, EyesWideAttentive, BrowsWorried, MouthLipsParted, MoodSurprise, 0.00f },
+			{ -1, EyesOpenSoft, BrowsKnitLight, MouthPartedWide, MoodPuzzled, 0.00f },
+		};
+		constexpr int kStoicShockCount = static_cast<int>(sizeof(kStoicShockOptions) / sizeof(kStoicShockOptions[0]));
+
+		bool ValidOption(int a_option) { return a_option >= 0 && a_option < kOptionCount + kStoicCount + kStoicShockCount; }
+		const Option& OptionAt(int a_option)
+		{
+			if (a_option < kOptionCount) return kOptions[a_option];
+			if (a_option < kOptionCount + kStoicCount) return kStoicOptions[a_option - kOptionCount];
+			return kStoicShockOptions[a_option - kOptionCount - kStoicCount];
+		}
+
+		// One of `a_count` options from `a_first` on, other than the recent ones if any other is left.
+		int PickAmong(int a_first, int a_count, const int* a_recent, int a_recentCount)
+		{
+			std::vector<int> open;
+			for (int pass = 0; pass < 2 && open.empty(); ++pass) {
+				for (int j = 0; j < a_count; ++j) {
+					const int idx = a_first + j;
+					if (pass == 0 && std::find(a_recent, a_recent + a_recentCount, idx) != a_recent + a_recentCount) continue;
+					open.push_back(idx);
+				}
+			}
+			const auto at = static_cast<std::size_t>(Engine::detail::RandFloat(0.0f, 0.9999f) * static_cast<float>(open.size()));
+			return open[std::min(at, open.size() - 1)];
+		}
+
 		float Intensity(int stage, float excitement)
 		{
 			// How much of an option shows: it follows the excitement within its stage, and the edge is a little past full.
@@ -375,6 +441,13 @@ namespace Face::Buildup
 	int Pick(int stage, int arch, const int* recent, int recentCount)
 	{
 		const int a = Engine::BasePersonality(arch);  // the affinity columns are the original five's
+		const bool stoic = arch == Engine::Pers::kStoic;
+		// A stoic never wears one of the stage's pleasure faces. It puts up with it (the calm faces) through the first three stages, is startled as it nears the orgasm (half of the
+		// heightened stage's picks) and shocked at the edge (all of them): it never expected sex to feel good.
+		if (stoic) {
+			if (stage == kEdge || (stage == kHeightened && Engine::detail::RandFloat(0.0f, 1.0f) < 0.5f)) return PickAmong(kOptionCount + kStoicCount, kStoicShockCount, recent, recentCount);
+			return PickAmong(kOptionCount, kStoicCount, recent, recentCount);
+		}
 		std::vector<std::pair<int, float>> candidates;
 		float total = 0.0f;
 		for (int pass = 0; pass < 2 && total <= 0.0f; ++pass) {
@@ -400,16 +473,16 @@ namespace Face::Buildup
 		return candidates.back().first;
 	}
 
-	void Build(int option, float excitement, float mouthGate, Pose& e)
+	void Build(int option, float excitement, float mouthGate, Pose& e, int a_stage)
 	{
 		e = {};
-		if (option < 0 || option >= kOptionCount) return;
-		const auto& o = kOptions[option];
+		if (!ValidOption(option)) return;
+		const auto& o = OptionAt(option);
 		const auto& E = kEyes[o.eyes];
 		const auto& B = kBrows[o.brows];
 		const auto& M = kMouth[o.mouth];
 		const auto& Mo = kMoods[o.mood];
-		const float i = Intensity(o.stage, excitement);
+		const float i = Intensity(o.stage >= 0 ? o.stage : (a_stage >= 0 ? a_stage : StageFor(false, false, static_cast<int>(excitement))), excitement);
 		const float k = std::clamp(1.0f + o.bias, 0.6f, 1.4f);
 		const float mi = i * k * mouthGate;
 		e[0] = Clamp01(M.aah * mi);
@@ -437,13 +510,14 @@ namespace Face::Buildup
 
 	std::string Name(int option)
 	{
-		if (option < 0 || option >= kOptionCount) return "none";
-		const auto& o = kOptions[option];
-		return std::string(StageName(o.stage)) + ":" + kEyes[o.eyes].name + "+" + kBrows[o.brows].name + "+" + kMouth[o.mouth].name + "+" + kMoods[o.mood].name;
+		if (!ValidOption(option)) return "none";
+		const auto& o = OptionAt(option);
+		const char* group = o.stage >= 0 ? StageName(o.stage) : (option < kOptionCount + kStoicCount ? "calm" : "shock");
+		return std::string(group) + ":" + kEyes[o.eyes].name + "+" + kBrows[o.brows].name + "+" + kMouth[o.mouth].name + "+" + kMoods[o.mood].name;
 	}
 
 	bool SlowBlink(int option)
 	{
-		return option >= 0 && option < kOptionCount && kEyes[kOptions[option].eyes].slowBlink;
+		return ValidOption(option) && kEyes[OptionAt(option).eyes].slowBlink;
 	}
 }

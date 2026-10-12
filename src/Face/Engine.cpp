@@ -199,6 +199,8 @@ namespace Face::Engine
 		// very slowly"), so holding their partner for them would hold the partner for the whole scene. Likewise a crazed one cannot be held for a
 		// partner who is not being stimulated. Unknown actions count as engaged.
 		constexpr float kMinStimulation = 0.25f;
+		// A crazed male climaxes with his partner (OnOrgasm) only when he is being stimulated and is this excited (OStim's 0-100): he cannot be made to by the partner's orgasm alone.
+		constexpr int kMaleWithPartnerMin = 60;
 
 		bool Engaged(const Thread& t, const Slot& s)
 		{
@@ -1788,7 +1790,13 @@ namespace Face::Engine
 				if (&o == s || !b || at - o.forcedAt < 6.0f || o.climaxing) continue;
 				const int theirs = Archetype(b);
 				const bool partnerOfDominant = mine == Pers::kDominant && theirs != Pers::kDominant && o.stallActive && Raw(b) >= 80;
-				const bool crazedWithPartner = theirs == Pers::kCrazed && mine != Pers::kCrazed;
+				const bool crazedOther = theirs == Pers::kCrazed && mine != Pers::kCrazed;
+				// A crazed woman climaxes with her partner whenever they do. A crazed man cannot be made to by that alone: he has to be stimulated and well on his way.
+				const bool crazedWithPartner = crazedOther && (o.female || (Engaged(t, o) && Raw(b) >= kMaleWithPartnerMin));
+				if (crazedOther && !crazedWithPartner) {
+					Debug::Log(Debug::Cat::Control, "{}: crazed, but no orgasm with {}'s: {}", Debug::Label(b), Debug::Label(a),
+						Engaged(t, o) ? std::format("only {} excited, a man needs {}", Raw(b), kMaleWithPartnerMin) : std::string("nothing in the scene stimulates him"));
+				}
 				if (!partnerOfDominant && !crazedWithPartner) continue;
 				o.forcedAt = at;
 				o.stallActive = false;

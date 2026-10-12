@@ -32,7 +32,8 @@ namespace Face::Buildup
 	// An option of the stage for this personality, other than any of the `a_recentCount` in `a_recent`; -1 if there is none.
 	[[nodiscard]] int Pick(int a_stage, int a_arch, const int* a_recent, int a_recentCount);
 	// The face for an option at this excitement. `a_mouthGate` is the Director's mouth gate (0 leaves the mouth closed).
-	void Build(int a_option, float a_excitement, float a_mouthGate, Pose& a_out);
+	// `a_stage` is the stage it is shown at, for the calm faces a stoic wears, which belong to none.
+	void Build(int a_option, float a_excitement, float a_mouthGate, Pose& a_out, int a_stage = -1);
 	[[nodiscard]] std::string Name(int a_option);
 	// Whether the option's eyes blink slowly now and then.
 	[[nodiscard]] bool SlowBlink(int a_option);

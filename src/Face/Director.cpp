@@ -106,35 +106,42 @@ namespace Face::Engine::detail
 
 		constexpr ClimaxVariant kClimaxVariants[] = {
 			{ "gasp", 10, 0.35f, 0.70f, 0.55f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.85f, 0.15f, 0.55f, 0.00f, 0.00f,
-				false, false, true, kSoften, kHard, 0.60f, -0.10f, { 1.00f, 0.60f, 1.80f, 1.40f, 0.90f, 0.90f, 1.20f, 1.00f, 0.30f } },
+				false, false, true, kSoften, kHard, 0.60f, -0.10f, { 1.00f, 1.20f, 1.80f, 1.40f, 0.90f, 0.90f, 1.20f, 1.00f, 0.30f } },
 			{ "cry_out", 12, 0.50f, 0.35f, 0.20f, 0.75f, 0.30f, 0.00f, 0.00f, 0.00f, 0.00f, 0.30f, 0.70f, 0.00f, 0.00f, 0.60f,
 				false, false, false, kSoften, kHeavy, 0.50f, 0.05f, { 1.00f, 0.10f, 2.60f, 1.60f, 1.20f, 1.00f, 1.60f, 2.20f, 0.50f } },
 			{ "clenched", 8, 0.30f, 0.10f, 0.00f, 0.00f, 0.00f, 0.55f, 0.00f, 0.20f, 0.00f, 0.90f, 0.00f, 0.60f, 0.35f, 0.00f,
-				false, false, true, kHold, kHard, 0.70f, 0.00f, { 1.00f, 0.80f, 0.20f, 0.40f, 1.60f, 0.50f, 0.60f, 0.30f, 0.80f } },
+				false, false, true, kHold, kHard, 0.70f, 0.00f, { 1.00f, 0.20f, 0.20f, 0.40f, 1.60f, 0.50f, 0.60f, 0.30f, 0.80f } },
 			{ "lip_bite", 11, 0.35f, 0.08f, 0.00f, 0.00f, 0.00f, 0.00f, 0.10f, 0.55f, 0.20f, 0.60f, 0.25f, 0.40f, 0.00f, 0.00f,
-				false, false, false, kSoften, kTight, 0.30f, 0.00f, { 1.00f, 0.50f, 0.10f, 0.80f, 0.30f, 1.40f, 1.60f, 0.60f, 0.60f } },
+				false, false, false, kSoften, kTight, 0.30f, 0.00f, { 1.00f, 0.20f, 0.10f, 0.80f, 0.30f, 1.40f, 1.60f, 0.60f, 0.60f } },
 			{ "silent", 7, 0.30f, 0.15f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.30f, 0.10f, 0.20f, 0.00f, 0.00f,
-				false, true, false, kSlack, kLanguid, 0.20f, -0.20f, { 1.00f, 3.00f, 0.05f, 0.30f, 0.50f, 0.60f, 0.80f, 0.10f, 0.40f } },
+				false, true, false, kSlack, kLanguid, 0.20f, -0.20f, { 1.00f, 0.60f, 0.05f, 0.30f, 0.50f, 0.60f, 0.80f, 0.10f, 0.40f } },
 			{ "wide_eyed", 12, 1.00f, 0.30f, 0.00f, 0.55f, 0.15f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 1.00f, 0.00f, 0.00f, 0.00f,
-				true, false, false, kSmile, kOpen, 0.40f, -0.10f, { 1.00f, 0.30f, 1.60f, 2.00f, 0.40f, 0.15f, 1.00f, 1.20f, 2.20f } },
+				true, false, false, kSmile, kOpen, 0.40f, -0.10f, { 1.00f, 3.00f, 1.60f, 2.00f, 0.40f, 0.15f, 1.00f, 1.20f, 2.20f } },
 			{ "eyes_rolled", 10, 0.30f, 0.55f, 0.20f, 0.00f, 0.10f, 0.00f, 0.00f, 0.00f, 0.00f, 0.35f, 0.45f, 0.00f, 0.00f, 0.85f,
 				false, false, false, kSlack, kHeavy, 0.50f, 0.10f, { 1.00f, 0.10f, 1.80f, 1.00f, 1.00f, 0.80f, 1.60f, 2.00f, 0.20f } },
 			{ "smiling", 10, 0.85f, 0.45f, 0.00f, 0.00f, 0.00f, 0.30f, 0.00f, 0.00f, 0.00f, 0.75f, 0.20f, 0.00f, 0.00f, 0.00f,
-				false, false, false, kSmile, kClosed, 0.30f, 0.10f, { 1.00f, 0.30f, 1.80f, 0.80f, 1.40f, 2.00f, 1.20f, 1.80f, 2.40f } },
+				false, false, false, kSmile, kClosed, 0.30f, 0.10f, { 1.00f, 0.05f, 1.80f, 0.80f, 1.40f, 2.00f, 1.20f, 1.80f, 2.40f } },
 			{ "intense", 8, 0.35f, 0.25f, 0.00f, 0.00f, 0.00f, 0.10f, 0.00f, 0.00f, 0.00f, 0.55f, 0.00f, 0.35f, 0.45f, 0.00f,
 				false, false, false, kHold, kOpen, 0.20f, 0.05f, { 1.00f, 0.10f, 0.60f, 0.30f, 2.20f, 0.10f, 0.20f, 0.80f, 3.00f } },
 			{ "long_moan", 11, 0.40f, 0.20f, 0.65f, 0.00f, 0.50f, 0.00f, 0.00f, 0.00f, 0.00f, 0.50f, 0.35f, 0.45f, 0.00f, 0.00f,
 				false, false, false, kSoften, kClosed, 0.40f, 0.25f, { 1.00f, 0.10f, 2.20f, 1.40f, 0.80f, 2.00f, 1.40f, 2.20f, 0.30f } },
 			{ "overwhelmed", 9, 0.45f, 0.60f, 0.40f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.70f, 0.30f, 0.65f, 0.00f, 0.00f,
-				false, false, true, kHold, kFlutter, 0.90f, 0.00f, { 1.00f, 0.10f, 1.60f, 2.20f, 0.80f, 1.60f, 2.00f, 1.00f, 0.30f } },
+				false, false, true, kHold, kFlutter, 0.90f, 0.00f, { 1.00f, 0.40f, 1.60f, 2.20f, 0.80f, 1.60f, 2.00f, 1.00f, 0.30f } },
 			{ "pained", 11, 0.55f, 0.35f, 0.00f, 0.00f, 0.00f, 0.15f, 0.35f, 0.00f, 0.00f, 0.70f, 0.55f, 0.60f, 0.00f, 0.00f,
 				false, false, true, kSoften, kTight, 0.60f, 0.00f, { 1.00f, 0.10f, 0.50f, 0.80f, 0.50f, 0.40f, 2.00f, 0.30f, 0.20f } },
 			{ "breathless", 7, 0.30f, 0.35f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.15f, 0.20f, 0.25f, 0.00f, 0.00f, 0.25f,
-				false, true, false, kSlack, kLanguid, 0.30f, -0.10f, { 1.00f, 2.20f, 0.60f, 1.00f, 0.60f, 1.00f, 1.20f, 0.40f, 0.60f } },
+				false, true, false, kSlack, kLanguid, 0.30f, -0.10f, { 1.00f, 0.50f, 0.60f, 1.00f, 0.60f, 1.00f, 1.20f, 0.40f, 0.60f } },
 			{ "snarl", 14, 0.45f, 0.30f, 0.00f, 0.00f, 0.00f, 0.40f, 0.00f, 0.00f, 0.00f, 0.75f, 0.00f, 0.30f, 0.55f, 0.00f,
 				false, false, false, kHold, kOpen, 0.40f, 0.00f, { 1.00f, 0.05f, 0.80f, 0.10f, 2.20f, 0.05f, 0.05f, 0.80f, 2.60f } },
 			{ "laughing", 10, 0.70f, 0.65f, 0.25f, 0.00f, 0.00f, 0.20f, 0.00f, 0.00f, 0.00f, 0.70f, 0.50f, 0.00f, 0.00f, 0.00f,
 				false, false, false, kSmile, kFlutter, 0.80f, 0.05f, { 1.00f, 0.05f, 1.80f, 0.80f, 0.60f, 0.50f, 0.50f, 2.40f, 2.40f } },
+			// The stoic's: shock and surprise, as if it never expected sex to feel good (mood 12 surprise, 13 puzzled).
+			{ "stunned", 12, 1.00f, 0.30f, 0.35f, 0.40f, 0.10f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 1.00f, 0.00f, 0.00f, 0.00f,
+				true, false, false, kSlack, kOpen, 0.20f, 0.10f, { 1.00f, 3.00f, 0.10f, 0.20f, 0.05f, 0.20f, 0.30f, 0.10f, 0.10f } },
+			{ "startled", 12, 0.90f, 0.55f, 0.45f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.80f, 0.20f, 0.00f, 0.00f,
+				true, false, true, kSoften, kOpen, 0.55f, -0.05f, { 1.00f, 2.50f, 0.15f, 0.30f, 0.05f, 0.30f, 0.30f, 0.10f, 0.10f } },
+			{ "disbelief", 13, 0.85f, 0.20f, 0.10f, 0.10f, 0.00f, 0.00f, 0.00f, 0.00f, 0.00f, 0.10f, 0.55f, 0.40f, 0.00f, 0.00f,
+				true, false, false, kSlack, kOpen, 0.25f, 0.15f, { 1.00f, 2.00f, 0.10f, 0.30f, 0.05f, 0.30f, 0.30f, 0.05f, 0.05f } },
 		};
 		constexpr int kClimaxVariantCount = static_cast<int>(sizeof(kClimaxVariants) / sizeof(kClimaxVariants[0]));
 
@@ -376,6 +383,33 @@ namespace Face::Engine::detail
 			}
 		}
 
+		// A stoic's afterglow: still taking in that it felt good. Wide-eyed, brows up or drawn in puzzled, the mouth a little open; it comes down slowly.
+		Preset StoicAfterglowPreset(int which, float m)
+		{
+			switch (which % 6) {
+			case 1:  // disbelief: brows up and drawn in, the mouth just open
+				return Build(13, 0.55f, 0.12f * m, 0.0f, 0.15f, 0.35f, 0.25f, 0.0f);
+			case 2:  // a stunned stare
+			{
+				auto e = Build(12, 0.35f, 0.18f * m, 0.10f * m, 0.0f, 0.45f, 0.0f, 0.0f);
+				e[24] = 0.05f;
+				return e;
+			}
+			case 3:  // coming round: the brows still up, the lids easing
+				return Build(7, 0.30f, 0.10f * m, 0.0f, 0.35f, 0.20f, 0.0f, 0.0f);
+			case 4:  // puzzling over it
+				return Build(13, 0.50f, 0.08f * m, 0.0f, 0.20f, 0.15f, 0.30f, 0.0f);
+			case 5:  // a long breath out, still surprised
+			{
+				auto e = Build(12, 0.30f, 0.22f * m, 0.0f, 0.15f, 0.30f, 0.0f, 0.0f);
+				e[14] = 0.20f * m;
+				return e;
+			}
+			default:  // what was that
+				return Build(12, 0.45f, 0.10f * m, 0.12f * m, 0.10f, 0.55f, 0.0f, 0.0f);
+			}
+		}
+
 		// Afterglow used to be one face for the whole scene. These share it, one per beat and
 		// per actor, with equal weight - nothing here is rarer than its neighbours. Mood 10 is
 		// Happy, 7 Neutral; squint is the main tiredness lever, since Skyrim has no eyelid
@@ -525,13 +559,15 @@ namespace Face::Engine::detail
 				s.libPool = pool;
 				s.libNextPick = now + RandFloat(2.5f, 5.0f);
 				s.buildStage = stage;
-				const bool own = ownOn && (!havePool || RandFloat(0.0f, 1.0f) < ClampF(S::fBuildupShare, 0.0f, 1.0f));
+				// A stoic wears only its own faces (calm, then startled, then shocked), never OStim's pool, whose faces are all pleasure.
+				const bool stoicOwn = arch == Pers::kStoic;
+				const bool own = ownOn && (!havePool || stoicOwn || RandFloat(0.0f, 1.0f) < ClampF(S::fBuildupShare, 0.0f, 1.0f));
 				int ownOption = -1;
 				if (own) {
 					ownOption = Buildup::Pick(stage, arch, s.buildRecent.data(), static_cast<int>(s.buildRecent.size()));
 					if (ownOption >= 0) {
 						Buildup::Pose face;
-						Buildup::Build(ownOption, static_cast<float>(ClampI(raw, 0, 100)), MouthGate(), face);
+						Buildup::Build(ownOption, static_cast<float>(ClampI(raw, 0, 100)), MouthGate(), face, stage);
 						// Every part of it, but what an override owns (the mouth, in an oral act) is not ours to set. The lids carry the blink too,
 						// and the mouth the Th and W phonemes, which OStim's own expressions never touch.
 						const int skip = s.libOvrMask;
@@ -630,7 +666,7 @@ namespace Face::Engine::detail
 				}
 				return e;
 			}
-			if (dom == kAfterglow) return AfterglowPreset((t.tick / 2 + seed) % 7, m);
+			if (dom == kAfterglow) return arch == Pers::kStoic ? StoicAfterglowPreset((t.tick / 2 + seed) % 6, m) : AfterglowPreset((t.tick / 2 + seed) % 7, m);
 			if (dom == kDistress) return DistressPreset(enj, victim, VictimReaction(arch), m);
 			if (dom == kPlateau) return Build(8, 0.40f, 0.20f * m, 0.0f, 0.55f, 0.45f, 0.30f, 0.20f);
 			if (dom == kAnticipation) return Build(7, 0.30f, 0.10f * m, 0.0f, 0.15f, 0.10f, 0.0f, 0.0f);
@@ -1103,10 +1139,11 @@ namespace Face::Engine::detail
 			constexpr unsigned kNotHappy = (1u << 0) | (1u << 1) | (1u << 3) | (1u << 5) | (1u << 6);  // angry, fear, sad, puzzled, disgust
 			switch (pers) {
 			case Pers::kStoic: {
-				// Tolerates it; not into it, and waiting for the partner to be done. Not unhappy, not in pain: nothing negative. What shows is muted,
-				// most of all at the plateau and the climax; the lids a little low, the eyes drifting off.
-				const float mute = (dom == kPlateau || dom == kClimax) ? 0.45f : 0.65f;
-				Debug::Log(Debug::Cat::Face, "{}: stoic rule: everything muted x{:.2f}{}", Debug::Label(s.id), mute, (building || dom == kAfterglow) ? ", lids a little low, eyes drifting" : "");
+				// Tolerates it; not into it, and waiting for the partner to be done. Not unhappy, not in pain: nothing negative. What it puts up with is
+				// muted, the lids a little low, the eyes drifting off; the shock of it feeling good (the edge, the climax, the afterglow) is not.
+				const bool calm = dom == kPleasure || dom == kAnticipation;
+				const float mute = calm ? 0.65f : (dom == kAfterglow ? 0.85f : 0.90f);
+				Debug::Log(Debug::Cat::Face, "{}: stoic rule: everything x{:.2f}{}", Debug::Label(s.id), mute, calm ? ", lids a little low, eyes drifting" : "");
 				for (int i = 0; i < 16; ++i) e[i] *= mute;
 				for (int i = 18; i <= 23; ++i) e[i] *= mute;
 				e[16] *= mute;  // (lids that squeeze shut included)
@@ -1115,7 +1152,7 @@ namespace Face::Engine::detail
 				e[29] *= mute;
 				e[31] *= mute;
 				SwapClashingMood(e, (1u << 0) | (1u << 1) | (1u << 3) | (1u << 6), 7, 0.3f);
-				if (building || dom == kAfterglow) {
+				if (calm) {
 					e[16] = e[17] = std::max(e[16], 0.18f);
 					Add(e, (seed % 2) == 0 ? 25 : 26, 0.20f);
 				}

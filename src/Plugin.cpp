@@ -115,7 +115,7 @@ namespace
 		log->set_level(spdlog::level::info);
 		log->flush_on(spdlog::level::debug);
 		spdlog::set_default_logger(std::move(log));
-		spdlog::set_pattern("[%H:%M:%S:%e] [%l] %v");
+		spdlog::set_pattern("[%T.%e] [%=5t] [%L] %v");  // the format SKSE's own logger used, thread id included
 	}
 
 	// A module that throws while starting is logged and stays inert; it must not end the game.
@@ -177,7 +177,8 @@ namespace
 SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 {
 	InitLogger();
-	SKSE::Init(a_skse, { .trampoline = true, .trampolineSize = 64 });
+	// log = false: SKSE::Init would otherwise replace the logger set up above with its own (one file sink, no debug trace), which left OSIS-Debug.log empty and the trace in OSIS.log.
+	SKSE::Init(a_skse, { .log = false, .trampoline = true, .trampolineSize = 64 });
 	Settings::Load();
 	Settings::EnsureFiles();
 	logger::info("OSIS v{}{}{} loading", SKSE::PluginDeclaration::GetSingleton()->GetVersion().string("."),

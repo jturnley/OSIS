@@ -74,7 +74,7 @@ remain, at 0.
 `Debug.h/.cpp`. `OSIS.log` takes info and above, always (a sink at level info). The logger's second sink is a `TraceSink` that holds no file until `Debug::SetEnabled(true)`; then it
 takes every level, the info lines included, so the trace is a superset of `OSIS.log`, and the logger's own level goes to debug. The sink is always in the logger so switching it on
 and off changes no sink list while other threads log. The first `Open()` of a launch moves an existing non-empty `OSIS-Debug.log` to `OSIS-Debug.previous.log`, so a crashed
-session's trace is not wiped by the next start; each line is flushed as it is written.
+session's trace is not wiped by the next start; each line is flushed as it is written. `InitLogger` runs before `SKSE::Init`, which is called with `.log = false`: left on, it replaces the default logger with its own (one file sink, no trace sink), and the trace then ends up in `OSIS.log` with `OSIS-Debug.log` empty.
 
 `Debug::Log(cat, fmt, args...)` formats only when `On()` (a relaxed atomic); `Debug::Label(actor)` is a small `ActorRef` that a `std::formatter` turns into `Name(0000ABCD)` at write
 time, so an argument costs nothing while it is off. Callers whose arguments are expensive (`SceneText`, `ExplainRules`, `Preset`) check `On()` first.
@@ -236,7 +236,7 @@ Nine ids (`Face::Engine::Pers`): 0 balanced, 1 stoic, 2 vocal, 3 shy, 4 dominant
 8 crazed. The lite edition has no submissive: `EditionPersonality` turns a 6 into a timid (5) wherever one could come in (SPID keyword, voice
 token, the new-type roll, a stored or INI value, the UI combo), so the same actor rolls the same in both editions bar that. `BasePersonality` maps a newer type to the original it is built on (wild to vocal, crazed to dominant, timid and
 submissive to balanced), which the original rules in the Director see (`arch`); the newer rules and the picks see the full id
-(`pers`). Stoic (1) is the opposite of wild: much slower excitement (`fStoicExcitementMult`, 0.20), a muted face (`ApplyPersonalityFace`, 0.65 / 0.45), neutral moods, a quiet climax, and a muted body (`Arousal::Shape`: `fStoicRest` / `fStoicPeak`, face and body blush gated to the last seconds before and during the orgasm - `Arousal::Flush` returns the gate for Skin, which ignores the excitement ramp for a stoic - which fades with a 1.5 s half-life). Where each shows: `MoodAffinity`, `Buildup::Pick` (`ExtraWeight`), the climax pool's `suits[9]`, `ApplyPersonalityFace`
+(`pers`). Stoic (1) has its own faces, never OStim's pool (`stoicOwn` in `LibraryPose`): calm ones for the first three build-up stages (`Buildup::kStoicOptions`, indexes from `kOptionCount`), shock and surprise for the edge and half of the heightened stage (`kStoicShockOptions`, after them), climax faces weighted to *wide_eyed*, *stunned*, *startled* and *disbelief* (`kClimaxVariants`), and a dazed afterglow (`StoicAfterglowPreset`); `ApplyPersonalityFace` mutes it (x0.65, lids a little low) only in the calm stages. It is the opposite of wild: much slower excitement (`fStoicExcitementMult`, 0.20), a muted face (`ApplyPersonalityFace`, 0.65 / 0.45), neutral moods, a quiet climax, and a muted body (`Arousal::Shape`: `fStoicRest` / `fStoicPeak`, face and body blush gated to the last seconds before and during the orgasm - `Arousal::Flush` returns the gate for Skin, which ignores the excitement ramp for a stoic - which fades with a 1.5 s half-life). Where each shows: `MoodAffinity`, `Buildup::Pick` (`ExtraWeight`), the climax pool's `suits[9]`, `ApplyPersonalityFace`
 (shy's conflict, timid's lids and peeks, vocal's surprise, the dominant's smirk, wild's smile, crazed's stare and creepy look,
 submissive's brows), `SetGaze`, `ApplyHeadflow`, `Breathe`, and the excitement rates in `UpdateExcitementRates`.
 
@@ -245,7 +245,8 @@ get `OActor.StallClimax` (OStim holds a stalled actor at 100, `awaitingOrgasm`, 
 every 4 s because OStim ignores it for an actor it has not put in a thread yet. They are permitted while a dominant is climaxing,
 and `OnOrgasm` of the dominant forces (`OActor.Climax` with IgnoreStall) any partner at 80 or more, so they climax together; after
 `fControlMaxHold` seconds at the edge (`holdSince`, from 97) the dominant lets them go. A crazed actor is stalled the other way
-round: its own climax waits for a partner's, and the partner's `OnOrgasm` forces it (`forcedAt` stops a force from re-forcing).
+round: its own climax waits for a partner's, and the partner's `OnOrgasm` forces it (`forcedAt` stops a force from re-forcing); a crazed *man* is forced only while he is
+`Engaged` (stimulated) and at 60 excitement or more (`kMaleWithPartnerMin`), a woman always.
 Excitement rates: a crazed actor scales everyone else but a dominant by `fCrazedDriveMult`, a dominant scales themselves by
 `fDominantExcitementMult`. A held actor is not "imminent" for the arousal response (`IsClimaxHeld`).
 

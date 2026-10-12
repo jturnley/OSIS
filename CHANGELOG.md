@@ -3,6 +3,23 @@
 ## Unreleased (after 2.0 beta 2, hotfix 3)
 
 ### Changed
+- **A stoic's faces: it puts up with it, and then it is shocked that it felt good.** Reported: "Stoic's expressions are too engaged. She should be tolerating sex, not enjoying it prior to
+  orgasm", then: custom pools for the other phases "centering on shock and surprise, as if she never expected sex to feel good". The debug log of a stoic at 4% excitement showed why the first
+  part was wrong: its build-up faces came from the same 110-option tables as everyone's (every one of them some kind of pleasure: smiles, tongues, parted lips, pleading brows, surprise), with
+  the stoic's weights only making the least engaged likelier, and about one pick in four came from OStim's own "excited" pool. Now a stoic wears only faces of its own, never OStim's pool:
+  - **the first three stages (anticipation, warm, rising): calm.** Sixteen faces: lids low or the eyes elsewhere, flat or slightly knit brows, a closed, pressed or barely parted mouth, a neutral
+    or puzzled mood;
+  - **heightened (75 to 100 excitement): half calm, half startled.** The startled ones are the edge's, below;
+  - **the edge: shock and surprise.** Fourteen faces: wide or open eyes, brows lifted or drawn in puzzled, a gasp, a round O, a breath out in disbelief, the mood surprise or puzzled;
+  - **the climax:** its climax faces are now *stunned* (eyes and brows wide, a round open mouth, then slack), *startled* (a jolt: wide eyes, the mouth dropping open, then it softens) and
+    *disbelief* (puzzled, brows lifted and drawn in), on top of the existing *wide-eyed*, which it now favours most; the quiet ones it used to favour (silent, breathless) are rarer, and the
+    smiling, laughing and snarling ones nearly gone;
+  - **the afterglow:** six dazed faces ("what was that", disbelief, a stunned stare, coming round, puzzling over it, a long breath out, still surprised), not the generic tired-and-smiling ones.
+  The stoic's overall muting (about two thirds of every face) now applies only to what it puts up with; the edge, the climax and the afterglow show at 0.9 or 0.85 of full, and the lids-a-little-low
+  look is only for the calm stages. The faces are in `Buildup.cpp` (`kStoicOptions`, `kStoicShockOptions`) and `Director.cpp` (`kClimaxVariants`, `StoicAfterglowPreset`).
+- **A crazed man no longer climaxes with his partner whenever they do.** A crazed actor's climax waits for their partner's and comes with it, and that was forced every time, even for a man
+  nothing in the scene was stimulating. A crazed woman still climaxes with her partner whenever they do; a crazed man now does only while he is being stimulated and is at 60 excitement or
+  more (`kMaleWithPartnerMin`), and otherwise has to get there on his own. The debug log says why when it does not happen (`[control]`).
 - **About 200 of OSSO's Dynamic voice-set moans were never lip-synced, levelled or analysed.** The log said "207 file(s) not installed" on two different installs. They are installed: OSSO's
   DynamicVS records end each file name with a stray line break ("...wav\r\n"; 215 of its 216 such entries), the engine copes with it and OSIS's file lookup did not. The names are now
   trimmed. The log also gives an example of a file that really is missing ("the game's resource system does not have it"). The 23 files the same log called "xWMA" are OSSO's 32-bit

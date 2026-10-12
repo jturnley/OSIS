@@ -608,8 +608,8 @@ namespace LipSync
 		std::vector<std::pair<std::string, RE::FormID>> muffled;
 		ParseVoiceSets(refs, muffled);
 		auto* dh = RE::TESDataHandler::GetSingleton();
-#if !OSIS_LITE
-		// Everything a victim must not be heard making: the lip-synced sounds and the muffled ones.
+		// Every voice-set sound, the muffled ones too: what the sound start hooks recognise as OStim's voice. A personality's moan rules use it in both editions
+		// (MoanVolume), and in the full edition a victim's mute does too. It was built in the full edition only, so the moan rules did nothing in the default one.
 		for (const auto* list : { &refs, &muffled }) {
 			for (const auto& [mod, local] : *list) {
 				auto* form = dh ? dh->LookupForm<RE::BGSSoundDescriptorForm>(local, mod) : nullptr;
@@ -619,8 +619,7 @@ namespace LipSync
 			}
 		}
 		g_silenceFrozen = true;
-		logger::info("Victim voice: {} OStim voice-set sound files can be muted on a victim", g_silence.size());
-#endif
+		logger::info("Voice-set sounds: {} OStim voice-set sound files known to the sound start hooks", g_silence.size());
 		std::unordered_set<RE::FormID> seen;
 		std::vector<Descriptor> descs;
 		for (const auto& [mod, local] : refs) {
