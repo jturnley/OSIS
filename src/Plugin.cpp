@@ -12,6 +12,7 @@
 #include "Face/Output.h"
 #include "Hooks.h"
 #include "LipSync.h"
+#include "MoanVolume.h"
 #include "OStimData.h"
 #include "Release.h"
 #include "Scenes.h"
@@ -60,6 +61,7 @@ namespace Scheduler
 #endif
 			Skin::Tick();
 			Arousal::Tick();
+			MoanVolume::Tick();
 			Debug::Tick();
 
 			std::vector<std::function<void()>> due;

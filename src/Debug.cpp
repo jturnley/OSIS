@@ -13,6 +13,7 @@
 #include "Face/Engine.h"
 #include "Face/Output.h"
 #include "LipSync.h"
+#include "MoanVolume.h"
 #include "Release.h"
 #include "Scenes.h"
 #include "Settings.h"
@@ -182,6 +183,7 @@ namespace Debug
 			Write(Cat::Snap, std::format("  arousal {}", Arousal::Describe(a)));
 			Write(Cat::Snap, std::format("  skin {}", Skin::Describe(a)));
 			Write(Cat::Snap, std::format("  lip  {}", LipSync::Describe(a)));
+			Write(Cat::Snap, std::format("  voice volume {}", MoanVolume::Describe(a)));
 #if !OSIS_LITE
 			Write(Cat::Snap, std::format("  moan {}", Moans::Describe(a)));
 #endif

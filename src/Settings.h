@@ -205,6 +205,23 @@ namespace Settings
 		inline bool bYieldToDDF = true;       // stand down while Dynamic Dialogue Framework is installed (both drive the mouth)
 	}
 
+	// ---------------------------------------------------------------- moan volume (both editions)
+	namespace Audio
+	{
+		inline bool bPersonalityVolume = true;   // each voice-set sound (a moan, a climax, a reaction) plays at the volume of the personality of the actor it follows
+		inline float fMoanMaster = 0.80f;        // times OStim's own moan volume, for everyone: below 1, so that a louder personality has room above a balanced one
+		// Times the master, per personality; balanced is the reference and is not a setting. The result is never above 1, the engine's top.
+		inline float fStoicVolume = 0.65f;
+		inline float fVocalVolume = 1.25f;
+		inline float fShyVolume = 0.70f;
+		inline float fDominantVolume = 1.00f;
+		inline float fTimidVolume = 0.60f;
+		inline float fSubmissiveVolume = 0.80f;  // the full edition only: the lite edition plays a submissive as a timid
+		inline float fWildVolume = 1.30f;
+		inline float fCrazedVolume = 0.90f;
+		inline bool bMouthFollowsVolume = true;  // lip-sync opens the mouth less for a quiet personality and more for a loud one
+	}
+
 	// ---------------------------------------------------------------- victim voice
 	namespace Voice
 	{
@@ -217,6 +234,16 @@ namespace Settings
 		inline float fOwnMoanIntervalMin = 2.5f;  // seconds between moans, counted from the end of one; OStim's own default is 2.5 to 4
 		inline float fOwnMoanIntervalMax = 4.0f;
 		inline bool bOwnMoanPersonality = true;   // a vocal actor moans more often, a stoic or shy one less
+		// The takeover's other half: how far a personality moves along a staged voice set (an OSSO-style set has four entries, from quiet and slow to wild and
+		// fast), from the stage the scene's speed puts them at. Negative: more subdued; positive: wilder. A set with one entry has nothing to move along.
+		inline int iStageShiftStoic = -2;
+		inline int iStageShiftVocal = 1;
+		inline int iStageShiftShy = -1;
+		inline int iStageShiftDominant = 0;
+		inline int iStageShiftTimid = -2;
+		inline int iStageShiftSubmissive = -1;
+		inline int iStageShiftWild = 1;
+		inline int iStageShiftCrazed = 0;
 		inline bool bDirectorMuteMoans = false;  // Director mode: mute OStim's voice-set sounds on every face-painted actor (groundwork for OSIS-owned moans)
 		inline int iVictimVoice = 2;          // 0 silent, 1 breathing only, 2 full (help, lines, scream)
 		inline float fInterval = 9.0f;        // seconds between lines (+-40%)

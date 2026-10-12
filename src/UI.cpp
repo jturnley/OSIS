@@ -13,6 +13,7 @@
 #include "Face/PPA.h"
 #include "Face/Output.h"
 #include "LipSync.h"
+#include "MoanVolume.h"
 #include "OStimData.h"
 #include "Hooks.h"
 #include "Papyrus.h"
@@ -734,6 +735,50 @@ namespace
 			SliderF("Dominant: excitement rate", fDominantExcitementMult, 0.5f, 2.0f, "%.2f", "Times OStim's rate for a dominant: their own pleasure comes first.");
 			SliderF("Crazed: partner's excitement rate", fCrazedDriveMult, 1.0f, 4.0f, "%.2f", "Times OStim's rate for whoever a crazed actor is with (not a dominant).");
 		}
+		ig::SeparatorText("Moan volume");
+		ig::TextWrapped("OStim has one moan volume for everyone. Here a personality sets how loud its own moans are: a shy or timid actor quieter, a vocal or wild one louder.");
+		{
+			std::scoped_lock l(Settings::lock);
+			using namespace Settings::Audio;
+			Check("Personality sets how loud the moans are", bPersonalityVolume,
+				"Each voice-set sound (a moan, a climax, a reaction) plays at OStim's moan volume times the master below times the volume of the personality of the actor "
+				"it follows, and never above 1. Off leaves OStim's volume as it is. It works on OStim's own moans, in any voice set.");
+			SliderF("Master moan volume", fMoanMaster, 0.1f, 1.0f, "%.2f",
+				"Times OStim's own moan volume, for everyone. Keep it below 1: no sound can be louder than the engine's top, so with OStim's volume at 1 and this at 1 "
+				"a louder personality has no room above a balanced one. At the default 0.8, a balanced actor plays at 0.8 and a wild one (x1.3) at 1.");
+			SliderF("Stoic volume", fStoicVolume, 0.1f, 2.0f, "%.2f", "Times the master, for a stoic actor. Balanced is the reference, 1.");
+			SliderF("Shy volume", fShyVolume, 0.1f, 2.0f, "%.2f", "Times the master, for a shy actor.");
+			SliderF("Timid volume", fTimidVolume, 0.1f, 2.0f, "%.2f", "Times the master, for a timid actor.");
+#if !OSIS_LITE
+			SliderF("Submissive volume", fSubmissiveVolume, 0.1f, 2.0f, "%.2f", "Times the master, for a submissive actor.");
+#endif
+			SliderF("Dominant volume", fDominantVolume, 0.1f, 2.0f, "%.2f", "Times the master, for a dominant actor.");
+			SliderF("Crazed volume", fCrazedVolume, 0.1f, 2.0f, "%.2f", "Times the master, for a crazed actor.");
+			SliderF("Vocal volume", fVocalVolume, 0.1f, 2.0f, "%.2f", "Times the master, for a vocal actor, the loud one.");
+			SliderF("Wild volume", fWildVolume, 0.1f, 2.0f, "%.2f", "Times the master, for a wild actor.");
+			Check("The mouth follows the volume", bMouthFollowsVolume,
+				"Lip-sync opens the mouth less for a quiet personality and more for a loud one, so a quiet moan looks quiet. It scales the mouth's opening by the personality's volume, kept between half and one and a half.");
+		}
+		ig::TextDisabled("Status: %s", MoanVolume::Status().c_str());
+#if !OSIS_LITE
+		ig::SeparatorText("Moan stage (Director takeover)");
+		ig::TextWrapped("Some voice sets have stages: an OSSO-style dynamic set has four moans, from quiet and slow to wild and fast, and OStim picks one by how fast the scene is. "
+		                "With the takeover on (Voice page), a personality can play further down or up that set than the scene would. A set with one moan has nothing to move along.");
+		{
+			std::scoped_lock l(Settings::lock);
+			using namespace Settings::Voice;
+			const char* tip = "How many stages along the voice set this personality plays from where the scene's speed puts them. Negative: more subdued and slower. Positive: wilder and faster. "
+			                  "0 follows the scene. Kept inside the set.";
+			SliderI("Stoic stage shift", iStageShiftStoic, -3, 3, tip);
+			SliderI("Shy stage shift", iStageShiftShy, -3, 3, tip);
+			SliderI("Timid stage shift", iStageShiftTimid, -3, 3, tip);
+			SliderI("Submissive stage shift", iStageShiftSubmissive, -3, 3, tip);
+			SliderI("Dominant stage shift", iStageShiftDominant, -3, 3, tip);
+			SliderI("Crazed stage shift", iStageShiftCrazed, -3, 3, tip);
+			SliderI("Vocal stage shift", iStageShiftVocal, -3, 3, tip);
+			SliderI("Wild stage shift", iStageShiftWild, -3, 3, tip);
+		}
+#endif
 		ig::TextWrapped("Each actor's personality is worked out the first time a scene needs it and then kept in your save game, "
 			"so it is the same in every scene and after every load - the SPID roll is not. What you set below always wins.");
 		if (ig::Button("Work every personality out again")) OnGame([]() {

@@ -6,6 +6,7 @@
 #include "LipSync.h"
 
 #include "Debug.h"
+#include "MoanVolume.h"
 
 #include <deque>
 
@@ -756,6 +757,7 @@ namespace LipSync
 			}
 			auto track = params;
 			if (s && s->broken) track.holdEyes = false;  // a broken victim's eyes don't squeeze
+			track.gain *= MoanVolume::MouthGain(owner);  // a quiet personality opens the mouth less, a loud one more
 			Face::Output::SetMouthTrack(owner, env, start, track);
 			++g_stats.matched;
 			if (g_reported.insert(owner->GetFormID()).second) {

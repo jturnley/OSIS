@@ -9,6 +9,7 @@
 
 #include "Face/Engine.h"
 #include "LipSync.h"
+#include "MoanVolume.h"
 #include "Scenes.h"
 #include "Settings.h"
 #include "VoiceModel.h"
@@ -50,6 +51,7 @@ namespace Moans
 			bool personality = true;
 			bool climax = true;
 			bool fromOStim = false;  // interval and volume are OStim's own
+			std::array<int, 9> stageShift{};  // per personality: how far along a staged voice set they play from where the scene's speed puts them
 		};
 
 		// OStim's own moan settings are its MCM's: three global variables in OStim.esp (Moan interval min / max in milliseconds, Moan volume), the
@@ -92,6 +94,8 @@ namespace Moans
 			c.intervalMax = std::max(c.intervalMin, Settings::Voice::fOwnMoanIntervalMax);
 			c.personality = Settings::Voice::bOwnMoanPersonality;
 			c.climax = Settings::Voice::bDirectorOwnClimax;
+			c.stageShift = { 0, Settings::Voice::iStageShiftStoic, Settings::Voice::iStageShiftVocal, Settings::Voice::iStageShiftShy, Settings::Voice::iStageShiftDominant, Settings::Voice::iStageShiftTimid,
+				Settings::Voice::iStageShiftSubmissive, Settings::Voice::iStageShiftWild, Settings::Voice::iStageShiftCrazed };
 			if (Settings::Voice::bUseOStimMoanSettings) {
 				float lo = 0.0f, hi = 0.0f, vol = 1.0f;
 				if (ReadOStimSettings(lo, hi, vol)) {
@@ -152,7 +156,9 @@ namespace Moans
 				return false;
 			}
 			const auto ctx = VoiceModel::Context(a_actor);
-			const auto choice = VoiceModel::Select(resolved.set->climax, ctx.muffled, a_actor, ctx.partner);
+			const auto natural = VoiceModel::Select(resolved.set->climax, ctx.muffled, a_actor, ctx.partner);
+			const int shift = a_cfg.stageShift[static_cast<std::size_t>(std::clamp(a_slot.arch, 0, 8))];
+			const auto choice = VoiceModel::Shift(resolved.set->climax, natural, shift);
 			if (!choice.entry) {
 				std::scoped_lock l(g_statusLock);
 				++g_climaxNone;
@@ -160,7 +166,8 @@ namespace Moans
 			}
 			// A moan of ours that is still sounding gives way to the climax.
 			if (a_st.playing) LipSync::StopSound(a_st.soundID);
-			const auto played = LipSync::PlayDescriptor(a_actor, choice.entry->sound, a_cfg.volume);
+			const float volume = MoanVolume::Apply(a_actor, a_cfg.volume);
+			const auto played = LipSync::PlayDescriptor(a_actor, choice.entry->sound, volume);
 			if (!played.ok) {
 				std::scoped_lock l(g_statusLock);
 				++g_failed;
@@ -176,7 +183,8 @@ namespace Moans
 
 			std::scoped_lock l(g_statusLock);
 			++g_climaxPlayed;
-			g_last = std::format("{}: CLIMAX, {} stage {} ({} list)", a_actor->GetDisplayFullName(), resolved.set->name, choice.index, choice.muffled ? "muffled" : "plain");
+			g_last = std::format("{}: CLIMAX, {} stage {} (the scene says {}, personality shift {:+d}; {} list), volume {:.2f}", a_actor->GetDisplayFullName(), resolved.set->name, choice.index, natural.index, shift,
+				choice.muffled ? "muffled" : "plain", volume);
 			if (g_climaxPlayed <= 3) logger::info("Moans: {}", g_last);
 			Debug::Log(Debug::Cat::Moan, "{}", g_last);
 			return true;
@@ -241,7 +249,9 @@ namespace Moans
 				}
 				return defer(2.0f, "no voice set found for them");
 			}
-			const auto choice = VoiceModel::Select(resolved.set->moan, ctx.muffled, a_actor, ctx.partner);
+			const auto natural = VoiceModel::Select(resolved.set->moan, ctx.muffled, a_actor, ctx.partner);
+			const int shift = a_cfg.stageShift[static_cast<std::size_t>(std::clamp(a_slot.arch, 0, 8))];
+			const auto choice = VoiceModel::Shift(resolved.set->moan, natural, shift);
 			if (!choice.entry) {
 				{
 					std::scoped_lock l(g_statusLock);
@@ -250,11 +260,12 @@ namespace Moans
 				return defer(1.0f, "no entry's condition holds (or the muffled list is empty)");
 			}
 
-			const auto played = LipSync::PlayDescriptor(a_actor, choice.entry->sound, a_cfg.volume);
+			const float volume = MoanVolume::Apply(a_actor, a_cfg.volume);
+			const auto played = LipSync::PlayDescriptor(a_actor, choice.entry->sound, volume);
 			if (!played.ok) {
-				std::scoped_lock l(g_statusLock);
-				++g_failed;
-				g_last = "failed: " + played.text;
+			std::scoped_lock l(g_statusLock);
+			++g_failed;
+			g_last = "failed: " + played.text;
 				if (g_failed <= 5) logger::warn("Moans: {}", played.text);
 				return defer(2.0f, "the sound could not be played");
 			}
@@ -267,8 +278,8 @@ namespace Moans
 
 			std::scoped_lock l(g_statusLock);
 			++g_played;
-			g_last = std::format("{}: {} stage {} ({} list), then {:.2f} s", a_actor->GetDisplayFullName(), resolved.set->name, choice.index,
-				choice.muffled ? "muffled" : "plain", interval);
+			g_last = std::format("{}: {} stage {} (the scene says {}, personality shift {:+d}; {} list), volume {:.2f}, then {:.2f} s", a_actor->GetDisplayFullName(), resolved.set->name, choice.index,
+				natural.index, shift, choice.muffled ? "muffled" : "plain", volume, interval);
 			if (g_played <= 3) logger::info("Moans: first moans: {}", g_last);
 			st.gate.clear();
 			Debug::Log(Debug::Cat::Moan, "{}", g_last);

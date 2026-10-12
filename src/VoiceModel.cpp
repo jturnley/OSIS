@@ -434,6 +434,15 @@ namespace VoiceModel
 		return {};
 	}
 
+	Choice Shift(const List& a_list, const Choice& a_natural, int a_shift)
+	{
+		if (!a_natural.entry || a_shift == 0) return a_natural;
+		const auto& entries = a_natural.muffled ? a_list.muffled : a_list.sound;
+		if (entries.size() < 2) return a_natural;
+		const int index = std::clamp(a_natural.index + a_shift, 0, static_cast<int>(entries.size()) - 1);
+		return { &entries[static_cast<std::size_t>(index)], index, a_natural.muffled };
+	}
+
 	SceneContext Context(RE::Actor* a_actor)
 	{
 		SceneContext c;

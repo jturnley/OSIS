@@ -47,6 +47,21 @@ Settings live in the SKSE Menu Framework (section "OSIS") and in
 - `ostim_event` (annotation beats) is sent with custom Papyrus arguments and never reaches
   SKSE's C++ mod-event source, so event beats are unavailable in the DLL.
 
+## Moan volume by personality
+
+`MoanVolume.h/.cpp`, both editions, `[Audio]`. OStim's moan volume is one global, so the per-actor volume is made at the sound: a hook on `BSXAudio2GameSound::Play` (vtable index 0x15, the
+one `Voice` hooks for the victim mute; `MoanVolume::InstallHook` runs first in `Hooks::Install`, so Voice's hook is the outer one and its mute, which sets the volume to nothing before and
+after `Play`, still has the last word) scales `BSGameSound::volume` before `Play` and calls `SetVolume` after it, for a voice-set sound (`LipSync::IsMoanResource`) that is not ours
+(`LipSync::PlayingOwn`). The owner is found by walking the nodes the sound follows (`FollowChain`, SEH-guarded like Voice's) against a table of the 3D roots of the actors in scenes
+whose voice is not at the standard volume, which `Tick` keeps (`g_targets`, under `g_lock`, read on the audio thread); the sound is recorded in `g_applied` before `Play` so the sweep never
+takes a sound that is starting for one it missed. `Tick` also corrects, once per sound, a voice-set sound it finds with a volume that was not scaled (no hook on VR; started before the
+table) or that changed after the hook (OStim setting its volume after `Play`). The factor is `fMoanMaster * personality` and is clamped to 1 after multiplying; the master is below 1 so
+there is headroom above a balanced actor. `MouthGain` gives lip-sync the personality's factor (0.5 to 1.4) to multiply its gain by.
+
+The Director takeover uses the same factor for its own sounds (`MoanVolume::Apply` on `fOwnMoanVolume`/OStim's volume) and adds `VoiceModel::Shift`: from the entry the scene's conditions pick
+(`natural`), a personality moves `iStageShift*` entries along the same list (clamped, conditions ignored), for moans and climaxes alike. A list with one entry has no room, so a set
+without stages gets the volume only.
+
 ## The debug trace
 
 `Debug.h/.cpp`. `OSIS.log` takes info and above, always (a sink at level info). The logger's second sink is a `TraceSink` that holds no file until `Debug::SetEnabled(true)`; then it

@@ -3,6 +3,19 @@
 ## Unreleased (after 2.0 beta 2, hotfix 3)
 
 ### Changed
+- **A personality sets how loud its moans are** (both editions; Personality page > Moan volume; `[Audio]` in the INI, on by default). OStim has one moan volume for everyone. Each
+  voice-set sound (a moan, a climax, a reaction) now plays at OStim's volume times a master factor (`fMoanMaster`, 0.80) times the volume of the personality of the actor it follows
+  (stoic 0.65, shy 0.70, timid 0.60, submissive 0.80, dominant 1.00, crazed 0.90, vocal 1.25, wild 1.30; balanced is the reference), never above 1, the engine's top. The master is below
+  1 on purpose: with OStim's own volume at 1, a louder personality has no room above a balanced one, so by default a balanced actor is a fifth quieter than before and a wild one
+  as loud as OStim's volume allows. Raise the master to 1 to leave balanced actors as they were. Lip-sync opens the mouth a little less for a quiet personality and more for a loud
+  one (`bMouthFollowsVolume`). It works on OStim's own moans in any voice set, with no takeover: a small hook on the sound's start (installed ahead of the victim-mute hook, so a mute
+  still wins) sets the volume it starts at, with no click; a sound the hook did not see, or whose volume was set again after it started, is corrected once a moment later, which is
+  also how it works on VR, which has no hook.
+- **Director takeover: a personality plays further down or up a staged voice set** (LoversLab edition; Personality page > Moan stage; `iStageShift*` under `[Voice]`). An OSSO-style dynamic
+  voice set has four moans, from quiet and slow to wild and fast, and OStim picks one by the scene's speed. With the takeover on, each personality moves a number of stages along the set
+  from where the scene's speed puts it (stoic -2, timid -2, shy -1, submissive -1, vocal +1, wild +1, the others 0), kept inside the set and ignoring the entries' conditions, so a
+  stoic actor stays on the subdued moans and a wild one plays the wild ones from the start. It applies to the climax list as well, and each moan's own interval comes with the entry.
+  Of the 84 voice sets in the test install, 28 have four stages and 54 have one moan, so for those two thirds only the volume applies. The takeover's own moans use the same volumes.
 - **A debug log that tracks everything** (General > "Debug logging", `bDebug`, off by default). With it on, OSIS writes `OSIS-Debug.log` next to `OSIS.log` (the previous session's
   file is kept as `OSIS-Debug.previous.log`, so the trace of a session that crashed survives the next launch). `OSIS.log` is unchanged; the debug file holds everything in it plus one
   line for each thing the plugin does or decides, tagged `[scene]`, `[pers]`, `[face]`, `[breath]`, `[mouth]`, `[moan]`, `[climax]`, `[control]`, `[body]`, `[arousal]`, `[skin]`,

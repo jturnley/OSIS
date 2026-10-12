@@ -37,6 +37,18 @@ namespace Settings
 				{ "General", "fDebugSnapshotSeconds", &General::fDebugSnapshotSeconds },
 				{ "General", "iSettingsRevision", &General::iSettingsRevision },
 
+				{ "Audio", "bPersonalityVolume", &Audio::bPersonalityVolume },
+				{ "Audio", "fMoanMaster", &Audio::fMoanMaster },
+				{ "Audio", "fStoicVolume", &Audio::fStoicVolume },
+				{ "Audio", "fVocalVolume", &Audio::fVocalVolume },
+				{ "Audio", "fShyVolume", &Audio::fShyVolume },
+				{ "Audio", "fDominantVolume", &Audio::fDominantVolume },
+				{ "Audio", "fTimidVolume", &Audio::fTimidVolume },
+				{ "Audio", "fSubmissiveVolume", &Audio::fSubmissiveVolume },
+				{ "Audio", "fWildVolume", &Audio::fWildVolume },
+				{ "Audio", "fCrazedVolume", &Audio::fCrazedVolume },
+				{ "Audio", "bMouthFollowsVolume", &Audio::bMouthFollowsVolume },
+
 				{ "Face", "bEnabled", &Face::bEnabled },
 				{ "Face", "iMode", &Face::iMode },
 				{ "Face", "fGlobalStrength", &Face::fGlobalStrength },
@@ -185,6 +197,14 @@ namespace Settings
 				{ "Voice", "fOwnMoanIntervalMin", &Voice::fOwnMoanIntervalMin },
 				{ "Voice", "fOwnMoanIntervalMax", &Voice::fOwnMoanIntervalMax },
 				{ "Voice", "bOwnMoanPersonality", &Voice::bOwnMoanPersonality },
+				{ "Voice", "iStageShiftStoic", &Voice::iStageShiftStoic },
+				{ "Voice", "iStageShiftVocal", &Voice::iStageShiftVocal },
+				{ "Voice", "iStageShiftShy", &Voice::iStageShiftShy },
+				{ "Voice", "iStageShiftDominant", &Voice::iStageShiftDominant },
+				{ "Voice", "iStageShiftTimid", &Voice::iStageShiftTimid },
+				{ "Voice", "iStageShiftSubmissive", &Voice::iStageShiftSubmissive },
+				{ "Voice", "iStageShiftWild", &Voice::iStageShiftWild },
+				{ "Voice", "iStageShiftCrazed", &Voice::iStageShiftCrazed },
 				{ "Voice", "iVictimVoice", &Voice::iVictimVoice },
 				{ "Voice", "fInterval", &Voice::fInterval },
 				{ "Voice", "bMuteDialogue", &Voice::bMuteDialogue },
@@ -243,6 +263,10 @@ namespace Settings
 			Face::fNewPersonalityShare = std::clamp(Face::fNewPersonalityShare, 0.0f, 1.0f);
 			Face::fWildExcitementMult = std::clamp(Face::fWildExcitementMult, 0.5f, 2.0f);
 			General::fDebugSnapshotSeconds = std::clamp(General::fDebugSnapshotSeconds, 0.25f, 30.0f);
+			Audio::fMoanMaster = std::clamp(Audio::fMoanMaster, 0.1f, 1.0f);
+			for (float* v : { &Audio::fStoicVolume, &Audio::fVocalVolume, &Audio::fShyVolume, &Audio::fDominantVolume, &Audio::fTimidVolume, &Audio::fSubmissiveVolume, &Audio::fWildVolume, &Audio::fCrazedVolume }) {
+				*v = std::clamp(*v, 0.1f, 2.0f);
+			}
 			Face::fStoicExcitementMult = std::clamp(Face::fStoicExcitementMult, 0.1f, 1.0f);
 			Face::fSubmissiveRoughMult = std::clamp(Face::fSubmissiveRoughMult, 0.5f, 2.0f);
 			Face::fControlMaxHold = std::clamp(Face::fControlMaxHold, 20.0f, 600.0f);
@@ -285,6 +309,9 @@ namespace Settings
 			Voice::fOwnMoanVolume = std::clamp(Voice::fOwnMoanVolume, 0.0f, 1.0f);
 			Voice::fOwnMoanIntervalMin = std::clamp(Voice::fOwnMoanIntervalMin, 0.1f, 20.0f);
 			Voice::fOwnMoanIntervalMax = std::clamp(Voice::fOwnMoanIntervalMax, Voice::fOwnMoanIntervalMin, 30.0f);
+			for (int* v : { &Voice::iStageShiftStoic, &Voice::iStageShiftVocal, &Voice::iStageShiftShy, &Voice::iStageShiftDominant, &Voice::iStageShiftTimid, &Voice::iStageShiftSubmissive, &Voice::iStageShiftWild, &Voice::iStageShiftCrazed }) {
+				*v = std::clamp(*v, -3, 3);
+			}
 		}
 
 		void ReadIni(const CSimpleIniA& ini)
@@ -481,6 +508,10 @@ namespace Settings
 					"; Master switches. Everything here is also on the SKSE Menu Framework pages (default key F1).\n"
 					"; bAnimationHooks is read at startup: leave it on unless another mod's hook on the same calls conflicts.\n"
 					"; bDebug writes OSIS-Debug.log next to OSIS.log: everything OSIS does or decides, one line each, and a line per actor every fDebugSnapshotSeconds. The last session's file is kept as OSIS-Debug.previous.log." },
+				{ "Audio",
+					"; Moan volume by personality. Each voice-set sound (a moan, a climax, a reaction) plays at OStim's moan volume times fMoanMaster times the volume of the personality of the actor it follows,\n"
+					"; never above 1. fMoanMaster is below 1 so that a louder personality has room above a balanced one: with OStim's own moan volume at 1 and fMoanMaster 0.8, a balanced actor plays at 0.8 and a wild one (x1.3) at 1.\n"
+					"; bMouthFollowsVolume: lip-sync opens the mouth less for a quiet personality and more for a loud one." },
 				{ "Face", "; Face engine. iMode: 0 Assist, 1 Enhanced, 2 Director (OSED owns the face). fStyle: 0 realistic, 1 cinematic, 2 anime." },
 				{ "Body", "; Toe curl / hand grip at climax. iCurlAxis: 0 X, 1 Y, 2 Z (bone-local)." },
 				{ "Skin",

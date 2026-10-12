@@ -86,6 +86,10 @@ namespace VoiceModel
 
 	// OStim's rule for a list of entries: the first whose condition holds for the actor and partner (null partner allowed).
 	[[nodiscard]] Choice Select(const List& a_list, bool a_muffled, RE::Actor* a_actor, RE::Actor* a_partner);
+	// The entry a_shift places away from a_natural in the same list (negative: earlier, which in a staged set is quieter and slower; positive: later, wilder
+	// and faster), kept inside the list and ignoring the entries' conditions: a personality's own pace, over the scene's. A list with one entry has no
+	// room to move, and a choice with no entry is returned as it is.
+	[[nodiscard]] Choice Shift(const List& a_list, const Choice& a_natural, int a_shift);
 
 	// What the actor's scene says about their voice right now. known is false when the scene or its actions are not known, in which case
 	// moan is true and muffled false (an actor is allowed to moan unless an action says otherwise). partner is the first other actor

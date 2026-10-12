@@ -7,6 +7,7 @@
 
 #include "Body.h"
 #include "Face/Output.h"
+#include "MoanVolume.h"
 #include "Settings.h"
 #if !OSIS_LITE
 #	include "Voice.h"
@@ -125,6 +126,10 @@ namespace Hooks
 		} else {
 			logger::warn("Animation hooks are off (bAnimationHooks): faces are written at 20 Hz from the main thread, toe/finger curl is off");
 		}
+		// The sound vtable index is a Special Edition one, so there is no hook on VR; MoanVolume::Tick corrects the sounds it sees instead. Installed before Voice's
+		// hook, so that hook is the outer one and a mute still has the last word.
+		if (!REL::Module::IsVR()) MoanVolume::InstallHook();
+		else logger::warn("Skyrim VR: the moan volume hook is not installed; sounds are corrected a moment after they start");
 #if !OSIS_LITE
 		bool voice;
 		{
