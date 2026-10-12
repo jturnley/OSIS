@@ -119,10 +119,10 @@ followed NPC set is sticky (`Gather`), and an arousal mod is queried every 5th t
 morphs and the blush ease back after a scene; without it `Tick` calls `ClearAllNow` the tick the last scene ends, and `ClearActor` also sets a male's
 genital response back to rest, since nothing else would.
 
-`Arousal::Tick` also leaves alone a female-bodied actor (`st.female`) at the receiving end of a blowjob, deepthroat or lickingpenis action (`PenisInMouth`,
-from the scene's data, so it needs neither a schlong mod nor the sex of the actor) while `bPauseOnOral` is on: no morph writes, so no `UpdateModelWeight`,
-and no overlay work. A male body gets no morph rows and so no refresh to begin with. This is a guess at why an SMP head's lips stopped wrapping around a
-futa's penis (reported, not reproduced); `oralPaused` logs when it applies.
+`Arousal::Tick` also leaves alone a female-bodied actor (`st.female`) who has a penis in the scene (`PenisInPlay` -> `OStimData::HasPenisRole`, any role whose action
+definition requires "penis", so it needs neither a schlong mod nor the sex of the actor), for the rest of the scene once seen (`penisSeen`), while `bPauseOnOral` is on: no
+morph writes, so no `UpdateModelWeight`, and no overlay work. A male body gets no morph rows and so no refresh to begin with. This is a guess at why an SMP head's lips
+stopped wrapping around a futa's penis (reported, not reproduced; hotfix 2's pause, only while a blowjob targeted her, did not cure it); `penisPaused` logs when it applies.
 
 The Faces module stands down for Ahegao Expressions the way it does for an old OSED core: `Compat::Disabled(kFace)` is true while
 `Compat::AhegaoYield()` (installed and `bAhegaoAutoYield`, or `bAhegaoModYield`), and `ApplyAll` paints nothing (the scene is still tracked and

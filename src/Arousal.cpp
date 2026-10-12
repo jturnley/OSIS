@@ -52,7 +52,8 @@ namespace Arousal
 			std::uint32_t lastTick = 0;
 			bool legacyCleared = false;
 			bool female = true;
-			bool oralPaused = false;  // left alone because a penis of theirs is in someone's mouth; see PenisInMouth
+			bool penisPaused = false;  // left alone for the rest of the scene because they have a penis in it; see PenisInPlay
+			bool penisSeen = false;
 			bool ube = false;     // a UBE race: its own sliders and its own UV map, so CBBE/3BA rows and textures are not for it
 
 			std::vector<std::string> blushNodes;
@@ -174,23 +175,14 @@ namespace Arousal
 			return 0xFF2030;
 		}
 
-		// Whose penis is in someone's mouth in the scene's current node: the target of a blowjob, a deepthroat or a licking of the penis. OStim's
-		// actions put the penis on the target. Read from the scene's data, so it does not depend on the actor's sex or on a schlong mod.
-		bool PenisInMouth(RE::Actor* a)
+		// Whether the actor has a penis in the scene's current node: a handjob, a vaginal, anal or oral act, masturbation (a role whose action definition
+		// requires "penis"). Read from the scene's data, so it does not depend on the actor's sex or on a schlong mod.
+		bool PenisInPlay(RE::Actor* a)
 		{
-			static const OStimData::TagList kActions = [] {
-				OStimData::TagList l{ "blowjob", "deepthroat", "lickingpenis" };
-				const auto named = l;
-				for (const auto& n : named) {
-					const auto canonical = OStimData::CanonicalAction(n);  // OStim's own names for some of them (deepthroating)
-					if (std::ranges::find(l, canonical) == l.end()) l.push_back(canonical);
-				}
-				return l;
-			}();
 			auto* t = Scenes::ThreadOf(a);
 			if (!t || !t->meta) return false;
 			auto* sl = t->Find(a);
-			return sl && sl->pos >= 0 && OStimData::FindAnyActionForTarget(*t->meta, sl->pos, kActions) >= 0;
+			return sl && sl->pos >= 0 && OStimData::HasPenisRole(*t->meta, sl->pos);
 		}
 
 		void ClearBlush(RE::Actor* a, ActorState& st)
@@ -644,16 +636,18 @@ namespace Arousal
 			st.shown = Shape(a, st, s, now, dt);
 			st.ube = IsUBE(a);
 
-			// A female-bodied actor whose penis is in someone's mouth (a futa receiving a blowjob) is left alone while it lasts: no morph update and no
-			// overlay work. Each morph change is a RaceMenu weight refresh of the whole body, about once a second, and a male receiver never gets one,
-			// since the morph rows are for female bodies. The body keeps its last look and catches up afterwards.
-			const bool oral = s.pauseOral && st.female && PenisInMouth(a);
-			if (oral != st.oralPaused) {
-				st.oralPaused = oral;
-				if (oral) logger::info("Arousal: {} has a penis in a mouth in this scene node: their body morphs and blush are left alone while it lasts", st.name);
-				else logger::info("Arousal: {}'s body morphs and blush resume", st.name);
+			// A female-bodied actor with a penis in the scene (a futa) is left alone for the rest of it: no morph update and no overlay work. Each morph change
+			// is a RaceMenu weight refresh of the whole body, about once a second, and a male actor never gets one, since the morph rows are for female bodies.
+			// It lasts the whole scene once it starts, not only while the penis is in a mouth: a refresh in a handjob or before the act can leave an SMP
+			// head's lips with nothing to wrap around when the blowjob comes. The body keeps its last look and catches up when the scene is over.
+			if (st.penisSeen && !Scenes::InAnyScene(a)) st.penisSeen = false;  // the scene is over (or this is the outside-scenes tracking): the next one starts fresh
+			if (s.pauseOral && st.female && !st.penisSeen && PenisInPlay(a)) st.penisSeen = true;
+			const bool paused = s.pauseOral && st.penisSeen;
+			if (paused != st.penisPaused) {
+				st.penisPaused = paused;
+				if (paused) logger::info("Arousal: {} has a penis in this scene: their body morphs and blush are left alone for the rest of it", st.name);
 			}
-			if (oral) continue;
+			if (paused) continue;
 
 			ApplyBlush(a, st, s);
 			// A male body has no softbody sliders worth driving, but it does have the genital

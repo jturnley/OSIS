@@ -3,6 +3,11 @@
 ## 2.0 beta 2, hotfix 3 (plugin version 2.0.14)
 
 ### Changed
+- **The pause for a female-bodied actor with a penis (a futa) now lasts the whole scene.** Hotfix 2 paused her body morphs and blush only while a blowjob, deepthroat or
+  penis-licking targeted her, and the reporter's log (OSIS 2.0.13, PPA's expression system off, the same wall blowjob animation with a male and with a futa) showed it
+  working at the blowjob and the SMP head's lips still not wrapping. The refreshes before the act (a handjob came first) are not excluded, so once a penis is in her part of
+  the scene (any action whose definition requires one) she is left alone until it is over. The log line now reads "X has a penis in this scene: ..." (it said "has a penis in a
+  mouth", which read as if she were the one giving the blowjob). The setting is the same (`bPauseOnOral`), its label now "Pause a female body's morphs and blush when she has a penis in the scene".
 - **Body no longer fights PPA over the genital chain and the hands.** Reported on the Nexus page: with Body on, PPA's effects stopped around climax, and turning Body off fixed it.
   The cause was in Body: whenever an actor was curling (the toe and finger curl at each climax beat, about every 10 to 25 s in a busy scene), it wrote the six genital bones
   (`NPC Genitals01..06`) back to a pose it had saved when the curl began, and forced an update of them. That happened even with Body > "Bend the genital bones with arousal" off,

@@ -76,6 +76,9 @@ namespace OStimData
 		bool hands = false;
 	};
 	[[nodiscard]] PPAContact PPAContactFor(const Scene& a_scene, int a_pos);
+	// Whether the actor at this position has a penis in any action of the scene's current node (a role whose definition requires "penis"): a handjob,
+	// a vaginal, anal or oral act, masturbation. Read from the scene's data, so it needs neither a schlong mod nor the sex of the actor.
+	[[nodiscard]] bool HasPenisRole(const Scene& a_scene, int a_pos);
 
 	[[nodiscard]] TagList SplitCSV(std::string_view a_csv);
 	[[nodiscard]] bool HasAny(const TagList& a_have, const TagList& a_want);

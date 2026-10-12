@@ -291,6 +291,20 @@ namespace OStimData
 		return out;
 	}
 
+	bool HasPenisRole(const Scene& a_scene, int a_pos)
+	{
+		std::scoped_lock l(g_lock);
+		for (const auto& act : a_scene.actions) {
+			const auto it = g_actionReq.find(act.type);
+			if (it == g_actionReq.end()) continue;
+			const int who[3] = { act.actor, act.target, act.performer };
+			for (int r = 0; r < 3; ++r) {
+				if (who[r] == a_pos && (it->second[r] & 1) != 0) return true;
+			}
+		}
+		return false;
+	}
+
 	TagList SplitCSV(std::string_view a_csv)
 	{
 		TagList out;
