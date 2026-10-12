@@ -86,7 +86,13 @@ namespace Face::Output
 	{
 		float frameSeconds = 0.01f;
 		std::vector<float> loud;    // 0..1 per frame
-		std::vector<float> bright;  // 0..1 per frame (zero-crossing rate: breathy / "ee")
+		// What the moan sounds like, from AudioFeatures, every featureSeconds: the tone (0 a closed-mouth hum .. 1 thin and bright), the pitch against the file's
+		// own median (128 is the median, 8 semitones either side are 255 and 0) and how voiced it is (0 breath .. 255 a clean tone). Empty if it was not analysed.
+		float featureSeconds = 0.02f;
+		std::vector<std::uint8_t> tone;
+		std::vector<std::uint8_t> pitch;
+		std::vector<std::uint8_t> voiced;
+		float medianHz = 0.0f;
 		float levelDb = 0.0f;       // the file's own loudness before it was normalised: the RMS of its loud parts (95th percentile of 10 ms frames), dBFS
 		bool levelKnown = false;
 		[[nodiscard]] float Duration() const { return frameSeconds * static_cast<float>(loud.size()); }
@@ -100,6 +106,8 @@ namespace Face::Output
 		float attack = 0.04f;
 		float release = 0.12f;
 		bool holdEyes = true;
+		bool shapeMouth = true;  // the mouth's shape follows the sound: a hum closes the lips, an "oh" rounds them, a bright cry spreads them, breath parts them
+		float browGain = 0.5f;   // the brows follow the moan: up with a rising pitch, together with a loud one (0 off)
 	};
 
 	void SetMouthTrack(RE::Actor* a_actor, std::shared_ptr<const Envelope> a_envelope, float a_startRealTime, const TrackParams& a_params);

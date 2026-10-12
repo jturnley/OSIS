@@ -1004,7 +1004,12 @@ namespace
 			SliderF("Attack (s)", fAttack, 0.005f, 0.2f, "%.3f", "How quickly the mouth follows a moan getting louder.");
 			SliderF("Release (s)", fRelease, 0.02f, 0.5f, "%.3f",
 				"How quickly it closes again. Longer than the attack, or the mouth chatters on every syllable.");
-			Check("Eyes squeeze with the moan", bHoldEyes, "The eyes tighten through the loud part of a moan, not just the mouth.");
+			Check("Eyes squeeze with the moan", bHoldEyes, "The eyes tighten through the loud part of a moan, not just the mouth, and a little more as its pitch rises.");
+			Check("Mouth shape follows the sound", bShapeMouth,
+				"Every moan file is analysed when it is decoded: how dark or bright its tone is, whether it is a clean voice or breath, and where its pitch is going. A closed-mouth "
+				"hum keeps the lips together, a dark moan rounds them, an open one drops the jaw, a bright cry spreads them, and breath parts them a little. Off: every moan is an open vowel.");
+			SliderF("Brows follow the moan", fBrows, 0.0f, 1.0f, "%.2f",
+				"The brows lift as the moan's pitch rises above its own middle, and draw together as it gets loud. 0 leaves the brows to the face; it adds to them, never replaces them.");
 
 			ig::SeparatorText("While a tongue is out");
 			ig::TextWrapped("Ahegao mods stick the tongue out through OStim. A mouth that closes over it pushes the tongue through "

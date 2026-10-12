@@ -3,6 +3,19 @@
 ## Unreleased (after 2.0 beta 2, hotfix 3)
 
 ### Changed
+- **The default edition no longer carries the full edition's `[Voice]` INI note.** The note describes the non-consensual victim's voice settings; it was compiled into the default edition's DLL
+  although that edition has no such settings and never wrote the section. Behaviour is unchanged.
+- **The face follows what a moan sounds like, not only how loud it is** (both editions; Lip-Sync page; on by default). Every voice-set file is now also analysed when it is decoded:
+  how dark or bright its tone is, whether it is a clean voice or breath, and where its pitch is going compared with the file's own middle. About three seconds more at startup on a
+  large install (the log says how long the analysis took). While a moan plays:
+  - **the mouth takes a shape from it** (`bShapeMouth`): a closed-mouth hum keeps the lips together (BMP, with the jaw barely open: many of the muffled moans are this), a dark moan
+    rounds them, an open one drops the jaw, a bright cry spreads them (Eee) and breath parts them a little. Before, loudness opened the jaw and a crude brightness measure shifted it
+    between "oh" and "ee";
+  - **the brows follow it** (`fBrows`, 0.5; 0 is off): up as the pitch rises above the moan's own middle, drawn together as it gets loud. It adds to the face's brows and never replaces
+    them, and works where no face pose drives them;
+  - **the eyes squeeze a little more as the pitch rises** (with "Eyes squeeze with the moan").
+  A moan file that could not be analysed (too short) keeps the plain open vowel. The debug log's lip-sync line gives the clip's median pitch, and the face snapshot the tone,
+  voicing and pitch now. Not tested in game yet: the values are tuned on the voice files of an install with OSSO, Female Moan Voicesets and a dozen voice packs, not on faces.
 - **Moans by personality: which moans, and how loud, in each phase of a scene** (both editions; Personality page > Moans by personality; `[Audio]` in the INI, on by default). OStim
   has one moan volume for everyone and picks the moan by the scene's speed. Now each personality has a rule for each of three phases (the first three stages, the fourth stage, the
   climax): **which moans** (none at all, as they come, or the quiet, normal or loud third) and **how loud** (a volume tier: quiet 0.7, normal 1, loud 1.3, high 1.6, times a master of 0.8,

@@ -26,6 +26,7 @@ namespace Face::Output
 			float last = 0.0f;
 			float theirs = 0.0f;
 			bool engaged = false;  // written by us and not yet handed back
+			bool boostOwned = false;  // written only for what the moan's sound adds (a brow it moves), on a channel no face pose drives
 			float mine = 0.0f;      // our part of what we wrote, before taking the larger with `theirs`
 
 			void See(float found)
@@ -128,7 +129,9 @@ namespace Face::Output
 			float trackStart = 0.0f;
 			TrackParams trackParams;
 			float trackOpen = 0.0f;     // smoothed loudness
-			float trackBright = 0.0f;
+			float trackTone = 0.5f;     // the playing moan's tone, voicing and pitch above its own median (AudioFeatures), smoothed
+			float trackVoiced = 0.7f;
+			float trackSemis = 0.0f;
 			float trackBlend = 0.0f;    // 0 = base mouth, 1 = track mouth
 
 			[[nodiscard]] bool TrackActive(float now) const { return track && now - trackStart < track->Duration(); }
@@ -333,6 +336,52 @@ namespace Face::Output
 		{
 			if (kf.values && i < kf.count) kf.SetValue(i, v);
 		}
+
+		// The mouth a moan's sound asks for, as multipliers of how far it is open (the jaw), by phoneme. A closed-mouth hum has its lips together, a dark "oh" rounds them,
+		// an open vowel drops the jaw, a bright cry spreads them, and breath parts them a little.
+		struct Posture
+		{
+			float jaw, bigAah, aah, oh, eee, bmp;
+		};
+
+		Posture Lerp(const Posture& a, const Posture& b, float t)
+		{
+			const auto m = [t](float x, float y) { return x + (y - x) * t; };
+			return { m(a.jaw, b.jaw), m(a.bigAah, b.bigAah), m(a.aah, b.aah), m(a.oh, b.oh), m(a.eee, b.eee), m(a.bmp, b.bmp) };
+		}
+
+		Posture PostureFor(float a_tone, float a_breath)
+		{
+			struct Row
+			{
+				float tone;
+				Posture mouth;
+			};
+			static constexpr std::array<Row, 6> rows = { {
+				{ 0.00f, { 0.25f, 0.60f, 0.00f, 0.00f, 0.00f, 0.90f } },  // a hum
+				{ 0.14f, { 0.55f, 0.60f, 0.15f, 0.50f, 0.00f, 0.25f } },
+				{ 0.32f, { 0.90f, 0.70f, 0.30f, 0.50f, 0.00f, 0.00f } },  // a dark, round "oh"
+				{ 0.55f, { 1.00f, 0.95f, 0.35f, 0.15f, 0.00f, 0.00f } },  // an open vowel: most moans
+				{ 0.72f, { 0.95f, 0.75f, 0.30f, 0.00f, 0.25f, 0.00f } },
+				{ 0.88f, { 0.85f, 0.55f, 0.20f, 0.00f, 0.55f, 0.00f } },  // thin and bright: spread
+			} };
+			static constexpr Posture breath = { 0.60f, 0.55f, 0.30f, 0.30f, 0.00f, 0.00f };
+			Posture q = rows.back().mouth;
+			for (std::size_t i = 0; i + 1 < rows.size(); ++i) {
+				if (a_tone < rows[i + 1].tone) {
+					const float span = rows[i + 1].tone - rows[i].tone;
+					q = Lerp(rows[i].mouth, rows[i + 1].mouth, std::clamp((a_tone - rows[i].tone) / span, 0.0f, 1.0f));
+					break;
+				}
+			}
+			return Lerp(q, breath, std::clamp(a_breath, 0.0f, 1.0f));
+		}
+
+		float Smooth(float a_lo, float a_hi, float a_x)
+		{
+			const float x = std::clamp((a_x - a_lo) / (a_hi - a_lo), 0.0f, 1.0f);
+			return x * x * (3.0f - 2.0f * x);
+		}
 	}
 
 	void SetPhoneme(RE::Actor* a, int id, float v, float speed)
@@ -471,8 +520,9 @@ namespace Face::Output
 		auto* st = Get(a, true);
 		if (!st) return;
 		if (st->track != env || std::abs(st->trackStart - start) > 0.05f) {
-			Debug::Log(Debug::Cat::Mouth, "{}: lip-sync track {} ({:.2f} s long, started {:.2f} s ago, gain {:.2f}, max open {:.2f})", Debug::Label(a),
-				st->track == env ? "re-anchored" : "started", env->Duration(), Scenes::Now() - start, params.gain, params.maxOpen);
+			Debug::Log(Debug::Cat::Mouth, "{}: lip-sync track {} ({:.2f} s long, started {:.2f} s ago, gain {:.2f}, max open {:.2f}, pitch {}, shape {}, brows {:.2f})", Debug::Label(a),
+				st->track == env ? "re-anchored" : "started", env->Duration(), Scenes::Now() - start, params.gain, params.maxOpen,
+				env->medianHz > 0.0f ? std::format("{:.0f} Hz", env->medianHz) : std::string("unvoiced"), params.shapeMouth ? "follows the sound" : "plain", params.browGain);
 			if (Scenes::Now() < g_probeUntil.load()) {
 				++st->probe.trackStarts;
 				if (st->track == env) {
@@ -519,9 +569,10 @@ namespace Face::Output
 				for (int i = 0; i < kPhonemes; ++i) ph[i] = st.ph[i].used ? st.ph[i].target : 0.0f;
 				for (int i = 0; i < kModifiers; ++i) mod[i] = st.mod[i].used ? st.mod[i].target : 0.0f;
 				for (int i = 0; i < kExpressions; ++i) ex[i] = st.expr[i].used ? st.expr[i].target : 0.0f;
-				ours = std::format("flags[layered={} suspended={} mouthOwned={} floor={:.2f} blinkHold={} blinkPulse={} releasing={} lipTrack={} (open {:.2f}, blend {:.2f})] "
+				ours = std::format("flags[layered={} suspended={} mouthOwned={} floor={:.2f} blinkHold={} blinkPulse={} releasing={} lipTrack={} (open {:.2f}, blend {:.2f}, tone {:.2f}, voiced {:.2f}, pitch {:+.1f} st)] "
 								   "asked[mouth [{}] eyes+brows [{}] mood [{}]]",
 					st.layered, st.suspended, st.mouthOwned, st.mouthFloor, st.blinkHold, st.pulseOn, st.releasing, st.TrackActive(Scenes::Now()), st.trackOpen, st.trackBlend,
+					st.trackTone, st.trackVoiced, st.trackSemis,
 					Debug::Channels(ph.data(), kPhonemes, Debug::PhonemeName), Debug::Channels(mod.data(), kModifiers, Debug::ModifierName),
 					Debug::Channels(ex.data(), kExpressions, Debug::ExpressionName));
 			}
@@ -703,30 +754,57 @@ namespace Face::Output
 		bool settled = true;
 
 		// Lip-sync track: follow the moan's loudness envelope, blending in and out of the
-		// base mouth so the hand-over never pops.
+		// base mouth so the hand-over never pops. What the moan sounds like (AudioFeatures: its tone, whether it is voiced, its pitch against its own
+		// median) shapes the mouth and moves the brows and the eyes along with it.
 		std::array<float, kPhonemes> trackPh{};
+		std::array<float, kModifiers> audioMod{};  // what the sound adds to the brows
 		float squintBoost = 0.0f;
 		const bool trackOn = st.TrackActive(now);
 		if (st.track) {
 			const auto& env = *st.track;
 			const auto& p = st.trackParams;
 			float loud = 0.0f;
-			float bright = 0.0f;
+			float tone = st.trackTone;
+			float voiced = st.trackVoiced;
+			float semis = st.trackSemis;
+			const bool analysed = !env.tone.empty() && env.tone.size() == env.voiced.size() && env.tone.size() == env.pitch.size();
 			if (trackOn) {
-				const auto frame = std::min(static_cast<std::size_t>((now - st.trackStart) / env.frameSeconds), env.loud.size() - 1);
+				const float t = now - st.trackStart;
+				const auto frame = std::min(static_cast<std::size_t>(t / env.frameSeconds), env.loud.size() - 1);
 				loud = env.loud[frame];
-				bright = env.bright.empty() ? 0.0f : env.bright[frame];
+				if (analysed) {
+					const auto f = std::min(static_cast<std::size_t>(t / env.featureSeconds), env.tone.size() - 1);
+					tone = static_cast<float>(env.tone[f]) / 255.0f;
+					voiced = static_cast<float>(env.voiced[f]) / 255.0f;
+					semis = (static_cast<float>(env.pitch[f]) - 127.5f) / 127.5f * 8.0f;
+				}
 			}
 			const float tau = loud > st.trackOpen ? p.attack : p.release;
 			const float k = 1.0f - std::exp(-dt / std::max(0.005f, tau));
 			st.trackOpen += (loud - st.trackOpen) * k;
-			st.trackBright += (bright - st.trackBright) * k;
+			const float kf = 1.0f - std::exp(-dt / 0.06f);
+			st.trackTone += (tone - st.trackTone) * kf;
+			st.trackVoiced += (voiced - st.trackVoiced) * kf;
+			st.trackSemis += (semis - st.trackSemis) * kf;
 			const float open = std::clamp(st.trackOpen * p.gain, std::min(p.minOpen, p.maxOpen), p.maxOpen);
-			trackPh[kBigAah] = open * (0.55f + 0.45f * (1.0f - st.trackBright));
-			trackPh[kAah] = open * 0.35f;
-			trackPh[kOh] = open * 0.40f * (1.0f - st.trackBright);
-			trackPh[kEee] = open * 0.50f * st.trackBright;
-			if (p.holdEyes) squintBoost = open * 0.25f;
+			// Breath (an unvoiced moan) parts the lips; a held-open mouth (a tongue is out) keeps the plain open vowel, so the floor still holds.
+			const float breath = analysed ? 1.0f - Smooth(0.30f, 0.55f, st.trackVoiced) : 0.0f;
+			const bool shaped = analysed && p.shapeMouth && p.minOpen <= 0.0f;
+			const Posture q = shaped ? PostureFor(st.trackTone, breath) : PostureFor(0.55f, 0.0f);
+			trackPh[kBigAah] = open * q.jaw * q.bigAah;
+			trackPh[kAah] = open * q.jaw * q.aah;
+			trackPh[kOh] = open * q.jaw * q.oh;
+			trackPh[kEee] = open * q.jaw * q.eee;
+			trackPh[kBMP] = q.bmp * std::min(1.0f, open * 3.0f);  // lips together however quiet the hum
+			// A pitch rising above the moan's own middle lifts the brows and tightens the eyes; a loud one draws the brows together.
+			const float lift = analysed ? std::clamp(st.trackSemis / 5.0f, 0.0f, 1.0f) * (1.0f - breath) : 0.0f;
+			if (p.holdEyes) squintBoost = open * (0.25f + 0.15f * lift);
+			if (p.browGain > 0.0f) {
+				const float up = p.browGain * open * (0.10f + 0.70f * lift);
+				const float in = p.browGain * open * open * (0.55f - 0.25f * lift);
+				audioMod[kBrowUpL] = audioMod[kBrowUpR] = up;
+				audioMod[kBrowInL] = audioMod[kBrowInR] = in;
+			}
 			if (!trackOn && st.trackOpen < 0.01f) st.track.reset();
 		}
 		const float blendTarget = trackOn ? 1.0f : 0.0f;
@@ -831,11 +909,25 @@ namespace Face::Output
 		}
 		for (int i = kBlinkL; i < kModifiers; ++i) {
 			auto& c = st.mod[i];
-			if (!c.used) continue;
-			c.Step(dt);
-			settled &= c.cur <= 0.005f;
 			const bool squint = i == kSquintL || i == kSquintR;
-			float mv = squint ? std::min(1.0f, c.cur + squintBoost * st.trackBlend) : c.cur;
+			// What the moan adds: the squint of a loud one, and the brows (up with the pitch, together with the loudness). It shows on a channel no pose drives, too.
+			const float add = (squint ? squintBoost : audioMod[i]) * st.trackBlend;
+			const bool boosting = add > 0.002f;
+			if (!c.used && !boosting) {
+				if (c.boostOwned) {  // the moan has finished with a channel nothing else drives: give it back, once
+					Write(fg->modifierKeyFrame, i, st.layered ? c.theirs : 0.0f);
+					c.boostOwned = false;
+					c.engaged = false;
+					c.last = 0.0f;
+				}
+				continue;
+			}
+			if (c.used) {
+				c.Step(dt);
+				settled &= c.cur <= 0.005f;
+			}
+			float mv = std::min(1.0f, (c.used ? c.cur : 0.0f) + add);
+			c.boostOwned = !c.used;
 			// Layered: OStim's expressions set brows, lids and eyes too, and a zero of ours is a
 			// real write that wipes them - and OStim stops rewriting a value once it has reached
 			// its goal, so nothing would ever put it back. Add to theirs instead.
@@ -852,7 +944,7 @@ namespace Face::Output
 				pr.modMask |= 1u << i;
 			}
 			// Look modifiers stop eye blinking while non-zero, and a blink we write is the lids' to own; hand both back once at rest.
-			if (IsGated(i) && c.cur <= 0.0f && c.target <= 0.0f && !(IsBlink(i) && st.blinkHold)) c.used = false;
+			if (c.used && IsGated(i) && c.cur <= 0.0f && c.target <= 0.0f && !(IsBlink(i) && st.blinkHold)) c.used = false;
 		}
 		if (st.exprUsed) {
 			for (int i = 0; i < kExpressions; ++i) {

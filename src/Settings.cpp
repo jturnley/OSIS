@@ -197,6 +197,8 @@ namespace Settings
 				{ "LipSync", "fRelease", &LipSync::fRelease },
 				{ "LipSync", "fMaxOpen", &LipSync::fMaxOpen },
 				{ "LipSync", "bHoldEyes", &LipSync::bHoldEyes },
+				{ "LipSync", "bShapeMouth", &LipSync::bShapeMouth },
+				{ "LipSync", "fBrows", &LipSync::fBrows },
 				{ "LipSync", "iTongueMode", &LipSync::iTongueMode },
 				{ "LipSync", "fTongueMinOpen", &LipSync::fTongueMinOpen },
 				{ "LipSync", "bYieldToDDF", &LipSync::bYieldToDDF },
@@ -323,6 +325,7 @@ namespace Settings
 			Arousal::iOverlayFirstSlot = std::max(0, Arousal::iOverlayFirstSlot);
 			Arousal::iOverlaySlots = std::clamp(Arousal::iOverlaySlots, 0, 32);
 			LipSync::fAttack = std::clamp(LipSync::fAttack, 0.005f, 0.5f);
+			LipSync::fBrows = std::clamp(LipSync::fBrows, 0.0f, 1.0f);
 			LipSync::fRelease = std::clamp(LipSync::fRelease, 0.02f, 1.0f);
 			LipSync::iTongueMode = std::clamp(LipSync::iTongueMode, 0, 2);
 			LipSync::fTongueMinOpen = std::clamp(LipSync::fTongueMinOpen, 0.0f, 1.0f);
@@ -551,7 +554,9 @@ namespace Settings
 				},
 				{ "LipSync",
 					"; Mouth follows the moan OStim plays (decoded from your voice-set .wav files at startup).\n"
+					"; bShapeMouth: the mouth's shape follows the sound too (a hum closes the lips, an \"oh\" rounds them, a bright cry spreads them, breath parts them). fBrows 0..1: the brows follow the moan (up with a rising pitch, together with a loud one); 0 is off.\n"
 					"; bYieldToDDF: stand down while Dynamic Dialogue Framework is installed (both drive the mouth)." },
+#if !OSIS_LITE
 				{ "Voice",
 					"; The victim of a non-consensual scene: OStim moans muted, a cry for help that guards/allies answer, personality lines, a scream at the breaking climax, then hard breathing. Vanilla Skyrim.esm lines only.\n"
 					"; iVictimVoice: 0 silent, 1 breathing only, 2 full. iResponders: 0 nobody, 1 guards, 2 guards and allies.\n"
@@ -559,6 +564,7 @@ namespace Settings
 					"; bDirectorOwnMoans: with the Director, OSIS plays the moans itself from OStim's voice sets (the entry the scene's speed picks, the muffled list when an action says so) and mutes only OStim's plain moans: climax sounds and reactions such as a spank are still OStim's. Intervals in seconds, counted from the end of a moan. Off by default.\n"
 					"; bDirectorOwnClimax: with bDirectorOwnMoans, OSIS also plays the climax sound at each orgasm (the voice set's climax list, muffled while an action says so) and mutes OStim's. A set whose climax has dialogue is left to OStim.\n"
 					"; bUseOStimMoanSettings: the time between moans and their volume are OStim's own (its MCM: Moan interval min / max and Moan volume, read from OStim.esp), the same for every actor. Off, or if they cannot be read: fOwnMoanVolume, fOwnMoanIntervalMin and fOwnMoanIntervalMax. A vocal actor ignores the interval and moans back to back." },
+#endif
 				{ "Arousal",
 					"; Softbody Arousal. iSource: 0 auto (OSL first), 1 OSL Aroused, 2 SLO Aroused NG, 3 OStim excitement only.\n"
 					"; Body blush uses \"Body [Ovl#]\" slots iOverlayFirstSlot .. +iOverlaySlots-1; set skee64.ini [Overlays/Body] iNumOverlays to at least 12." },

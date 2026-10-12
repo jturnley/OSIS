@@ -5,6 +5,7 @@
 
 #include "LipSync.h"
 
+#include "AudioFeatures.h"
 #include "Debug.h"
 #include "MoanVolume.h"
 
@@ -53,6 +54,7 @@ namespace LipSync
 		std::unordered_map<Key, std::shared_ptr<const Envelope>, KeyHash> g_envelopes;  // decoded
 		std::unordered_map<Key, float, KeyHash> g_levels;  // each decoded file's loudness (dBFS), built once by BuildLevels; read without a lock once g_levelsFrozen
 		std::atomic_bool g_levelsFrozen = false;
+		std::atomic<long long> g_analysisMicros{ 0 };  // time spent in AudioFeatures::Analyse during the decode, for the log
 		float g_levelQuietBelow = 0.0f, g_levelLoudFrom = 0.0f;
 		std::array<float, 3> g_levelMedian{};
 		std::array<std::size_t, 3> g_levelCount{};
@@ -211,27 +213,23 @@ namespace LipSync
 				return (static_cast<std::uint8_t>(p[0]) - 128) / 128.0f;
 			};
 
+			// One mono copy of the file, for the loudness envelope and for the analysis of the sound.
+			std::vector<float> mono(count);
+			for (std::size_t i = 0; i < count; ++i) {
+				float v = 0.0f;
+				for (int c = 0; c < channels; ++c) v += read(i, c);
+				mono[i] = v / static_cast<float>(channels);
+			}
+
 			auto env = std::make_shared<Envelope>();
 			env->frameSeconds = 0.01f;
 			const std::size_t hop = std::max<std::size_t>(1, rate / 100);
 			std::vector<float> rms;
-			std::vector<float> zcr;
 			for (std::size_t start = 0; start < count; start += hop) {
 				const std::size_t end = std::min(count, start + hop);
 				double sum = 0.0;
-				int crossings = 0;
-				float prev = 0.0f;
-				for (std::size_t i = start; i < end; ++i) {
-					float v = 0.0f;
-					for (int c = 0; c < channels; ++c) v += read(i, c);
-					v /= channels;
-					sum += static_cast<double>(v) * v;
-					if (i > start && ((v >= 0.0f) != (prev >= 0.0f))) ++crossings;
-					prev = v;
-				}
-				const std::size_t n = end - start;
-				rms.push_back(static_cast<float>(std::sqrt(sum / std::max<std::size_t>(1, n))));
-				zcr.push_back(static_cast<float>(crossings) / static_cast<float>(std::max<std::size_t>(1, n)));
+				for (std::size_t i = start; i < end; ++i) sum += static_cast<double>(mono[i]) * mono[i];
+				rms.push_back(static_cast<float>(std::sqrt(sum / static_cast<double>(std::max<std::size_t>(1, end - start)))));
 			}
 			if (rms.empty()) return nullptr;
 
@@ -243,12 +241,20 @@ namespace LipSync
 			env->levelDb = 20.0f * std::log10(std::max(p95, 1.0e-5f));
 			env->levelKnown = true;
 			env->loud.reserve(rms.size());
-			env->bright.reserve(rms.size());
 			for (std::size_t i = 0; i < rms.size(); ++i) {
 				const float r = std::clamp(rms[i] / ref, 0.0f, 1.0f);
 				env->loud.push_back(r < 0.06f ? 0.0f : std::pow(r, 0.6f));  // gate breath noise, lift the middle
-				env->bright.push_back(std::clamp((zcr[i] - 0.03f) / 0.25f, 0.0f, 1.0f));
 			}
+
+			// What it sounds like: tone, pitch and breathiness every 20 ms (the mouth's shape, the brows and the eyes follow them).
+			const auto t0 = std::chrono::steady_clock::now();
+			auto tracks = AudioFeatures::Analyse(mono, rate);
+			g_analysisMicros += std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::steady_clock::now() - t0).count();
+			env->featureSeconds = AudioFeatures::kFrameSeconds;
+			env->tone = std::move(tracks.tone);
+			env->pitch = std::move(tracks.pitch);
+			env->voiced = std::move(tracks.voiced);
+			env->medianHz = tracks.medianHz;
 			return env;
 		}
 
@@ -476,7 +482,7 @@ namespace LipSync
 			}
 			BuildLevels();
 			g_ready = true;
-			logger::info("Lip-sync: {} of {} voice-set sound files decoded in {} ms", decoded, g_wanted.size(), ms);
+			logger::info("Lip-sync: {} of {} voice-set sound files decoded in {} ms ({} ms of that analysing their tone and pitch)", decoded, g_wanted.size(), ms, g_analysisMicros.load() / 1000);
 			(void)paired;
 		}
 
@@ -651,6 +657,8 @@ namespace LipSync
 			params.attack = Settings::LipSync::fAttack;
 			params.release = Settings::LipSync::fRelease;
 			params.holdEyes = Settings::LipSync::bHoldEyes;
+			params.shapeMouth = Settings::LipSync::bShapeMouth;
+			params.browGain = Settings::LipSync::fBrows;
 			tongueMode = Settings::LipSync::iTongueMode;
 			tongueMinOpen = Settings::LipSync::fTongueMinOpen;
 		}

@@ -108,15 +108,39 @@ a tone flag), not every tick.
    then its `BGSStandardSoundDef::soundFiles` gives the `BSResource::ID` of every moan file.
 2. Walk `Data/Sound` for loose `.wav` files, hash each path with the engine's
    `ID::GenerateFromPath` (on the main thread), and keep the files whose ID matches. Decode
-   them in the background into 10 ms loudness (RMS, normalized per file) and brightness
-   (zero-crossing rate) envelopes.
+   them in the background into a 10 ms loudness envelope (RMS, normalized per file) and, from
+   `AudioFeatures::Analyse`, three 20 ms tracks: the tone (spectral centroid, log scale), the pitch
+   against the file's own median, and how voiced it is (see "What the moan sounds like" below).
 3. At 20 Hz, read `BSAudioManager::movingSounds` (sound id -> followed node) and
    `activeSounds` (sound -> resource id, playback position) inside an SEH guard, since the
    audio thread owns those maps. When a known moan file is following a scene actor's 3D,
    start that actor's mouth track at the reported playback position.
 4. `Face::Output` samples the envelope every frame and blends it in and out of the base
-   mouth. Loudness sets the Aah/BigAah opening, brightness shifts it toward Eee versus Oh,
-   and the squint follows the loudness.
+   mouth. Loudness sets how far the jaw opens; the tone and breathiness pick the mouth's shape
+   (`PostureFor`); the pitch and loudness move the brows and the squint (see below).
+
+### What the moan sounds like (`AudioFeatures.h/.cpp`, `Face/Output.cpp`)
+`Analyse` takes the mono samples and averages them down to about 11 kHz (a box filter of D samples,
+D = rate / 11025 rounded: 4 for 44.1 and 48 kHz, 17 for the 192 kHz files some OSSO sets ship). Every 20 ms
+it takes a 256-sample Hann window, two frames per complex FFT (one in the real part, one in the imaginary,
+separated by the symmetry of a real spectrum), and keeps the centroid of 150 Hz - 4.5 kHz on a log scale
+(300 Hz = 0, 3.5 kHz = 1). Pitch is a normalised cross-correlation (RAPT-style) over 20 ms of the signal averaged
+down once more (about 5.5 kHz), lags for 90-800 Hz, taking the shortest lag whose peak is within 15% of the
+strongest (octave errors), parabolic interpolation, and a three-frame median; the voicing is the peak value.
+Pitch is stored against the file's own median (the median of voiced frames above 0.60 and above 15% of the
+file's 90th-percentile level), +-8 semitones over one byte. All three tracks are bytes; frames below the
+noise gate hold the previous tone and read unvoiced. It costs about 0.2 ms per second of audio (about three
+seconds for the 4,700 files of a big install), and its test harness lives outside the repo (it only needs the
+standard library).
+
+`Output::Update` smooths the three values (60 ms) and:
+- **mouth**: `PostureFor(tone, breath)` interpolates a six-row table (a hum, dark, round "oh", an open vowel, mid-bright, spread)
+  of jaw / BigAah / Aah / Oh / Eee / BMP multipliers and blends toward a breath posture by `1 - smoothstep(0.30, 0.55, voiced)`.
+  A hum's BMP does not depend on the loudness (lips together however quiet); a held-open mouth (a tongue is out, `minOpen > 0`)
+  keeps the plain open vowel so the floor still holds.
+- **brows**: `lift = clamp(pitchAboveMedian / 5 st, 0, 1)` (zero in breath); brow up = gain * open * (0.10 + 0.70 * lift), brow in = gain * open^2 * (0.55 - 0.25 * lift);
+  squint gets `open * (0.25 + 0.15 * lift)`. These add to the pose's value (`min(1, pose + add)`) and, on a channel no pose drives, are written alone and
+  handed back once (`Channel::boostOwned`), in a layered face as the larger of ours and OStim's.
 
 ## Arousal factors
 The target is the highest of:

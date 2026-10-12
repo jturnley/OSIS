@@ -197,6 +197,8 @@ namespace Settings
 		inline float fRelease = 0.12f;        // envelope release (s)
 		inline float fMaxOpen = 0.85f;
 		inline bool bHoldEyes = true;         // squint with the moan while it plays
+		inline bool bShapeMouth = true;       // the mouth's shape follows the sound of the moan (a hum closes the lips, an "oh" rounds them, a bright cry spreads them, breath parts them)
+		inline float fBrows = 0.50f;          // the brows follow the moan: up with a rising pitch, together with a loud one (0 off)
 		// What the mouth does while a tongue is out (ours, or any ahegao mod that equips OStim's
 		// "tongue" object). Closing lips over an out tongue makes it clip through.
 		enum Tongue : int { kTongueStop = 0, kTongueHold = 1, kTongueIgnore = 2 };
