@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased (after 2.0 beta 2, hotfix 2)
+## 2.0 beta 2, hotfix 3 (plugin version 2.0.14)
 
 ### Changed
 - **Body no longer fights PPA over the genital chain and the hands.** Reported on the Nexus page: with Body on, PPA's effects stopped around climax, and turning Body off fixed it.
