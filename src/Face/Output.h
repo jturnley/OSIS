@@ -87,6 +87,8 @@ namespace Face::Output
 		float frameSeconds = 0.01f;
 		std::vector<float> loud;    // 0..1 per frame
 		std::vector<float> bright;  // 0..1 per frame (zero-crossing rate: breathy / "ee")
+		float levelDb = 0.0f;       // the file's own loudness before it was normalised: the RMS of its loud parts (95th percentile of 10 ms frames), dBFS
+		bool levelKnown = false;
 		[[nodiscard]] float Duration() const { return frameSeconds * static_cast<float>(loud.size()); }
 	};
 

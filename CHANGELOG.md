@@ -3,19 +3,24 @@
 ## Unreleased (after 2.0 beta 2, hotfix 3)
 
 ### Changed
-- **A personality sets how loud its moans are** (both editions; Personality page > Moan volume; `[Audio]` in the INI, on by default). OStim has one moan volume for everyone. Each
-  voice-set sound (a moan, a climax, a reaction) now plays at OStim's volume times a master factor (`fMoanMaster`, 0.80) times the volume of the personality of the actor it follows
-  (stoic 0.65, shy 0.70, timid 0.60, submissive 0.80, dominant 1.00, crazed 0.90, vocal 1.25, wild 1.30; balanced is the reference), never above 1, the engine's top. The master is below
-  1 on purpose: with OStim's own volume at 1, a louder personality has no room above a balanced one, so by default a balanced actor is a fifth quieter than before and a wild one
-  as loud as OStim's volume allows. Raise the master to 1 to leave balanced actors as they were. Lip-sync opens the mouth a little less for a quiet personality and more for a loud
-  one (`bMouthFollowsVolume`). It works on OStim's own moans in any voice set, with no takeover: a small hook on the sound's start (installed ahead of the victim-mute hook, so a mute
-  still wins) sets the volume it starts at, with no click; a sound the hook did not see, or whose volume was set again after it started, is corrected once a moment later, which is
-  also how it works on VR, which has no hook.
-- **Director takeover: a personality plays further down or up a staged voice set** (LoversLab edition; Personality page > Moan stage; `iStageShift*` under `[Voice]`). An OSSO-style dynamic
-  voice set has four moans, from quiet and slow to wild and fast, and OStim picks one by the scene's speed. With the takeover on, each personality moves a number of stages along the set
-  from where the scene's speed puts it (stoic -2, timid -2, shy -1, submissive -1, vocal +1, wild +1, the others 0), kept inside the set and ignoring the entries' conditions, so a
-  stoic actor stays on the subdued moans and a wild one plays the wild ones from the start. It applies to the climax list as well, and each moan's own interval comes with the entry.
-  Of the 84 voice sets in the test install, 28 have four stages and 54 have one moan, so for those two thirds only the volume applies. The takeover's own moans use the same volumes.
+- **Moans by personality: which moans, and how loud, in each phase of a scene** (both editions; Personality page > Moans by personality; `[Audio]` in the INI, on by default). OStim
+  has one moan volume for everyone and picks the moan by the scene's speed. Now each personality has a rule for each of three phases (the first three stages, the fourth stage, the
+  climax): **which moans** (none at all, as they come, or the quiet, normal or loud third) and **how loud** (a volume tier: quiet 0.7, normal 1, loud 1.3, high 1.6, times a master of 0.8,
+  never above 1; the master leaves room above a normal moan, so balanced actors are a fifth quieter than OStim's own volume by default: set it to 1 to keep them as they were). Every
+  voice-set file is measured when it is decoded for lip-sync (the RMS of its loud parts, dBFS) and all of them are sorted into thirds; the log says where they fall (on 596 sample files:
+  quiet below about -23 dBFS, loud from about -17). A stage is the voice set's own where it has stages (an OSSO-style set has four moans; a set with fewer has its last as stage 4), and
+  the scene's speed in quarters where it has none. The defaults: **stoic** no moans in stages 1-3, quiet moans at a normal volume in stage 4, loud moans at a normal volume at the climax;
+  **shy** quiet moans, then loud moans at a loud volume at the climax; **vocal** normal moans at a loud volume throughout (and, with the takeover, a moan right after the last: no time
+  between them); **wild** loud moans at a normal volume; **crazed** normal moans at a normal volume until the orgasm, then loud moans at a high volume; timid, balanced, dominant and
+  submissive are left as they are. The rules are a table on the Personality page and `iMoan<Personality><Phase>Kind` / `...Volume` in the INI.
+  How it is done depends on whose moan it is. OStim's own moans cannot be chosen (the engine picks one of a voice set's many files at random), so a small hook on the sound's start (installed
+  ahead of the victim-mute hook, so a mute still wins) shapes them with no click: it mutes them where the rule says none and, with "Level OStim's own moans by loudness" (`bLevelMoans`), brings
+  each toward the typical loudness of the class the rule asks for, then applies the volume; the orgasm event reaches it at once, so the climax rule applies to the sound OStim is about to
+  play. A sound the hook did not see, or whose volume was set again afterwards, is corrected once a moment later, which is also how VR works. The Director takeover (LoversLab edition)
+  does choose: it plays no moan where the rule says none, and plays only files of the class asked for (`bSelectMoans`): a try of another class is muted by the hook, stopped, and another
+  file rolled, up to six times, the last being played whatever it is. Lip-sync opens the mouth less or more with the volume (`bMouthFollowsVolume`), and a silent moan moves no mouth.
+- **Director takeover: a personality plays further down or up a staged voice set** (LoversLab edition; `iStageShift*` under `[Voice]`, now 0 by default: the rules above do the work).
+  A shift moves a personality that many entries along a staged voice set from where the scene's speed puts it, kept inside the set and ignoring the entries' conditions.
 - **A debug log that tracks everything** (General > "Debug logging", `bDebug`, off by default). With it on, OSIS writes `OSIS-Debug.log` next to `OSIS.log` (the previous session's
   file is kept as `OSIS-Debug.previous.log`, so the trace of a session that crashed survives the next launch). `OSIS.log` is unchanged; the debug file holds everything in it plus one
   line for each thing the plugin does or decides, tagged `[scene]`, `[pers]`, `[face]`, `[breath]`, `[mouth]`, `[moan]`, `[climax]`, `[control]`, `[body]`, `[arousal]`, `[skin]`,

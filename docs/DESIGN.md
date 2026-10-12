@@ -47,20 +47,27 @@ Settings live in the SKSE Menu Framework (section "OSIS") and in
 - `ostim_event` (annotation beats) is sent with custom Papyrus arguments and never reaches
   SKSE's C++ mod-event source, so event beats are unavailable in the DLL.
 
-## Moan volume by personality
+## Moans by personality
 
-`MoanVolume.h/.cpp`, both editions, `[Audio]`. OStim's moan volume is one global, so the per-actor volume is made at the sound: a hook on `BSXAudio2GameSound::Play` (vtable index 0x15, the
-one `Voice` hooks for the victim mute; `MoanVolume::InstallHook` runs first in `Hooks::Install`, so Voice's hook is the outer one and its mute, which sets the volume to nothing before and
-after `Play`, still has the last word) scales `BSGameSound::volume` before `Play` and calls `SetVolume` after it, for a voice-set sound (`LipSync::IsMoanResource`) that is not ours
-(`LipSync::PlayingOwn`). The owner is found by walking the nodes the sound follows (`FollowChain`, SEH-guarded like Voice's) against a table of the 3D roots of the actors in scenes
-whose voice is not at the standard volume, which `Tick` keeps (`g_targets`, under `g_lock`, read on the audio thread); the sound is recorded in `g_applied` before `Play` so the sweep never
-takes a sound that is starting for one it missed. `Tick` also corrects, once per sound, a voice-set sound it finds with a volume that was not scaled (no hook on VR; started before the
-table) or that changed after the hook (OStim setting its volume after `Play`). The factor is `fMoanMaster * personality` and is clamped to 1 after multiplying; the master is below 1 so
-there is headroom above a balanced actor. `MouthGain` gives lip-sync the personality's factor (0.5 to 1.4) to multiply its gain by.
+`MoanVolume.h/.cpp`, both editions, `[Audio]`. `Audio::rules[personality][phase]` is a `MoanRule { kind, level }`: kind 0 as they come, 1 none, 2/3/4 the quiet/normal/loud third of the voice
+files; level 0..3 a volume tier (`fVolumeQuiet`, 1, `fVolumeLoud`, `fVolumeHigh`) times `fMoanMaster`. Phases: 0 stages 1-3, 1 stage 4, 2 the climax. `StageOfEntry` puts a staged list's last entry at
+stage 4; with no staged set the stage is the scene's speed in quarters (the excitement when there is one speed). The thirds are `LipSync::BuildLevels`: when the background decode finishes, every
+voice-set file (`Envelope::levelDb`, the 95th percentile of the 10 ms RMS frames, kept before the envelope is normalised) is sorted and cut in thirds, the middle file of each third is that class's typical
+level, and a frozen `Key -> dB` map is read from the audio thread without a lock (`LevelOf`).
 
-The Director takeover uses the same factor for its own sounds (`MoanVolume::Apply` on `fOwnMoanVolume`/OStim's volume) and adds `VoiceModel::Shift`: from the entry the scene's conditions pick
-(`natural`), a personality moves `iStageShift*` entries along the same list (clamped, conditions ignored), for moans and climaxes alike. A list with one entry has no room, so a set
-without stages gets the volume only.
+OStim's own moans: a hook on `BSXAudio2GameSound::Play` (vtable index 0x15, the one `Voice` hooks for the victim mute; `MoanVolume::InstallHook` runs first in `Hooks::Install`, so Voice's hook is the
+outer one and its mute still has the last word) decides the volume the sound starts at (`Decide`): no sound where the rule says none (`volume = 1e-5` before `Play`, `SetVolume(0)` after, like Voice's mute),
+else the master times the tier times a leveling gain `10^(strength * (classMedian - fileDb) / 20)` (0.2..4, only with `bLevelMoans` and a class asked for), clamped to 1. The owner is found by walking
+the nodes the sound follows (`FollowChain`, SEH-guarded like Voice's) against a table of the 3D roots of the actors in scenes, which `Tick` keeps with each actor's `now` mode (the rule for the stage
+the scene is at) and `climax` mode; `NoteOrgasm`, called from the event sink on the sender's thread, makes the climax mode apply for 8 s from the orgasm event, before the main thread has seen it. The
+sound is recorded in `g_applied` before `Play` so the per-tick correction never takes a sound that is starting for one it missed; `Tick` corrects, once per sound, one it finds unshaped (no hook on VR;
+started before the table) or whose volume changed after the hook. Muted sounds (volume <= 0.001) are skipped by `LipSync::CollectPlaying`, so a silent moan moves no mouth and sets no "voice busy".
+
+The Director takeover plays its own sounds and does choose. `Moans` takes `PlanFor` (silent / class mask / volume) for the stage it knows (`StageOfEntry` of the natural entry) or for the climax, plays no
+moan where the rule says none, and passes the class mask to `LipSync::PlayDescriptor`, which makes up to six tries: the hook (`StartOwn`) mutes a try whose file is of another class (`t_wantClasses`,
+`NoteRejected`), `PlayDescriptor` stops it (`BSSoundHandle::Stop` on a sound that was played, silently, so nothing unplayed is left in the audio manager) and rolls another file from the same descriptor;
+the last try is played whatever it is. Descriptors hold many files (10 to 33 in the test install), so a try is of the class asked for about one time in three. `VoiceModel::Shift` and `iStageShift*`
+remain, at 0.
 
 ## The debug trace
 

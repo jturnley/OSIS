@@ -208,18 +208,40 @@ namespace Settings
 	// ---------------------------------------------------------------- moan volume (both editions)
 	namespace Audio
 	{
-		inline bool bPersonalityVolume = true;   // each voice-set sound (a moan, a climax, a reaction) plays at the volume of the personality of the actor it follows
-		inline float fMoanMaster = 0.80f;        // times OStim's own moan volume, for everyone: below 1, so that a louder personality has room above a balanced one
-		// Times the master, per personality; balanced is the reference and is not a setting. The result is never above 1, the engine's top.
-		inline float fStoicVolume = 0.65f;
-		inline float fVocalVolume = 1.25f;
-		inline float fShyVolume = 0.70f;
-		inline float fDominantVolume = 1.00f;
-		inline float fTimidVolume = 0.60f;
-		inline float fSubmissiveVolume = 0.80f;  // the full edition only: the lite edition plays a submissive as a timid
-		inline float fWildVolume = 1.30f;
-		inline float fCrazedVolume = 0.90f;
-		inline bool bMouthFollowsVolume = true;  // lip-sync opens the mouth less for a quiet personality and more for a loud one
+		inline bool bPersonalityVolume = true;   // a personality shapes its moans (the rules below); off leaves OStim's moans as they are
+		inline float fMoanMaster = 0.80f;        // times OStim's own moan volume, for everyone: below 1, so that a louder volume tier has room above a normal one
+		// The volume tiers, times the master (normal is 1). The result is never above 1, the engine's top.
+		inline float fVolumeQuiet = 0.70f;
+		inline float fVolumeLoud = 1.30f;
+		inline float fVolumeHigh = 1.60f;
+		inline bool bMouthFollowsVolume = true;  // lip-sync opens the mouth less for a quiet volume and more for a loud one
+		// Every voice-set file was measured when it was decoded (LipSync::LevelOf) and all of them were sorted into thirds by their own loudness: the quietest third
+		// is quiet, the middle third normal, the loudest third loud.
+		inline bool bLevelMoans = true;          // OStim's own moans, whose file cannot be chosen: brought toward the typical loudness of the class the rule asks for
+		inline float fLevelStrength = 1.0f;      // 0 leaves each file as it is, 1 brings it all the way to the class's level (in dB, so it blends smoothly)
+		inline bool bSelectMoans = true;         // the Director takeover plays only files of the class the rule asks for (it tries again with another file)
+
+		// What a personality's moans are in each phase of a scene: which moans (none at all, as they come, or the quiet, normal or loud third of the files) and how
+		// loud they are played (a volume tier).
+		enum MoanKind : int { kMoanUnchanged = 0, kMoanNone = 1, kMoanQuiet = 2, kMoanNormal = 3, kMoanLoud = 4 };
+		enum MoanLevel : int { kLevelQuiet = 0, kLevelNormal = 1, kLevelLoud = 2, kLevelHigh = 3 };
+		struct MoanRule
+		{
+			int kind = kMoanUnchanged;
+			int level = kLevelNormal;
+		};
+		// rules[personality][phase]. Personality ids are Face::Engine::Pers: 0 balanced, 1 stoic, 2 vocal, 3 shy, 4 dominant, 5 timid, 6 submissive, 7 wild, 8 crazed.
+		// Phases: 0 the first three stages, 1 the fourth stage, 2 the climax. A stage is the voice set's own (the entry the scene's speed picks) where it has stages, else
+		// the scene's speed in quarters. Timid, balanced, dominant and submissive are left as they are.
+		inline std::array<std::array<MoanRule, 3>, 9> rules = [] {
+			std::array<std::array<MoanRule, 3>, 9> r{};
+			r[1] = { { { kMoanNone, kLevelNormal }, { kMoanQuiet, kLevelNormal }, { kMoanLoud, kLevelNormal } } };      // stoic: nothing until the fourth stage, then quiet, loud at the climax
+			r[2] = { { { kMoanNormal, kLevelLoud }, { kMoanNormal, kLevelLoud }, { kMoanNormal, kLevelLoud } } };      // vocal: loud volumes always (and a moan right after the last: the takeover)
+			r[3] = { { { kMoanQuiet, kLevelNormal }, { kMoanQuiet, kLevelNormal }, { kMoanLoud, kLevelLoud } } };      // shy: quiet moans, then loud ones, loudly, at the climax
+			r[7] = { { { kMoanLoud, kLevelNormal }, { kMoanLoud, kLevelNormal }, { kMoanLoud, kLevelNormal } } };      // wild: loud moans at a normal volume
+			r[8] = { { { kMoanNormal, kLevelNormal }, { kMoanNormal, kLevelNormal }, { kMoanLoud, kLevelHigh } } };    // crazed: normal until the orgasm, then loud and high
+			return r;
+		}();
 	}
 
 	// ---------------------------------------------------------------- victim voice
@@ -236,13 +258,13 @@ namespace Settings
 		inline bool bOwnMoanPersonality = true;   // a vocal actor moans more often, a stoic or shy one less
 		// The takeover's other half: how far a personality moves along a staged voice set (an OSSO-style set has four entries, from quiet and slow to wild and
 		// fast), from the stage the scene's speed puts them at. Negative: more subdued; positive: wilder. A set with one entry has nothing to move along.
-		inline int iStageShiftStoic = -2;
-		inline int iStageShiftVocal = 1;
-		inline int iStageShiftShy = -1;
+		inline int iStageShiftStoic = 0;
+		inline int iStageShiftVocal = 0;
+		inline int iStageShiftShy = 0;
 		inline int iStageShiftDominant = 0;
-		inline int iStageShiftTimid = -2;
-		inline int iStageShiftSubmissive = -1;
-		inline int iStageShiftWild = 1;
+		inline int iStageShiftTimid = 0;
+		inline int iStageShiftSubmissive = 0;
+		inline int iStageShiftWild = 0;
 		inline int iStageShiftCrazed = 0;
 		inline bool bDirectorMuteMoans = false;  // Director mode: mute OStim's voice-set sounds on every face-painted actor (groundwork for OSIS-owned moans)
 		inline int iVictimVoice = 2;          // 0 silent, 1 breathing only, 2 full (help, lines, scream)

@@ -10,6 +10,9 @@
 #include "LipSync.h"
 #include "Scenes.h"
 #include "Settings.h"
+#if !OSIS_LITE
+#	include "VoiceModel.h"
+#endif
 
 namespace MoanVolume
 {
@@ -17,12 +20,22 @@ namespace MoanVolume
 	{
 		namespace S = Settings::Audio;
 
+		constexpr std::array<const char*, 3> kClassNames{ "quiet", "normal", "loud" };
+		constexpr std::array<const char*, 5> kKindNames{ "as they come", "no moans", "quiet moans", "normal moans", "loud moans" };
+		constexpr std::array<const char*, 4> kLevelNames{ "quiet", "normal", "loud", "high" };
+		constexpr std::array<const char*, 3> kPhaseNames{ "stages 1-3", "stage 4", "the climax" };
+		constexpr std::array<float, 4> kMouth{ 0.75f, 1.0f, 1.2f, 1.35f };  // the mouth's opening for each volume tier
+
 		struct Cfg
 		{
 			bool on = false;
 			float master = 1.0f;
-			std::array<float, 9> pers{ 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };  // balanced, stoic, vocal, shy, dominant, timid, submissive, wild, crazed
+			std::array<float, 4> tier{ 0.7f, 1.0f, 1.3f, 1.6f };  // the volume tiers: quiet, normal, loud, high
 			bool mouth = true;
+			bool level = false;
+			float strength = 1.0f;
+			bool select = true;
+			std::array<std::array<S::MoanRule, 3>, 9> rules{};
 		};
 
 		Cfg ReadCfg()
@@ -31,19 +44,63 @@ namespace MoanVolume
 			Cfg c;
 			c.on = S::bPersonalityVolume && Settings::General::bEnabled;
 			c.master = S::fMoanMaster;
-			c.pers = { 1.0f, S::fStoicVolume, S::fVocalVolume, S::fShyVolume, S::fDominantVolume, S::fTimidVolume, S::fSubmissiveVolume, S::fWildVolume, S::fCrazedVolume };
+			c.tier = { S::fVolumeQuiet, 1.0f, S::fVolumeLoud, S::fVolumeHigh };
 			c.mouth = S::bMouthFollowsVolume;
+			c.level = S::bLevelMoans;
+			c.strength = S::fLevelStrength;
+			c.select = S::bSelectMoans;
+			c.rules = S::rules;
 			return c;
 		}
 
-		float PersScale(const Cfg& a_cfg, int a_pers) { return a_cfg.pers[static_cast<std::size_t>(std::clamp(a_pers, 0, 8))]; }
+		std::size_t Index(int a_pers) { return static_cast<std::size_t>(std::clamp(a_pers, 0, 8)); }
+
+		// 0 the first three stages, 1 the fourth stage, 2 the climax.
+		int PhaseOf(int a_stage, bool a_climax) { return a_climax ? 2 : (a_stage >= 4 ? 1 : 0); }
+
+		unsigned MaskOf(int a_kind)
+		{
+			switch (a_kind) {
+			case S::kMoanQuiet: return 1u;
+			case S::kMoanNormal: return 2u;
+			case S::kMoanLoud: return 4u;
+			default: return 0u;
+			}
+		}
+
+		// What the hook does to an OStim sound of one actor in one phase.
+		struct Mode
+		{
+			float volume = 1.0f;   // the master times the volume tier
+			float targetDb = std::numeric_limits<float>::quiet_NaN();  // the loudness the sound is brought toward (NaN: left at its own)
+			bool mute = false;     // no moan at all
+			float strength = 1.0f;
+			float mouth = 1.0f;
+		};
+
+		Mode ModeOf(const Cfg& a_cfg, const S::MoanRule& a_rule, const LipSync::LevelScale& a_scale)
+		{
+			Mode m;
+			const int level = std::clamp(a_rule.level, 0, 3);
+			m.volume = a_cfg.master * a_cfg.tier[static_cast<std::size_t>(level)];
+			m.mute = a_rule.kind == S::kMoanNone;
+			m.strength = a_cfg.strength;
+			m.mouth = kMouth[static_cast<std::size_t>(level)];
+			const unsigned mask = MaskOf(a_rule.kind);
+			if (a_cfg.level && a_scale.ready && mask != 0u) m.targetDb = a_scale.median[mask == 1u ? 0 : (mask == 2u ? 1 : 2)];
+			return m;
+		}
 
 		// What the hook and the sweep read, kept by Tick.
 		struct Target
 		{
 			RE::NiAVObject* node;
-			float scale;
 			RE::FormID id;
+			Mode now;       // the rule for the stage the scene is at
+			Mode climax;    // the rule for the climax
+			bool climaxing;
+			int phase;
+			int stage;
 		};
 		struct Applied
 		{
@@ -54,13 +111,45 @@ namespace MoanVolume
 		};
 
 		std::mutex g_lock;
-		std::vector<Target> g_targets;                  // under g_lock: the 3D of each actor in a scene whose voice is not at the standard volume
-		std::unordered_map<RE::FormID, float> g_byActor;  // under g_lock: the same, by actor
-		std::unordered_map<std::uint32_t, Applied> g_applied;  // under g_lock: sound id -> what was done to it
+		std::vector<Target> g_targets;                          // under g_lock: the 3D of each actor in a scene whose moans are shaped
+		std::unordered_map<RE::FormID, Target> g_byActor;       // under g_lock: the same, by actor (node unused)
+		std::unordered_map<RE::FormID, float> g_climaxUntil;    // under g_lock: scene time until which the climax rule applies, from the orgasm event
+		std::unordered_map<std::uint32_t, Applied> g_applied;   // under g_lock: sound id -> what was done to it
 		std::atomic_bool g_active{ false };
 		std::atomic_bool g_hooked{ false };
 		std::atomic<std::uint32_t> g_atStart{ 0 };
 		std::atomic<std::uint32_t> g_late{ 0 };
+		std::atomic<std::uint32_t> g_muted{ 0 };
+		std::atomic<std::uint32_t> g_rejected{ 0 };
+
+		// Bringing a file to a loudness: the gain that moves its measured level toward the target, a fraction of the way in dB, kept sensible.
+		float LevelGain(const LipSync::Level& a_level, float a_targetDb, float a_strength)
+		{
+			if (!a_level.known || std::isnan(a_targetDb) || a_strength <= 0.0f) return 1.0f;
+			return std::clamp(std::pow(10.0f, a_strength * (a_targetDb - a_level.db) / 20.0f), 0.2f, 4.0f);
+		}
+
+		// The stage from the scene alone: the speed, in quarters with the fastest the fourth stage; the excitement when the scene has one speed.
+		int StageFromScene(const Scenes::Thread& a_thread, const Scenes::Slot& a_slot)
+		{
+			if (a_thread.maxSpeed > 0) return 1 + std::clamp(static_cast<int>(3.0f * static_cast<float>(a_thread.speed) / static_cast<float>(a_thread.maxSpeed)), 0, 3);
+			return 1 + std::clamp(a_slot.raw / 25, 0, 3);
+		}
+
+		// The stage the actor is at; the voice set's own where it has stages (full edition). The caller holds Scenes::Lock().
+		int StageOfLocked([[maybe_unused]] RE::Actor* a_actor, const Scenes::Thread& a_thread, const Scenes::Slot& a_slot)
+		{
+#if !OSIS_LITE
+			VoiceModel::Request(a_actor);
+			const auto resolved = VoiceModel::Resolve(a_actor);
+			if (resolved.set && resolved.set->moan.sound.size() >= 2) {
+				const auto ctx = VoiceModel::Context(a_actor);
+				const auto natural = VoiceModel::Select(resolved.set->moan, ctx.muffled, a_actor, ctx.partner);
+				if (natural.entry) return StageOfEntry(natural.index, static_cast<int>(resolved.set->moan.sound.size()));
+			}
+#endif
+			return StageFromScene(a_thread, a_slot);
+		}
 
 		// The nodes a sound follows, from the one it follows up to the root, and the sound's id. SEH: nothing with a destructor may live here, because the
 		// audio manager's maps belong to the audio thread.
@@ -107,7 +196,7 @@ namespace MoanVolume
 					auto it = am->activeSounds.find(soundID);
 					if (it == am->activeSounds.end() || !it->second) continue;
 					RE::BSGameSound* snd = it->second;
-					if (snd->volume <= 0.001f) continue;  // muted (a victim's, or the takeover's): nothing to scale
+					if (snd->volume <= 0.001f) continue;  // muted (a victim's, a rule's, or a try of the takeover that was the wrong class): nothing to scale
 					out[n].soundID = soundID;
 					out[n].node = node;
 					out[n].volume = snd->volume;
@@ -129,51 +218,112 @@ namespace MoanVolume
 			h.SetVolume(a_volume);
 		}
 
+		// The volume an OStim sound of this actor should have, and why. Not a change: -1.
+		struct Decision
+		{
+			float volume = -1.0f;
+			float factor = 1.0f;
+			bool mute = false;
+			float gain = 1.0f;
+			int phase = 0;
+		};
+
+		Decision Decide(const Target& a_target, bool a_climaxNow, const LipSync::Level& a_level, float a_before)
+		{
+			Decision d;
+			const Mode& m = a_climaxNow ? a_target.climax : a_target.now;
+			d.phase = a_climaxNow ? 2 : (a_target.stage >= 4 ? 1 : 0);
+			if (m.mute) {
+				d.mute = true;
+				d.volume = 0.0f;
+				return d;
+			}
+			d.gain = LevelGain(a_level, m.targetDb, m.strength);
+			d.factor = m.volume * d.gain;
+			if (std::abs(d.factor - 1.0f) < 0.01f) return d;
+			d.volume = std::clamp(a_before * d.factor, 0.0f, 1.0f);
+			return d;
+		}
+
 		struct PlayHook
 		{
 			static void thunk(RE::BSGameSound* a_sound)
 			{
-				float scaled = -1.0f;
+				float volume = -1.0f;
+				if (a_sound && LipSync::IsMoanResource(a_sound->resourceID)) {
+					if (LipSync::PlayingOwn()) volume = StartOwn(a_sound);
+					else if (g_active.load(std::memory_order_relaxed)) volume = StartTheirs(a_sound);
+				}
+				func(a_sound);
+				if (volume >= 0.0f) {
+					a_sound->SetVolume(volume);
+					if (volume > 0.0f) g_atStart.fetch_add(1, std::memory_order_relaxed);
+				}
+			}
+
+			// A sound the Director takeover is playing: it asked for files of some loudness classes. One of another class is muted, and PlayDescriptor, which is
+			// inside Play() on this thread, stops it and tries again.
+			static float StartOwn(RE::BSGameSound* a_sound)
+			{
+				const unsigned mask = LipSync::WantedClasses();
+				if (mask == 0u) return -1.0f;
+				const auto level = LipSync::LevelOf(a_sound->resourceID);
+				if (!level.known || (mask & (1u << level.cls)) != 0u) return -1.0f;
+				LipSync::NoteRejected();
+				g_rejected.fetch_add(1, std::memory_order_relaxed);
+				a_sound->volume = 1.0e-5f;
+				Debug::Log(Debug::Cat::Moan, "takeover try muted: the file measures {:.1f} dBFS, a {} one; the rule asks for {}", level.db, kClassNames[static_cast<std::size_t>(level.cls)],
+					std::format("{}{}{}", (mask & 1u) ? "quiet " : "", (mask & 2u) ? "normal " : "", (mask & 4u) ? "loud " : ""));
+				return 0.0f;
+			}
+
+			// An OStim sound. Sets the volume before Play, and records the sound before Play so the per-tick correction never takes a sound that is starting for
+			// one it missed.
+			static float StartTheirs(RE::BSGameSound* a_sound)
+			{
+				auto* am = RE::BSAudioManager::GetSingleton();
+				if (!am) return -1.0f;
+				RE::NiAVObject* chain[24];
 				std::uint32_t id = 0;
-				RE::FormID actor = 0;
-				if (a_sound && g_active.load(std::memory_order_relaxed) && !LipSync::PlayingOwn() && LipSync::IsMoanResource(a_sound->resourceID)) {
-					if (auto* am = RE::BSAudioManager::GetSingleton()) {
-						RE::NiAVObject* chain[24];
-						const int n = FollowChain(am, a_sound, chain, 24, &id);
-						if (n > 0) {
-							float scale = 1.0f;
-							{
-								std::scoped_lock l(g_lock);
-								for (int i = 0; i < n && scale == 1.0f; ++i) {
-									for (const auto& t : g_targets) {
-										if (t.node == chain[i]) {
-											scale = t.scale;
-											actor = t.id;
-											break;
-										}
-									}
-								}
-							}
-							if (scale != 1.0f) {
-								const float before = a_sound->volume;
-								scaled = std::clamp(before * scale, 0.0f, 1.0f);
-								a_sound->volume = scaled;
-								{
-									// Recorded before Play, so the per-tick correction never takes a sound that is starting for one it missed.
-									std::scoped_lock l(g_lock);
-									g_applied[id] = { scaled, Scenes::Now(), false, actor };
-								}
-								Debug::Log(Debug::Cat::Moan, "{:08X}: voice-set sound {} starts at volume {:.2f} x{:.2f} = {:.2f}", actor, id, before, scale, scaled);
+				const int n = FollowChain(am, a_sound, chain, 24, &id);
+				if (n <= 0) return -1.0f;
+				Target target{};
+				bool climaxNow = false;
+				bool found = false;
+				{
+					std::scoped_lock l(g_lock);
+					for (int i = 0; i < n && !found; ++i) {
+						for (const auto& t : g_targets) {
+							if (t.node == chain[i]) {
+								target = t;
+								found = true;
+								break;
 							}
 						}
 					}
+					if (found) {
+						const auto it = g_climaxUntil.find(target.id);
+						climaxNow = target.climaxing || (it != g_climaxUntil.end() && Scenes::Now() < it->second);
+					}
 				}
-				func(a_sound);
-				if (scaled >= 0.0f) {
-					a_sound->SetVolume(scaled);
-					g_atStart.fetch_add(1, std::memory_order_relaxed);
+				if (!found) return -1.0f;
+				const auto level = LipSync::LevelOf(a_sound->resourceID);
+				const float before = a_sound->volume;
+				const auto d = Decide(target, climaxNow, level, before);
+				if (d.volume < 0.0f) return -1.0f;
+				a_sound->volume = d.mute ? 1.0e-5f : d.volume;
+				{
+					std::scoped_lock l(g_lock);
+					g_applied[id] = { d.volume, Scenes::Now(), false, target.id };
 				}
+				if (d.mute) g_muted.fetch_add(1, std::memory_order_relaxed);
+				Debug::Log(Debug::Cat::Moan, "{:08X}: voice-set sound {} ({}, stage {}): {}{}", target.id, id, kPhaseNames[static_cast<std::size_t>(d.phase)], target.stage,
+					d.mute ? std::string("muted: the rule says no moans") : std::format("starts at {:.2f} x{:.2f} = {:.2f}", before, d.factor, d.volume),
+					level.known ? std::format(" | the file measures {:.1f} dBFS, {}{}", level.db, kClassNames[static_cast<std::size_t>(level.cls)], d.gain != 1.0f ? std::format(", leveling gain x{:.2f}", d.gain) : std::string())
+								: std::string(" | the file's loudness is not known"));
+				return d.volume;
 			}
+
 			static inline REL::Relocation<decltype(thunk)> func;
 		};
 	}
@@ -186,17 +336,39 @@ namespace MoanVolume
 		logger::info("Moan volume: sound start hook installed");
 	}
 
-	float Scale(RE::Actor* a_actor)
+	void NoteOrgasm(RE::FormID a_actor)
 	{
-		if (!a_actor) return 1.0f;
-		const auto c = ReadCfg();
-		if (!c.on) return 1.0f;
-		return c.master * PersScale(c, Face::Engine::Archetype(a_actor));
+		std::scoped_lock l(g_lock);
+		g_climaxUntil[a_actor] = Scenes::Now() + 8.0f;
 	}
 
-	float Apply(RE::Actor* a_actor, float a_base)
+	Plan PlanFor(RE::Actor* a_actor, int a_stage, bool a_climax)
 	{
-		return std::clamp(a_base * Scale(a_actor), 0.0f, 1.0f);
+		Plan plan;
+		if (!a_actor) return plan;
+		const auto c = ReadCfg();
+		if (!c.on) return plan;
+		plan.phase = PhaseOf(a_stage, a_climax);
+		const auto& rule = c.rules[Index(Face::Engine::Archetype(a_actor))][static_cast<std::size_t>(plan.phase)];
+		plan.silent = rule.kind == S::kMoanNone;
+		plan.classMask = MaskOf(rule.kind);
+		plan.volume = c.master * c.tier[static_cast<std::size_t>(std::clamp(rule.level, 0, 3))];
+		return plan;
+	}
+
+	int StageOfEntry(int a_index, int a_count)
+	{
+		if (a_count <= 1) return 1;
+		return 1 + std::clamp((3 * std::clamp(a_index, 0, a_count - 1)) / (a_count - 1), 0, 3);
+	}
+
+	int StageOf(RE::Actor* a_actor)
+	{
+		if (!a_actor) return 1;
+		std::scoped_lock sl(Scenes::Lock());
+		auto* t = Scenes::ThreadOf(a_actor);
+		auto* s = t ? t->Find(a_actor) : nullptr;
+		return s ? StageOfLocked(a_actor, *t, *s) : 1;
 	}
 
 	float MouthGain(RE::Actor* a_actor)
@@ -204,23 +376,36 @@ namespace MoanVolume
 		if (!a_actor) return 1.0f;
 		const auto c = ReadCfg();
 		if (!c.on || !c.mouth) return 1.0f;
-		return std::clamp(PersScale(c, Face::Engine::Archetype(a_actor)), 0.5f, 1.4f);
+		std::scoped_lock l(g_lock);
+		const auto it = g_byActor.find(a_actor->GetFormID());
+		if (it == g_byActor.end()) return 1.0f;
+		const auto ua = g_climaxUntil.find(a_actor->GetFormID());
+		const bool climax = it->second.climaxing || (ua != g_climaxUntil.end() && Scenes::Now() < ua->second);
+		return climax ? it->second.climax.mouth : it->second.now.mouth;
 	}
 
 	void Tick()
 	{
 		const auto c = ReadCfg();
+		const auto scale = LipSync::LevelScaleInfo();
 		std::vector<Target> targets;
-		std::unordered_map<RE::FormID, float> byActor;
+		std::unordered_map<RE::FormID, Target> byActor;
 		if (c.on) {
 			std::scoped_lock sl(Scenes::Lock());
 			Scenes::ForEachActor([&](RE::Actor* a, const Scenes::Slot& s) {
 				if (!s.painted) return;
-				const float scale = c.master * PersScale(c, Face::Engine::Archetype(a));
-				if (std::abs(scale - 1.0f) < 0.005f) return;
-				byActor[s.id] = scale;
+				auto* t = Scenes::ThreadOf(a);
+				if (!t) return;
+				const int pers = Face::Engine::Archetype(a);
+				const int stage = StageOfLocked(a, *t, s);
+				const int phase = PhaseOf(stage, false);
+				Target target{ nullptr, s.id, ModeOf(c, c.rules[Index(pers)][static_cast<std::size_t>(phase)], scale), ModeOf(c, c.rules[Index(pers)][2], scale), s.climaxing, phase, stage };
+				byActor[s.id] = target;
 				for (auto* n : { a->Get3D(), a->Get3D1(false), a->Get3D1(true) }) {
-					if (n) targets.push_back({ n, scale, s.id });
+					if (n) {
+						target.node = n;
+						targets.push_back(target);
+					}
 				}
 			});
 		}
@@ -229,6 +414,8 @@ namespace MoanVolume
 			std::scoped_lock l(g_lock);
 			g_targets = std::move(targets);
 			g_byActor = std::move(byActor);
+			const float now = Scenes::Now();
+			std::erase_if(g_climaxUntil, [now](const auto& kv) { return kv.second < now; });
 		}
 		g_active.store(active, std::memory_order_relaxed);
 		if (!active) {
@@ -237,7 +424,7 @@ namespace MoanVolume
 			return;
 		}
 
-		// A voice-set sound the hook did not scale, or one whose volume was set again after Play, is corrected once.
+		// A voice-set sound the hook did not shape, or one whose volume was set again after Play, is corrected once.
 		auto* am = RE::BSAudioManager::GetSingleton();
 		if (!am || RE::UI::GetSingleton()->GameIsPaused()) return;
 		std::array<Voiced, 64> voiced{};
@@ -248,6 +435,7 @@ namespace MoanVolume
 			std::uint32_t id;
 			float volume;
 			RE::FormID actor;
+			float factor;
 		};
 		std::vector<Fix> fixes;
 		for (int i = 0; i < n; ++i) {
@@ -255,29 +443,29 @@ namespace MoanVolume
 			if (!LipSync::IsMoanResource(v.res) || LipSync::IsOwnSound(v.soundID)) continue;
 			auto* owner = LipSync::ActorOf(v.node);
 			if (!owner) continue;
-			float scale = 1.0f;
-			{
-				std::scoped_lock l(g_lock);
-				const auto it = g_byActor.find(owner->GetFormID());
-				if (it == g_byActor.end()) continue;
-				scale = it->second;
-				auto ap = g_applied.find(v.soundID);
-				if (ap == g_applied.end()) {
-					const float target = std::clamp(v.volume * scale, 0.0f, 1.0f);
-					g_applied[v.soundID] = { target, now, true, owner->GetFormID() };
-					if (std::abs(target - v.volume) > 0.005f) fixes.push_back({ v.soundID, target, owner->GetFormID() });
-				} else if (!ap->second.corrected && std::abs(v.volume - ap->second.volume) > 0.02f) {
-					const float target = std::clamp(v.volume * scale, 0.0f, 1.0f);  // someone set a volume after our hook did: scale that one
-					ap->second.volume = target;
-					ap->second.corrected = true;
-					fixes.push_back({ v.soundID, target, owner->GetFormID() });
-				}
+			const auto level = LipSync::LevelOf(v.res);
+			std::scoped_lock l(g_lock);
+			const auto it = g_byActor.find(owner->GetFormID());
+			if (it == g_byActor.end()) continue;
+			const auto ua = g_climaxUntil.find(owner->GetFormID());
+			const bool climaxNow = it->second.climaxing || (ua != g_climaxUntil.end() && now < ua->second);
+			const auto d = Decide(it->second, climaxNow, level, v.volume);
+			auto ap = g_applied.find(v.soundID);
+			if (ap == g_applied.end()) {
+				const float target = d.volume < 0.0f ? v.volume : d.volume;
+				g_applied[v.soundID] = { target, now, true, owner->GetFormID() };
+				if (d.volume >= 0.0f && std::abs(target - v.volume) > 0.005f) fixes.push_back({ v.soundID, target, owner->GetFormID(), d.factor });
+			} else if (!ap->second.corrected && std::abs(v.volume - ap->second.volume) > 0.02f) {
+				const float target = d.volume < 0.0f ? v.volume : d.volume;  // someone set a volume after our hook did: shape that one
+				ap->second.volume = target;
+				ap->second.corrected = true;
+				if (d.volume >= 0.0f) fixes.push_back({ v.soundID, target, owner->GetFormID(), d.factor });
 			}
 		}
 		for (const auto& f : fixes) {
 			SetSoundVolume(f.id, f.volume);
 			g_late.fetch_add(1, std::memory_order_relaxed);
-			Debug::Log(Debug::Cat::Moan, "{}: voice-set sound {} corrected to volume {:.2f} (it was not scaled when it started)", Debug::Label(f.actor), f.id, f.volume);
+			Debug::Log(Debug::Cat::Moan, "{}: voice-set sound {} corrected to {:.2f} (x{:.2f}; it was not shaped when it started)", Debug::Label(f.actor), f.id, f.volume, f.factor);
 		}
 		std::scoped_lock l(g_lock);
 		std::erase_if(g_applied, [now](const auto& kv) { return now - kv.second.at > 20.0f; });
@@ -287,26 +475,36 @@ namespace MoanVolume
 	{
 		if (!a_actor) return "none";
 		const auto c = ReadCfg();
+		if (!c.on) return "personalities do not shape moans (off)";
 		const int pers = Face::Engine::Archetype(a_actor);
-		float table = 1.0f;
-		bool listed = false;
+		const auto scale = LipSync::LevelScaleInfo();
+		Target listed{};
+		bool in = false;
 		{
 			std::scoped_lock l(g_lock);
 			if (const auto it = g_byActor.find(a_actor->GetFormID()); it != g_byActor.end()) {
-				table = it->second;
-				listed = true;
+				listed = it->second;
+				in = true;
 			}
 		}
-		return std::format("{} | personality {} x{:.2f} * master x{:.2f} = x{:.2f}; mouth gain x{:.2f} | in the hook's table: {}{}", c.on ? "personality volume on" : "personality volume off",
-			Face::Engine::PersonalityName(pers), PersScale(c, pers), c.master, c.on ? c.master * PersScale(c, pers) : 1.0f, MouthGain(a_actor), listed ? "yes" : "no (standard volume)",
-			listed ? std::format(" x{:.2f}", table) : std::string());
+		std::string rules;
+		for (std::size_t ph = 0; ph < 3; ++ph) {
+			const auto& r = c.rules[Index(pers)][ph];
+			rules += std::format("{}{}: {}, {}", rules.empty() ? "" : " | ", kPhaseNames[ph], kKindNames[static_cast<std::size_t>(std::clamp(r.kind, 0, 4))], kLevelNames[static_cast<std::size_t>(std::clamp(r.level, 0, 3))]);
+		}
+		return std::format("{} rules [{}] | master x{:.2f}, leveling {}{} | now {}: {}", Face::Engine::PersonalityName(pers), rules, c.master, c.level ? "on" : "off",
+			c.level && !scale.ready ? " (loudness not measured yet)" : "", in ? std::format("stage {}, {}", listed.stage, listed.climaxing ? "climaxing" : kPhaseNames[static_cast<std::size_t>(listed.phase)]) : std::string("not in the hook's table"),
+			in ? std::format("mouth gain x{:.2f}", listed.now.mouth) : std::string("-"));
 	}
 
 	std::string Status()
 	{
 		const auto c = ReadCfg();
 		if (!c.on) return "off";
-		return std::format("{}; {} voice-set sound(s) scaled as they started, {} corrected afterwards", g_hooked ? "sound start hook installed" : "no start hook (the per-tick correction does it)",
-			g_atStart.load(), g_late.load());
+		const auto s = LipSync::LevelScaleInfo();
+		return std::format("{}; {} voice-set sound(s) shaped as they started ({} muted by a rule), {} corrected afterwards, {} wrong-class takeover tries; {}", g_hooked ? "sound start hook installed" : "no start hook (the per-tick correction does it)",
+			g_atStart.load() + g_muted.load(), g_muted.load(), g_late.load(), g_rejected.load(),
+			s.ready ? std::format("loudness of {} files measured: quiet below {:.1f} dBFS, loud from {:.1f}", s.count[0] + s.count[1] + s.count[2], s.quietBelow, s.loudFrom)
+					: std::string("loudness not measured yet"));
 	}
 }

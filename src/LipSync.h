@@ -29,6 +29,26 @@ namespace LipSync
 	// For Voice: is this sound file one of OStim's voice-set sounds (moans, climax, reactions,
 	// muffled ones included)? Safe from the audio thread once data has loaded.
 	[[nodiscard]] bool IsMoanResource(const RE::BSResource::ID& a_id);
+
+	// How loud a voice-set sound file is, measured from its waveform when it was decoded (the RMS of its loud parts, dBFS), and which third it is in:
+	// across every decoded voice-set file, the quietest third is class 0 (quiet), the middle third 1 (normal) and the loudest third 2 (loud). Known once
+	// the decoding has finished; safe from the audio thread after that.
+	struct Level
+	{
+		bool known = false;
+		float db = 0.0f;
+		int cls = 1;
+	};
+	[[nodiscard]] Level LevelOf(const RE::BSResource::ID& a_id);
+	struct LevelScale
+	{
+		bool ready = false;
+		float quietBelow = 0.0f;       // dBFS: files below this are quiet
+		float loudFrom = 0.0f;         // files from this are loud
+		std::array<float, 3> median{};  // the middle file of each third, dBFS: what "quiet", "normal" and "loud" sound like
+		std::array<std::size_t, 3> count{};
+	};
+	[[nodiscard]] LevelScale LevelScaleInfo();
 	[[nodiscard]] RE::Actor* ActorOf(RE::NiAVObject* a_node);  // the actor a playing sound follows
 
 	// Plays one of OStim's voice-set moans on an actor the way OStim does (BSAudioManager::GetSoundHandle on the
@@ -42,8 +62,14 @@ namespace LipSync
 		bool ok = false;
 		std::uint32_t soundID = 0;
 		std::string text;
+		int tries = 1;  // sounds started to get one of the loudness classes asked for
 	};
-	[[nodiscard]] Played PlayDescriptor(RE::Actor* a_actor, RE::FormID a_descriptor, float a_volume);
+	// a_classMask asks for a file of some loudness classes (bit 0 quiet, bit 1 normal, bit 2 loud; 0 any): a descriptor holds many files and the engine picks one at random, so a try of
+	// the wrong class is muted by the start hook (MoanVolume), stopped here, and another is made, up to six times; the last is played whatever it is.
+	[[nodiscard]] Played PlayDescriptor(RE::Actor* a_actor, RE::FormID a_descriptor, float a_volume, unsigned a_classMask = 0);
+	// For the start hook, which runs inside Play() on the thread that called PlayDescriptor: the classes this try must be one of (0: any), and the hook's word that it is not.
+	[[nodiscard]] unsigned WantedClasses();
+	void NoteRejected();
 	[[nodiscard]] bool IsSoundPlaying(std::uint32_t a_soundID);
 
 	// The sound files of the voice sets' plain moans (both lists) that no climax, comment or event reaction also uses: what the Director

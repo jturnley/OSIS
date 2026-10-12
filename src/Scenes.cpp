@@ -7,6 +7,7 @@
 
 #include "Debug.h"
 #include "Face/Engine.h"
+#include "MoanVolume.h"
 #include "Face/Output.h"
 #include "Papyrus.h"
 #include "Pulse.h"
@@ -310,7 +311,10 @@ namespace Scenes
 					std::scoped_lock l(g_lock);
 					if (g_threads.contains(tid)) Refresh(tid);
 				});
-				else if (name == "ostim_actor_orgasm") Task([tid, sender]() { OnOrgasm(tid, sender); });
+				else if (name == "ostim_actor_orgasm") {
+					MoanVolume::NoteOrgasm(sender);  // the climax rule applies to the sound OStim is about to play, before the main thread has seen the event
+					Task([tid, sender]() { OnOrgasm(tid, sender); });
+				}
 				else if (name == "ostim_thread_end") Task([tid]() { EndThread(tid); });
 				else if (name == "ostim_end") Task([]() {
 					std::scoped_lock l(g_lock);

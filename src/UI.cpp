@@ -735,29 +735,57 @@ namespace
 			SliderF("Dominant: excitement rate", fDominantExcitementMult, 0.5f, 2.0f, "%.2f", "Times OStim's rate for a dominant: their own pleasure comes first.");
 			SliderF("Crazed: partner's excitement rate", fCrazedDriveMult, 1.0f, 4.0f, "%.2f", "Times OStim's rate for whoever a crazed actor is with (not a dominant).");
 		}
-		ig::SeparatorText("Moan volume");
-		ig::TextWrapped("OStim has one moan volume for everyone. Here a personality sets how loud its own moans are: a shy or timid actor quieter, a vocal or wild one louder.");
+		ig::SeparatorText("Moans by personality");
+		ig::TextWrapped("What each personality's moans are in each phase of a scene. Moans: none at all, as they come, or the quiet, normal or loud third of all your voice files (every file was "
+		                "measured when it was decoded and all of them were sorted into thirds by loudness). Volume: how loud they are played. Stages 1-3 are the build-up and stage 4 the last "
+		                "stage before the climax; a stage is the voice set's own where it has stages, else the scene's speed in quarters.");
 		{
 			std::scoped_lock l(Settings::lock);
 			using namespace Settings::Audio;
-			Check("Personality sets how loud the moans are", bPersonalityVolume,
-				"Each voice-set sound (a moan, a climax, a reaction) plays at OStim's moan volume times the master below times the volume of the personality of the actor "
-				"it follows, and never above 1. Off leaves OStim's volume as it is. It works on OStim's own moans, in any voice set.");
+			Check("Personalities shape their moans", bPersonalityVolume,
+				"Each voice-set sound (a moan, a climax, a reaction) is shaped by the rules below for the personality of the actor it follows. Off leaves OStim's moans as they are.");
 			SliderF("Master moan volume", fMoanMaster, 0.1f, 1.0f, "%.2f",
-				"Times OStim's own moan volume, for everyone. Keep it below 1: no sound can be louder than the engine's top, so with OStim's volume at 1 and this at 1 "
-				"a louder personality has no room above a balanced one. At the default 0.8, a balanced actor plays at 0.8 and a wild one (x1.3) at 1.");
-			SliderF("Stoic volume", fStoicVolume, 0.1f, 2.0f, "%.2f", "Times the master, for a stoic actor. Balanced is the reference, 1.");
-			SliderF("Shy volume", fShyVolume, 0.1f, 2.0f, "%.2f", "Times the master, for a shy actor.");
-			SliderF("Timid volume", fTimidVolume, 0.1f, 2.0f, "%.2f", "Times the master, for a timid actor.");
+				"Times OStim's own moan volume, for everyone. Keep it below 1: no sound can be louder than the engine's top, so with OStim's volume at 1 and this at 1 a loud volume has "
+				"no room above a normal one. At the default 0.8, a normal moan plays at 0.8 and a loud one (x1.3) at 1.");
+			SliderF("Quiet volume", fVolumeQuiet, 0.1f, 1.0f, "%.2f", "Times the master, for the quiet volume.");
+			SliderF("Loud volume", fVolumeLoud, 1.0f, 3.0f, "%.2f", "Times the master, for the loud volume. Normal is 1.");
+			SliderF("High volume", fVolumeHigh, fVolumeLoud, 4.0f, "%.2f", "Times the master, for the high volume.");
+			Check("Level OStim's own moans by loudness", bLevelMoans,
+				"OStim picks its own moan file, and the engine picks among a voice set's many files at random, so OSIS cannot choose one. With this on, each moan is instead brought toward the typical "
+				"loudness of the class the rule asks for (quiet, normal or loud), whichever file was picked.");
+			if (bLevelMoans) SliderF("Leveling strength", fLevelStrength, 0.0f, 1.0f, "%.2f", "How far each moan is brought to its class's loudness, in decibels: 0 leaves every file as it is, 1 brings it all the way.");
 #if !OSIS_LITE
-			SliderF("Submissive volume", fSubmissiveVolume, 0.1f, 2.0f, "%.2f", "Times the master, for a submissive actor.");
+			Check("The takeover plays only the class asked for", bSelectMoans,
+				"With the Director takeover (Voice page) OSIS plays the moans itself and can choose: where the rule asks for quiet, normal or loud moans it plays only files of that third, trying "
+				"another file (up to six times) when the engine's pick is of another. Off, the takeover plays whatever the engine picks.");
 #endif
-			SliderF("Dominant volume", fDominantVolume, 0.1f, 2.0f, "%.2f", "Times the master, for a dominant actor.");
-			SliderF("Crazed volume", fCrazedVolume, 0.1f, 2.0f, "%.2f", "Times the master, for a crazed actor.");
-			SliderF("Vocal volume", fVocalVolume, 0.1f, 2.0f, "%.2f", "Times the master, for a vocal actor, the loud one.");
-			SliderF("Wild volume", fWildVolume, 0.1f, 2.0f, "%.2f", "Times the master, for a wild actor.");
 			Check("The mouth follows the volume", bMouthFollowsVolume,
-				"Lip-sync opens the mouth less for a quiet personality and more for a loud one, so a quiet moan looks quiet. It scales the mouth's opening by the personality's volume, kept between half and one and a half.");
+				"Lip-sync opens the mouth less for a quiet volume and more for a loud one, so a quiet moan looks quiet.");
+			static const char* const kKinds[] = { "As they come", "None", "Quiet", "Normal", "Loud" };
+			static const char* const kLevels[] = { "Quiet", "Normal", "Loud", "High" };
+			static const char* const kRuleNames[] = { "Balanced", "Stoic", "Vocal", "Shy", "Dominant", "Timid", "Submissive", "Wild", "Crazed" };
+			if (ig::BeginTable("moanrules", 7, ig::ImGuiTableFlags_Borders | ig::ImGuiTableFlags_RowBg)) {
+				for (const char* h : { "Personality", "Stages 1-3: moans", "volume", "Stage 4: moans", "volume", "Climax: moans", "volume" }) ig::TableSetupColumn(h);
+				ig::TableHeadersRow();
+				for (int p = 0; p < 9; ++p) {
+#if OSIS_LITE
+					if (p == 6) continue;  // a submissive plays as a timid in this edition
+#endif
+					ig::TableNextRow();
+					ig::TableNextColumn();
+					ig::Text("%s", kRuleNames[p]);
+					for (int ph = 0; ph < 3; ++ph) {
+						ig::PushID(p * 8 + ph);
+						ig::TableNextColumn();
+						ComboI("##kind", rules[static_cast<std::size_t>(p)][static_cast<std::size_t>(ph)].kind, kKinds, 5,
+							"Which moans in this phase: none at all, as they come (the engine's or the takeover's pick), or only the quiet, normal or loud third of the voice files.");
+						ig::TableNextColumn();
+						ComboI("##level", rules[static_cast<std::size_t>(p)][static_cast<std::size_t>(ph)].level, kLevels, 4, "How loud they are played: the master times this volume, never above 1.");
+						ig::PopID();
+					}
+				}
+				ig::EndTable();
+			}
 		}
 		ig::TextDisabled("Status: %s", MoanVolume::Status().c_str());
 #if !OSIS_LITE

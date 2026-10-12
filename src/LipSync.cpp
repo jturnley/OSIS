@@ -51,6 +51,11 @@ namespace LipSync
 		std::mutex g_lock;
 		std::unordered_set<Key, KeyHash> g_wanted;                                     // moan files named by voice sets
 		std::unordered_map<Key, std::shared_ptr<const Envelope>, KeyHash> g_envelopes;  // decoded
+		std::unordered_map<Key, float, KeyHash> g_levels;  // each decoded file's loudness (dBFS), built once by BuildLevels; read without a lock once g_levelsFrozen
+		std::atomic_bool g_levelsFrozen = false;
+		float g_levelQuietBelow = 0.0f, g_levelLoudFrom = 0.0f;
+		std::array<float, 3> g_levelMedian{};
+		std::array<std::size_t, 3> g_levelCount{};
 		std::unordered_set<Key, KeyHash> g_silence;     // every voice-set file, muffled too (a victim's are muted)
 		std::atomic_bool g_silenceFrozen = false;       // g_silence is complete and read without a lock
 		std::atomic_bool g_ready = false;
@@ -60,6 +65,8 @@ namespace LipSync
 		std::vector<RE::FormID> g_moanForms;          // under g_lock: the voice sets' plain moan/climax/reaction descriptors, for PlayMoanOn
 		std::deque<std::uint32_t> g_ownSounds;        // under g_lock: sound ids PlayMoanOn started, newest last (capped)
 		thread_local bool t_playingOwn = false;
+		thread_local unsigned t_wantClasses = 0;  // while PlayDescriptor is inside Play() for a try that must be one of these loudness classes
+		thread_local bool t_rejected = false;     // the start hook found the try to be another class
 		std::unordered_set<Key, KeyHash> g_plain;        // plain-moan files, written once by SetPlainMoans, then read without a lock
 		std::unordered_set<Key, KeyHash> g_climax;       // climax-only files, same rules
 		std::atomic_bool g_plainFrozen = false;
@@ -231,7 +238,10 @@ namespace LipSync
 			// Normalize to the file's own loud parts so quiet and loud voice packs both move.
 			auto sorted = rms;
 			std::ranges::sort(sorted);
-			const float ref = std::max(0.02f, sorted[static_cast<std::size_t>(0.95f * static_cast<float>(sorted.size() - 1))]);
+			const float p95 = sorted[static_cast<std::size_t>(0.95f * static_cast<float>(sorted.size() - 1))];
+			const float ref = std::max(0.02f, p95);
+			env->levelDb = 20.0f * std::log10(std::max(p95, 1.0e-5f));
+			env->levelKnown = true;
 			env->loud.reserve(rms.size());
 			env->bright.reserve(rms.size());
 			for (std::size_t i = 0; i < rms.size(); ++i) {
@@ -402,6 +412,30 @@ namespace LipSync
 		}
 
 		// Runs on its own thread: an exception escaping it would terminate the game.
+		// The thirds: every decoded voice-set file sorted by its own loudness, the quietest third quiet, the middle third normal, the loudest third loud.
+		void BuildLevels()
+		{
+			std::vector<std::pair<float, Key>> all;
+			{
+				std::scoped_lock l(g_lock);
+				for (const auto& [key, env] : g_envelopes) {
+					if (env && env->levelKnown) all.emplace_back(env->levelDb, key);
+				}
+			}
+			if (all.size() < 9) return;
+			std::ranges::sort(all, [](const auto& a, const auto& b) { return a.first < b.first; });
+			const std::size_t n = all.size();
+			const std::size_t i1 = n / 3, i2 = (2 * n) / 3;
+			g_levelQuietBelow = all[i1].first;
+			g_levelLoudFrom = all[i2].first;
+			g_levelMedian = { all[i1 / 2].first, all[(i1 + i2) / 2].first, all[(i2 + n) / 2].first };
+			g_levelCount = { i1, i2 - i1, n - i2 };
+			for (std::size_t i = 0; i < n; ++i) g_levels[all[i].second] = all[i].first;
+			g_levelsFrozen.store(true, std::memory_order_release);
+			logger::info("Lip-sync: moan loudness over {} files (the RMS of their loud parts, dBFS): quiet below {:.1f}, normal up to {:.1f}, loud above; a typical quiet one {:.1f}, normal {:.1f}, loud {:.1f}", n,
+				g_levelQuietBelow, g_levelLoudFrom, g_levelMedian[0], g_levelMedian[1], g_levelMedian[2]);
+		}
+
 		void DecodeAll(std::vector<Match> files, std::size_t paired, std::chrono::steady_clock::time_point t0)
 		{
 			std::size_t decoded = 0, notFound = 0, notRiff = 0, encoding = 0;
@@ -440,6 +474,7 @@ namespace LipSync
 				g_status = std::format("{} of {} moan files decoded ({} unreadable encoding, {} not installed, {} ms)",
 					decoded, g_wanted.size(), encoding, notFound, ms);
 			}
+			BuildLevels();
 			g_ready = true;
 			logger::info("Lip-sync: {} of {} voice-set sound files decoded in {} ms", decoded, g_wanted.size(), ms);
 			(void)paired;
@@ -468,6 +503,7 @@ namespace LipSync
 					if (it == am->activeSounds.end() || !it->second) continue;
 					RE::BSGameSound* snd = it->second;
 					if (!snd->IsPlaying()) continue;
+					if (snd->volume <= 0.001f) continue;  // muted (a victim's, a personality rule's, a try of the takeover): no sound, so no mouth
 					out[n].soundID = soundID;
 					out[n].node = node;
 					out[n].key.file = snd->resourceID.file;
@@ -814,9 +850,37 @@ namespace LipSync
 		return g_silence.contains(ToKey(a_id));
 	}
 
+	Level LevelOf(const RE::BSResource::ID& a_id)
+	{
+		Level out;
+		if (!g_levelsFrozen.load(std::memory_order_acquire)) return out;
+		const auto it = g_levels.find(ToKey(a_id));
+		if (it == g_levels.end()) return out;
+		out.known = true;
+		out.db = it->second;
+		out.cls = it->second < g_levelQuietBelow ? 0 : (it->second < g_levelLoudFrom ? 1 : 2);
+		return out;
+	}
+
+	LevelScale LevelScaleInfo()
+	{
+		LevelScale out;
+		if (!g_levelsFrozen.load(std::memory_order_acquire)) return out;
+		out.ready = true;
+		out.quietBelow = g_levelQuietBelow;
+		out.loudFrom = g_levelLoudFrom;
+		out.median = g_levelMedian;
+		out.count = g_levelCount;
+		return out;
+	}
+
 	RE::Actor* ActorOf(RE::NiAVObject* a_node) { return OwnerOf(a_node); }
 
 	bool PlayingOwn() { return t_playingOwn; }
+
+	unsigned WantedClasses() { return t_wantClasses; }
+
+	void NoteRejected() { t_rejected = true; }
 
 	bool IsOwnSound(std::uint32_t a_soundID)
 	{
@@ -892,7 +956,7 @@ namespace LipSync
 		return it == g_busy.end() ? 0.0f : it->second;
 	}
 
-	Played PlayDescriptor(RE::Actor* a_actor, RE::FormID a_descriptor, float a_volume)
+	Played PlayDescriptor(RE::Actor* a_actor, RE::FormID a_descriptor, float a_volume, unsigned a_classMask)
 	{
 		Played r;
 		auto* node = a_actor ? a_actor->Get3D() : nullptr;
@@ -910,25 +974,38 @@ namespace LipSync
 			r.text = std::format("descriptor {:08X} no longer resolves", a_descriptor);
 			return r;
 		}
-		RE::BSSoundHandle handle;
-		// Flags 0x10 is what OStim passes for its own moans.
-		if (!am->GetSoundHandle(handle, form, 0x10)) {
-			r.text = std::format("the engine would not build a sound from {:08X}", a_descriptor);
-			return r;
+		constexpr int kMaxTries = 6;
+		const int tries = a_classMask != 0u ? kMaxTries : 1;
+		for (int attempt = 1; attempt <= tries; ++attempt) {
+			RE::BSSoundHandle handle;
+			// Flags 0x10 is what OStim passes for its own moans.
+			if (!am->GetSoundHandle(handle, form, 0x10)) {
+				r.text = std::format("the engine would not build a sound from {:08X}", a_descriptor);
+				r.ok = false;
+				return r;
+			}
+			{
+				// Before Play(): the start hook runs inside it and must let this one through.
+				std::scoped_lock l(g_lock);
+				g_ownSounds.push_back(handle.soundID);
+				while (g_ownSounds.size() > 64) g_ownSounds.pop_front();
+			}
+			handle.SetObjectToFollow(node);
+			handle.SetVolume(a_volume);
+			t_playingOwn = true;
+			t_wantClasses = attempt < tries ? a_classMask : 0u;  // the last try is played whatever it is
+			t_rejected = false;
+			r.ok = handle.Play();
+			t_playingOwn = false;
+			t_wantClasses = 0u;
+			r.soundID = handle.soundID;
+			r.tries = attempt;
+			if (!t_rejected) break;
+			handle.Stop();  // a muted try of the wrong class: stopped, and another file is rolled
+			t_rejected = false;
 		}
-		{
-			// Before Play(): the start hook runs inside it and must let this one through.
-			std::scoped_lock l(g_lock);
-			g_ownSounds.push_back(handle.soundID);
-			while (g_ownSounds.size() > 64) g_ownSounds.pop_front();
-		}
-		handle.SetObjectToFollow(node);
-		handle.SetVolume(a_volume);
-		t_playingOwn = true;
-		r.ok = handle.Play();
-		t_playingOwn = false;
-		r.soundID = handle.soundID;
-		r.text = std::format("{} {:08X} on {} (sound {})", r.ok ? "played" : "Play() failed for", a_descriptor, a_actor->GetDisplayFullName(), handle.soundID);
+		r.text = std::format("{} {:08X} on {} (sound {}{})", r.ok ? "played" : "Play() failed for", a_descriptor, a_actor->GetDisplayFullName(), r.soundID,
+			r.tries > 1 ? std::format(", the {} try to get a file of the class asked for", r.tries) : std::string());
 		return r;
 	}
 

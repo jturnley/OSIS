@@ -23,10 +23,27 @@ namespace Settings
 			Ref ref;
 		};
 
+		// The moan rules: iMoan<Personality><Phase>Kind and ...Volume, one pair for each of the nine personalities and three phases.
+		void AddMoanRuleRows(std::vector<Binding>& a_rows)
+		{
+			static std::deque<std::string> keys;  // the table holds pointers into these
+			static constexpr std::array<const char*, 9> kPers{ "Balanced", "Stoic", "Vocal", "Shy", "Dominant", "Timid", "Submissive", "Wild", "Crazed" };
+			static constexpr std::array<const char*, 3> kPhase{ "Early", "Late", "Climax" };
+			for (std::size_t p = 0; p < kPers.size(); ++p) {
+				for (std::size_t ph = 0; ph < kPhase.size(); ++ph) {
+					keys.push_back(std::format("iMoan{}{}Kind", kPers[p], kPhase[ph]));
+					a_rows.push_back({ "Audio", keys.back().c_str(), &Audio::rules[p][ph].kind });
+					keys.push_back(std::format("iMoan{}{}Volume", kPers[p], kPhase[ph]));
+					a_rows.push_back({ "Audio", keys.back().c_str(), &Audio::rules[p][ph].level });
+				}
+			}
+		}
+
 		// One row per persisted setting; Load and Save walk the same table.
 		const std::vector<Binding>& Bindings()
 		{
-			static const std::vector<Binding> rows = {
+			static const std::vector<Binding> rows = [] {
+			std::vector<Binding> v = {
 				{ "General", "bEnabled", &General::bEnabled },
 				{ "General", "bIncludeNPCs", &General::bIncludeNPCs },
 				{ "General", "bNPCOnlyScenes", &General::bNPCOnlyScenes },
@@ -39,15 +56,13 @@ namespace Settings
 
 				{ "Audio", "bPersonalityVolume", &Audio::bPersonalityVolume },
 				{ "Audio", "fMoanMaster", &Audio::fMoanMaster },
-				{ "Audio", "fStoicVolume", &Audio::fStoicVolume },
-				{ "Audio", "fVocalVolume", &Audio::fVocalVolume },
-				{ "Audio", "fShyVolume", &Audio::fShyVolume },
-				{ "Audio", "fDominantVolume", &Audio::fDominantVolume },
-				{ "Audio", "fTimidVolume", &Audio::fTimidVolume },
-				{ "Audio", "fSubmissiveVolume", &Audio::fSubmissiveVolume },
-				{ "Audio", "fWildVolume", &Audio::fWildVolume },
-				{ "Audio", "fCrazedVolume", &Audio::fCrazedVolume },
 				{ "Audio", "bMouthFollowsVolume", &Audio::bMouthFollowsVolume },
+				{ "Audio", "bLevelMoans", &Audio::bLevelMoans },
+				{ "Audio", "fLevelStrength", &Audio::fLevelStrength },
+				{ "Audio", "bSelectMoans", &Audio::bSelectMoans },
+				{ "Audio", "fVolumeQuiet", &Audio::fVolumeQuiet },
+				{ "Audio", "fVolumeLoud", &Audio::fVolumeLoud },
+				{ "Audio", "fVolumeHigh", &Audio::fVolumeHigh },
 
 				{ "Face", "bEnabled", &Face::bEnabled },
 				{ "Face", "iMode", &Face::iMode },
@@ -241,8 +256,11 @@ namespace Settings
 				{ "Arousal", "bBlush", &Arousal::bBlush },
 				{ "Arousal", "iOverlayFirstSlot", &Arousal::iOverlayFirstSlot },
 				{ "Arousal", "iOverlaySlots", &Arousal::iOverlaySlots },
-			};
-			return rows;
+				};
+				AddMoanRuleRows(v);
+				return v;
+				}();
+				return rows;
 		}
 
 		void Sanitize()
@@ -264,8 +282,15 @@ namespace Settings
 			Face::fWildExcitementMult = std::clamp(Face::fWildExcitementMult, 0.5f, 2.0f);
 			General::fDebugSnapshotSeconds = std::clamp(General::fDebugSnapshotSeconds, 0.25f, 30.0f);
 			Audio::fMoanMaster = std::clamp(Audio::fMoanMaster, 0.1f, 1.0f);
-			for (float* v : { &Audio::fStoicVolume, &Audio::fVocalVolume, &Audio::fShyVolume, &Audio::fDominantVolume, &Audio::fTimidVolume, &Audio::fSubmissiveVolume, &Audio::fWildVolume, &Audio::fCrazedVolume }) {
-				*v = std::clamp(*v, 0.1f, 2.0f);
+			Audio::fLevelStrength = std::clamp(Audio::fLevelStrength, 0.0f, 1.0f);
+			Audio::fVolumeQuiet = std::clamp(Audio::fVolumeQuiet, 0.1f, 1.0f);
+			Audio::fVolumeLoud = std::clamp(Audio::fVolumeLoud, 1.0f, 3.0f);
+			Audio::fVolumeHigh = std::clamp(Audio::fVolumeHigh, Audio::fVolumeLoud, 4.0f);
+			for (auto& personality : Audio::rules) {
+				for (auto& rule : personality) {
+					rule.kind = std::clamp(rule.kind, 0, 4);
+					rule.level = std::clamp(rule.level, 0, 3);
+				}
 			}
 			Face::fStoicExcitementMult = std::clamp(Face::fStoicExcitementMult, 0.1f, 1.0f);
 			Face::fSubmissiveRoughMult = std::clamp(Face::fSubmissiveRoughMult, 0.5f, 2.0f);
@@ -509,9 +534,13 @@ namespace Settings
 					"; bAnimationHooks is read at startup: leave it on unless another mod's hook on the same calls conflicts.\n"
 					"; bDebug writes OSIS-Debug.log next to OSIS.log: everything OSIS does or decides, one line each, and a line per actor every fDebugSnapshotSeconds. The last session's file is kept as OSIS-Debug.previous.log." },
 				{ "Audio",
-					"; Moan volume by personality. Each voice-set sound (a moan, a climax, a reaction) plays at OStim's moan volume times fMoanMaster times the volume of the personality of the actor it follows,\n"
-					"; never above 1. fMoanMaster is below 1 so that a louder personality has room above a balanced one: with OStim's own moan volume at 1 and fMoanMaster 0.8, a balanced actor plays at 0.8 and a wild one (x1.3) at 1.\n"
-					"; bMouthFollowsVolume: lip-sync opens the mouth less for a quiet personality and more for a loud one." },
+					"; What each personality's moans are, by phase. iMoan<Personality><Phase>Kind: 0 as they come, 1 none, 2 the quiet third of the voice files, 3 the normal third, 4 the loud third (every voice file was measured\n"
+					"; when it was decoded and all of them sorted into thirds by loudness). iMoan<Personality><Phase>Volume: 0 quiet, 1 normal, 2 loud, 3 high, times fMoanMaster, never above 1. Phases: Early is the first three stages,\n"
+					"; Late the fourth stage, Climax the orgasm. A stage is the voice set's own where it has stages, else the scene's speed in quarters.\n"
+					"; fMoanMaster is below 1 so that a louder volume has room above a normal one: with OStim's own moan volume at 1 and fMoanMaster 0.8, a normal moan plays at 0.8, a loud one (fVolumeLoud 1.3) at 1.\n"
+					"; Which moans: with the Director takeover (Voice > bDirectorOwnMoans) OSIS plays only files of the class asked for (bSelectMoans: it tries again with another file) and plays no moans where the rule says none. OStim's own\n"
+					"; moans cannot be chosen, so there they are muted where the rule says none and, with bLevelMoans, brought toward the typical loudness of the class (fLevelStrength 0 to 1 says how far, in dB).\n"
+					"; bMouthFollowsVolume: lip-sync opens the mouth less for a quiet volume and more for a loud one." },
 				{ "Face", "; Face engine. iMode: 0 Assist, 1 Enhanced, 2 Director (OSED owns the face). fStyle: 0 realistic, 1 cinematic, 2 anime." },
 				{ "Body", "; Toe curl / hand grip at climax. iCurlAxis: 0 X, 1 Y, 2 Z (bone-local)." },
 				{ "Skin",
