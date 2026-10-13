@@ -10,6 +10,7 @@
 #include "LipSync.h"
 #include "Scenes.h"
 #include "Settings.h"
+#include "Virginity.h"
 #if !OSIS_LITE
 #	include "VoiceModel.h"
 #endif
@@ -349,6 +350,10 @@ namespace MoanVolume
 		const auto c = ReadCfg();
 		if (!c.on) return plan;
 		plan.phase = PhaseOf(a_stage, a_climax);
+		if (Virginity::IsBroken(a_actor)) {  // makes no sound
+			plan.silent = true;
+			return plan;
+		}
 		const auto& rule = c.rules[Index(Face::Engine::Archetype(a_actor))][static_cast<std::size_t>(plan.phase)];
 		plan.silent = rule.kind == S::kMoanNone;
 		plan.classMask = MaskOf(rule.kind);
@@ -399,7 +404,10 @@ namespace MoanVolume
 				const int pers = Face::Engine::Archetype(a);
 				const int stage = StageOfLocked(a, *t, s);
 				const int phase = PhaseOf(stage, false);
-				Target target{ nullptr, s.id, ModeOf(c, c.rules[Index(pers)][static_cast<std::size_t>(phase)], scale), ModeOf(c, c.rules[Index(pers)][2], scale), s.climaxing, phase, stage };
+				// A broken woman makes no sound at all, at any stage and at the climax.
+				const S::MoanRule silent{ S::kMoanNone, S::kLevelNormal };
+				const bool broken = Virginity::IsBroken(a);
+				Target target{ nullptr, s.id, ModeOf(c, broken ? silent : c.rules[Index(pers)][static_cast<std::size_t>(phase)], scale), ModeOf(c, broken ? silent : c.rules[Index(pers)][2], scale), s.climaxing, phase, stage };
 				byActor[s.id] = target;
 				for (auto* n : { a->Get3D(), a->Get3D1(false), a->Get3D1(true) }) {
 					if (n) {

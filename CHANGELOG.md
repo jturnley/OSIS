@@ -3,6 +3,40 @@
 ## Unreleased (after 2.0 beta 2, hotfix 3)
 
 ### Changed
+- **First times: a woman's first encounters shape her personality** (both editions; Personality page > First times; `[Virginity]` in the INI, on by default; needs OVirginity Reflowered, whose data says
+  who is a virgin: OSIS reads its stored answer, then the `alwaysvirgin` / `nevervirgin` lists of whichever `ovirginity_config.json` wins in your load order, and asks OVirginity to work out the rest). Men have
+  no first time. For a virgin woman who is not the player:
+  - **Her first consensual scene gives her a personality:** shy 40%, timid 40%, the other 20% whatever the usual rules give (bio, voice, AI values, a seeded roll). A religious woman is always shy; one who
+    worships Dibella is balanced, vocal or wild, a third each. Who is religious: `SKSE/Plugins/OSIS/npc_religion.txt` (a draft, 30 names read from the bios' summaries and the Dibella ones from their text; your own lines go in
+    `npc_religion_user.txt`, `name|none` takes one out) and the base game's temple and priest factions (Markarth's Temple of Dibella counts as Dibella).
+  - **A scene with an orgasm that does not end her virginity** gives a 20% chance she becomes balanced, rolled every such scene until it ends.
+  - **The scene that ends it:** a *bad* first time (no orgasm before the penetration, a rough scene, or the scene's speed going above the first before she has an orgasm; setting `iSpeedLimit`) leaves her stoic 50% of the
+    time and as she was otherwise; an *extraordinary* one (5 or more orgasms, not in a rough scene) gives balanced, vocal or wild 30% each, with every orgasm above 5 moving 5% from balanced to each of vocal and
+    wild (30/30/30 at 5, 25/35/35 at 6, and so on; over 100% in all they are scaled to 100, so 11 orgasms give 50% each of vocal and wild). The bad conditions come first, except that 5 or more orgasms in a scene
+    that was not rough win. Anything else is an ordinary first time and changes nothing.
+  - **The full edition's non-consensual first time** leaves her broken (30%), stoic (30%), shy (25%), submissive (10%) or crazed about the first partner to give her an orgasm (5%: the obsession of the previous entry,
+    with that partner only).
+  - **Broken** (full edition): a woman who is shut down during sex. Her face, body, blush, tears, voice, moans and lip-sync do not respond at all, even at orgasm; her excitement builds at exactly 0.02 of OStim's rate (a tenth of
+    a stoic's), whatever else would change it (other personalities, a crazed partner's drive, consent multipliers); when it reaches the top it silently goes back to zero (nothing shows or sounds) and her rate goes up by
+    0.01; ten of those in one session with nothing rough or non-consensual in it make her stoic. As a personality she is a stoic underneath. Her state is kept in the save (record VIRG).
+  Only a personality OSIS settled on by itself changes; one you set by hand, and the player's, never does. The log says each step (`First times: X is Shy: a virgin's first consensual scene (shy)`), and the debug trace has a
+  `first times` line for every actor.
+- **NPCs start with a personality from their bio** (both editions; Personality page > "NPC bios place a personality", `bBioPersonality`, on by default). The spreadsheet of every SkyrimNet and CHIM bio
+  sorted into the nine personalities is now a table the mod ships, `SKSE/Plugins/OSIS/npc_personalities.txt`: 1,627 adult NPCs of the base game and a few mods, by name (children and creatures are left out), each with
+  the last three hex digits of their base form id where two NPCs share a name. An NPC in the table starts with that personality, below an SPID or OSIS keyword and above the voice set; everyone else is settled as
+  before (voice set, AI values, a seeded roll). It decides only when an actor's personality is first settled, so the choice is kept in the save like any other, and can still grow with experience. The file is
+  not to be edited (a new version replaces it): your own lines go in `npc_personalities_user.txt` beside it, in the same format (`name|personality|suffix`), and win. The table is 26% dominant and 29% stoic,
+  which is what the bios say (soldiers, guards, nobles, merchants); `Personality: ... pinned as X (Bio)` in the log, and `bio` in the debug trace's rule explanation, show where one came from. The default
+  edition plays the table's 60 submissives as timid.
+- **Personalities grow with experience, and an actor can become obsessed with one partner** (both editions; Personality page > Growing into another personality; `[Evolution]` in the INI, on by default). A scene
+  is a session, and what counts in it is the orgasms the actor had. Each personality that can grow has a rule, scenes that qualify and the orgasms an actor needs in one scene for it to count: **stoic to
+  balanced** after 10 scenes of 2 or more, **shy to timid** after 5 scenes of 5 or more, **timid to balanced** after 5 scenes of 5 or more, and **vocal to wild** after 10 scenes of 10 or more. The scenes need not
+  be in a row, the counts start again when an actor's personality changes, and every number is a setting. **Obsession:** after 10 scenes of 20 or more orgasms *with the same partner*, the actor is crazed
+  about that partner: in every scene they are in together they play the crazed personality, and with anyone else they are as they were. It is the one who was there for those scenes, so the first partner to
+  reach the number is the one, and it is for good. (In a scene of three, every partner present counts.) Only a personality OSIS settled on by itself grows or becomes obsessed: one you set by hand
+  (including with the crosshair set button), and the player's own, never does, and "Work every personality out again" starts everyone's counts over. The counts are kept in your save (a new cosave record, EXPR).
+  The log says when someone has grown or become obsessed (`Personality: X has grown from Stoic to Balanced: ...`, `has become obsessed with someone: ...`), and the debug trace has an `experience`
+  line for every actor in its snapshot with how far along they are.
 - **A stoic's faces: it puts up with it, and then it is shocked that it felt good.** Reported: "Stoic's expressions are too engaged. She should be tolerating sex, not enjoying it prior to
   orgasm", then: custom pools for the other phases "centering on shock and surprise, as if she never expected sex to feel good". The debug log of a stoic at 4% excitement showed why the first
   part was wrong: its build-up faces came from the same 110-option tables as everyone's (every one of them some kind of pleasure: smiles, tongues, parted lips, pleading brows, surprise), with

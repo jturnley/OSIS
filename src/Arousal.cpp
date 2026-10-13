@@ -9,6 +9,7 @@
 #include "Body.h"
 #include "Compat.h"
 #include "Face/Engine.h"
+#include "Virginity.h"
 #include "FsUtil.h"
 #include "Overlays.h"
 #include "Papyrus.h"
@@ -395,6 +396,10 @@ namespace Arousal
 		{
 			riseMult = fallMult = 1.0f;
 			st.flushMult = 1.0f;
+			if (Virginity::IsBroken(a)) {  // shut down: no response at all
+				st.why = "broken: shut down";
+				return 0.0f;
+			}
 			float target = st.arousal / 100.0f;
 			st.why = "arousal";
 
@@ -459,6 +464,11 @@ namespace Arousal
 		{
 			st.blushGate = 1.0f;
 			st.faceFlush = 0.0f;
+			if (Virginity::IsBroken(a)) {  // shut down: nothing shows, not even in an orgasm
+				st.blushGate = 0.0f;
+				st.boost = 0.0f;
+				return 0.0f;
+			}
 			// A stoic is not excited by sex: only purely physiological reactions, minimal, and the blush - the body's and the face's - only in the
 			// last seconds before an orgasm and in the orgasm itself, for a few seconds, then back to minimal and no blush. Whatever the shaping setting.
 			const bool stoic = st.pers == Face::Engine::Pers::kStoic;

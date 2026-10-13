@@ -8,6 +8,8 @@
 #include <spdlog/sinks/base_sink.h>
 
 #include "Arousal.h"
+#include "Experience.h"
+#include "Virginity.h"
 #include "Body.h"
 #include "Compat.h"
 #include "Face/Engine.h"
@@ -184,6 +186,8 @@ namespace Debug
 			Write(Cat::Snap, std::format("  skin {}", Skin::Describe(a)));
 			Write(Cat::Snap, std::format("  lip  {}", LipSync::Describe(a)));
 			Write(Cat::Snap, std::format("  voice volume {}", MoanVolume::Describe(a)));
+			Write(Cat::Snap, std::format("  experience {}", Experience::Describe(a->GetFormID(), Face::Engine::Archetype(a))));
+			Write(Cat::Snap, std::format("  first times {}", Virginity::Describe(a)));
 #if !OSIS_LITE
 			Write(Cat::Snap, std::format("  moan {}", Moans::Describe(a)));
 #endif

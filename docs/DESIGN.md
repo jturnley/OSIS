@@ -250,6 +250,42 @@ round: its own climax waits for a partner's, and the partner's `OnOrgasm` forces
 Excitement rates: a crazed actor scales everyone else but a dominant by `fCrazedDriveMult`, a dominant scales themselves by
 `fDominantExcitementMult`. A held actor is not "imminent" for the arousal response (`IsClimaxHeld`).
 
+## First times
+
+`Virginity.h/.cpp`, both editions (the broken woman and the non-consensual table are `#if !OSIS_LITE`), `[Virginity]`. Hooks from `Face::Engine`: `OnThreadReady` (marks each woman's orgasm count), `OnTick` (every thread tick), `OnOrgasm`
+(first, so a broken woman's orgasm can return early), `EndScene` (before `EvolveAfterScene`). A woman's virginity comes from OVirginity Reflowered (`OVirginity.esp`, quest 0x800 found at the first use): `OUtils.GetNPCDataInt(actor, "IsVirgin")`
+asynchronously (`Ask`), 1 or 0 used as it is, -1 (not worked out yet) settled from `ovirginity_config.json`'s `alwaysvirgin` / `nevervirgin` name lists, else by calling `OVirginityScript.isVirgin(actor)` on its quest through
+`Papyrus::CallMethod`, which works it out and keeps it. The answer is kept per scene (`g_answers`, dropped at the scene's end), so a woman is asked again, and a first time ends it for good. When the answer is 1 and the woman's
+`Record::state` is 0, her first scene chooses a personality (`ChooseFirst`, `ChooseTrauma` for a thread that is not consensual: both write it with `Face::Engine::SetAutomaticPersonality`, which refuses a hand-set one and the player's),
+state 1. `Rt` tracks the scene: the penetration is the thread's node having a `vaginalsex` action with her as the target (the same test OVirginity makes), noted with her orgasm count and whether the thread was rough then;
+`fast` is set when the thread's speed index goes above `iSpeedLimit` after that and before her first orgasm. At the scene's end `Resolve` gives the bad / extraordinary / ordinary outcomes and sets state 2, or, for a woman who
+was a virgin and still is, rolls the balanced chance if she had an orgasm. Religion: `FaithOf` reads `npc_religion.txt` and the `_user` file by name, then the Dibella faction (0x656EA, 0x656ED) and the temple and priest factions of
+Skyrim.esm. A broken woman is a `Record::broken` flag on a stoic: `IsBroken` is asked by `UpdateExcitementRates` (rate = `BrokenRate`, clamped 0.01..1, replacing every other factor), `ApplyAll` (nothing painted, face
+released), `Arousal` (`Target` and `Shape` return 0), `Skin::Paintable`, `Body` (`OnPaint`, `OnClimaxPeak`), `MoanVolume` (every phase silent, and the takeover's plan), `Voice::Sync` (not a victim who calls for help), and
+`OnOrgasm`, where her "orgasm" only counts a cycle, adds 0.01 to her rate and puts her excitement back to zero (`OActor.ModifyExcitement -100`); ten cycles in a session with nothing rough or non-consensual in it make her
+stoic at the session's end. `Experience::BecomeObsessed` makes the 5% a crazed woman about the first partner to give her an orgasm. The state is the cosave record `VIRG` (version 1).
+
+## NPC bios
+
+`BioPersonality.h/.cpp`, both editions. `ResolvePersonality` asks `BioPersonality::Lookup` after the SPID keyword and the OSIS keywords and before the voice set (source "Bio"; `Face::bBioPersonality`). The tables are
+`Data/SKSE/Plugins/OSIS/npc_personalities.txt` (shipped from `dist/`, built from the bio spreadsheet by a scratchpad script: adult NPCs only, `name|personality|suffix`) and `npc_personalities_user.txt` (the player's, wins),
+read once by `EnsureLoaded` (`std::call_once`) into two multimaps keyed by the name with everything but letters and digits as one space. Where several lines share a name `Find` takes the one whose suffix
+(three hex digits) is the actor's base form id's last three, then the reference's, then a line with no suffix, then the only line there is; with several and no match, none (better no personality than a namesake's).
+The suffix is a guess at SkyrimNet's file keys (`name_ABC`), not confirmed against the game's records. The player is never looked up. The result goes through `EditionPersonality` and is pinned like any rule's.
+
+## Personalities grow, and obsession
+
+`Experience.h/.cpp`, both editions, `[Evolution]`. `Face::Engine::EndScene` calls `EvolveAfterScene` for each actor of the thread: the orgasms the slot has had since the last call (`Slot::orgasmsSettled`; a thread that is left and
+come back to is two sessions) and the other actors in the thread go to `Experience::OnSessionEnd`, which keeps a `Record` per actor (`pers`, `qualified`, `sessions`, `orgasms`, `obsessedWith`, `partners`; at most 4096 actors).
+Two things come of it. A session with at least the rule's orgasms for the actor's current personality counts toward that rule (`RuleFor`: stoic to balanced, shy to timid, timid to balanced, vocal to wild), and when the
+sessions are reached the personality is written back into `g_npcPersonality` with `kPinnedFlag`. A session with at least the obsession rule's orgasms (`ObsessionRule`, 20 by default) counts toward every other actor who was in
+it (`Record::partners`, up to eight); the first to reach the rule's sessions becomes `obsessedWith`, for good, and the counts are dropped. A record whose `pers` is not the actor's current personality starts the rule's count
+again (a hand-set change, or "work out again"); an obsession stays. Only an entry with `kPinnedFlag` (a personality OSIS settled on by itself) is considered, never the player's or one set by hand.
+
+Obsession shows at scene time: `RefreshDerived` runs for every thread refresh and sets `Experience::SetObsessedNow` for each actor whose `obsessedWith` is in the thread (cleared in `EndScene`), and `Archetype` returns crazed
+for such an actor (source "Obsessed") before anything else but the player, so every module that asks sees crazed for exactly the scenes the two are in together. `Serialization` keeps the records in the cosave as `EXPR`
+(version 2: the obsession and the per-partner counts; version 1 held a single crazed counter and is skipped). Locking: `OnSessionEnd` and `Describe(..., true)` run under `Settings::lock` (the caller holds it) and take only
+the module's own lock.
 ## Consent
 - Decided per thread from the scene's tags, recomputed on every scene change (`RefreshDerived`):
   - **Non-consent** (`toneForced`): `forced`, `forceful`, `rape`, `fbrape`, `nonconsensual`,

@@ -85,6 +85,10 @@ namespace Face::Engine
 	[[nodiscard]] int StoredPersonality(RE::Actor* a);    // the cosave entry as stored (low byte + pin flag), -1 if none
 	void SetNpcPersonality(RE::Actor* a, int a_arch);   // -1 clears; the next scene works it out again and pins that
 	std::size_t ForgetPinnedPersonalities();            // drop what OSIS pinned by itself, keep what the player set
+	// For the first-time model (Virginity): what the usual rules (not that model) give this actor, and settling a personality on them by OSIS's own say, over one it settled earlier.
+	// The second does nothing, and says so, for one the player set, the player, a child or a creature.
+	[[nodiscard]] int RollPersonality(RE::Actor* a, std::string* a_why = nullptr);
+	bool SetAutomaticPersonality(RE::Actor* a, int a_arch, std::string_view a_why);
 	[[nodiscard]] std::unordered_map<RE::FormID, int> NpcPersonalities();
 	void SetNpcPersonalities(std::unordered_map<RE::FormID, int> a_map);
 

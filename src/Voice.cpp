@@ -6,6 +6,7 @@
 #include "Voice.h"
 
 #include "Face/Engine.h"
+#include "Virginity.h"
 #include "LipSync.h"
 #include "Papyrus.h"
 #include "Scheduler.h"
@@ -944,9 +945,10 @@ namespace Voice
 			if (!s.victim && !s.broken) continue;
 			auto* a = s.Get();
 			if (!a || a->IsChild() || !Face::Engine::IsHuman(a)) continue;
+			if (Virginity::IsBroken(a)) continue;  // shut down: she cries out for no one
 			{
-				std::scoped_lock l(g_lock);
-				if (auto it = g_victims.find(s.id); it != g_victims.end()) {
+			std::scoped_lock l(g_lock);
+			if (auto it = g_victims.find(s.id); it != g_victims.end()) {
 					auto& v = it->second;
 					v.thread = t.id;
 					if (s.broken && v.phase < Phase::kShock) {
