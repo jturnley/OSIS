@@ -4,7 +4,10 @@
 // repository. Distributed WITHOUT ANY WARRANTY. <https://www.gnu.org/licenses/>
 
 #include "Face/Internal.h"
+#include "BioPersonality.h"
 #include "Debug.h"
+#include "Experience.h"
+#include "Virginity.h"
 
 #include "Body.h"
 #include "Compat.h"
@@ -164,7 +167,10 @@ namespace Face::Engine
 					if (pers == Pers::kDominant && others) want *= S::fDominantExcitementMult;
 					else if (crazedOther && pers != Pers::kCrazed && pers != Pers::kDominant) want *= S::fCrazedDriveMult;
 				}
-				want = ClampF(want, 0.05f, 4.0f);  // OStim divides by the rate to time the climax: never zero
+				// A broken woman's rate is exactly hers (Virginity), whatever else would change it.
+				const bool broken = Virginity::IsBroken(a);
+				if (broken) want = Virginity::BrokenRate(a);
+				want = broken ? ClampF(want, 0.01f, 1.0f) : ClampF(want, 0.05f, 4.0f);  // OStim divides by the rate to time the climax: never zero
 				if (std::abs(want - s.excitementFactor) < 0.001f) continue;
 				const RE::FormID id = a->GetFormID();
 				std::optional<float> base;
@@ -506,6 +512,17 @@ namespace Face::Engine
 				}
 				UpdateCrazedTilt(t, s, a);
 				UpdatePPABody(t, s, a);
+				// A broken woman (Virginity) is shut down: nothing of ours is painted on her, and what she had is let go. OStim's own writer stays off.
+				if (Virginity::IsBroken(a)) {
+					if (s.faced) {
+						ClearOSEDPrototypeActor(s, a);
+						ClearLook(a);
+						Output::Release(a, 0.6f);
+						s.faced = false;
+					}
+					if (arc) SetOwners(s, "Shut down", "Shut down", "Shut down", "Shut down");
+					continue;
+				}
 				// The Faces module is off (switched off, an old OSED core or Ahegao Expressions): paint nothing, and
 				// create nothing that would. The scene is still tracked and pulsed, so Body, Living Skin, Lip-Sync and the arousal factors work.
 				if (faceOff) {
@@ -1364,6 +1381,12 @@ namespace Face::Engine
 			if (g_kVocal && a->HasKeyword(g_kVocal)) return source = "Keyword", 2;
 			if (g_kShy && a->HasKeyword(g_kShy)) return source = "Keyword", 3;
 			if (g_kDominant && a->HasKeyword(g_kDominant)) return source = "Keyword", 4;
+			if (S::bBioPersonality) {
+				if (const int bio = BioPersonality::Lookup(a); bio >= 0) {
+					source = "Bio";
+					return EditionPersonality(bio);
+				}
+			}
 			if (S::bVoiceArchetype) {
 				if (int va = VoiceArchetype(a); va >= 0) {
 					source = "Voice";
@@ -1392,8 +1415,8 @@ namespace Face::Engine
 			auto* b = a->GetActorBase();
 			const std::uint32_t h = b ? (b->GetFormID() * 2654435761u) >> 8 : 0;
 			const int roll = NewPersonalityRoll(a);
-			return std::format("SPID {} | keywords stoic={} vocal={} shy={} dominant={} | voice set '{}' -> {} | vanilla AI aggression {:.0f} confidence {:.0f} -> {} | new-type roll {:.3f} vs share {:.2f} -> {} | weighted fallback -> {}",
-				name(SPIDArchetype(a)), has(g_kStoic), has(g_kVocal), has(g_kShy), has(g_kDominant), VoiceName(a), name(S::bVoiceArchetype ? VoiceArchetype(a) : -1),
+			return std::format("SPID {} | keywords stoic={} vocal={} shy={} dominant={} | bio {} | voice set '{}' -> {} | vanilla AI aggression {:.0f} confidence {:.0f} -> {} | new-type roll {:.3f} vs share {:.2f} -> {} | weighted fallback -> {}",
+				name(SPIDArchetype(a)), has(g_kStoic), has(g_kVocal), has(g_kShy), has(g_kDominant), S::bBioPersonality ? BioPersonality::Describe(a) : std::string("off"), VoiceName(a), name(S::bVoiceArchetype ? VoiceArchetype(a) : -1),
 				avo->GetActorValue(RE::ActorValue::kAggression), avo->GetActorValue(RE::ActorValue::kConfidence), name(VanillaAIPersonality(a)),
 				static_cast<float>(h % 1000u) / 1000.0f, S::fNewPersonalityShare, roll >= 0 ? PersonalityName(roll) : "not rolled", PersonalityName(FallbackPersonality(a)));
 		}
@@ -1425,6 +1448,11 @@ namespace Face::Engine
 			return 0;
 		}
 		std::scoped_lock l(Settings::lock);
+		// Obsessed with someone who is here: crazed, for this scene, about them (Experience). Their own personality is untouched.
+		if (!a->IsPlayerRef() && Experience::IsObsessedNow(a->GetFormID())) {
+			src("Obsessed");
+			return Pers::kCrazed;
+		}
 		if (const int chosen = EditionPersonality(S::iPlayerPersonality); a->IsPlayerRef() && PersonalityAvailable(chosen)) {
 			src("Player set");
 			return chosen;
@@ -1511,12 +1539,38 @@ namespace Face::Engine
 		else g_npcPersonality[a->GetFormID()] = PersonalityAvailable(EditionPersonality(arch)) ? EditionPersonality(arch) : 0;
 	}
 
+	int RollPersonality(RE::Actor* a, std::string* a_why)
+	{
+		if (!a) return 0;
+		std::scoped_lock l(Settings::lock);
+		std::string source;
+		const int arch = ResolvePersonality(a, source);
+		if (a_why) *a_why = source;
+		return EditionPersonality(arch);
+	}
+
+	bool SetAutomaticPersonality(RE::Actor* a, int a_arch, std::string_view a_why)
+	{
+		if (!a || a->IsPlayerRef() || !IsHuman(a) || a->IsChild()) return false;
+		const int arch = EditionPersonality(a_arch);
+		if (!PersonalityAvailable(arch)) return false;
+		{
+			std::scoped_lock l(g_dataLock);
+			if (const auto it = g_npcPersonality.find(a->GetFormID()); it != g_npcPersonality.end() && !(it->second & kPinnedFlag)) return false;  // the player set it
+			g_npcPersonality[a->GetFormID()] = arch | kPinnedFlag;
+		}
+		Debug::Log(Debug::Cat::Pers, "{}: personality set to {} by OSIS: {}", Debug::Label(a), PersonalityName(arch), a_why);
+		return true;
+	}
+
 	// Forget every personality OSIS settled on by itself - the player's included - so they are worked out again
 	// from the current rules the next time each is needed. What the player chose stays.
 	std::size_t ForgetPinnedPersonalities()
 	{
 		std::scoped_lock l(g_dataLock);
 		const auto n = std::erase_if(g_npcPersonality, [](const auto& kv) { return (kv.second & kPinnedFlag) != 0; });
+		Experience::Clear();  // what they had been through was as those personalities
+		Virginity::Clear();
 		Debug::Log(Debug::Cat::Pers, "every automatic personality forgotten ({} of them); they are worked out again from the current rules", n);
 		return n;
 	}
@@ -1646,6 +1700,19 @@ namespace Face::Engine
 	void RefreshDerived(Thread& t, bool sceneChanged)
 	{
 		std::scoped_lock l(Settings::lock);
+		// An actor obsessed with someone in this scene plays crazed (Archetype asks Experience); who is here changes as people join and leave.
+		for (const auto& slot : t.slots) {
+			const auto partner = Settings::Evolution::bEnabled ? Experience::ObsessedWith(slot.id) : 0u;
+			bool here = false;
+			if (partner != 0 && slot.Get()) {
+				for (const auto& other : t.slots) here = here || (&other != &slot && other.id == partner && other.Get());
+			}
+			const bool was = Experience::IsObsessedNow(slot.id);
+			if (here != was) {
+				Experience::SetObsessedNow(slot.id, here);
+				Debug::Log(Debug::Cat::Pers, "{}: {}", Debug::Label(slot.Get()), here ? "is with the one they are obsessed with: crazed" : "is no longer with the one they are obsessed with");
+			}
+		}
 		if (t.meta) {
 			t.maxSpeed = t.meta->maxSpeed > 0 ? t.meta->maxSpeed : (t.meta->defaultSpeed > 0 ? t.meta->defaultSpeed : 4);
 		}
@@ -1722,6 +1789,7 @@ namespace Face::Engine
 		}
 		t.sceneOral = HasOralSceneTag(t);
 		UpdateNormalStateFlag(t, true);
+		Virginity::OnThreadReady(t);
 #if !OSIS_LITE
 		if (!g_brokenCarry.empty()) {
 			const float now = Scenes::Now();
@@ -1779,6 +1847,13 @@ namespace Face::Engine
 		std::scoped_lock l(Settings::lock);
 		auto* s = t.Find(a);
 		if (!s) return;
+		Virginity::OnOrgasm(t, *s);
+		if (Virginity::IsBroken(a)) {  // nothing happens to her face or body, and nothing is heard
+			++s->orgasms;
+			s->holdSince = 0.0f;
+			Debug::Log(Debug::Cat::Climax, "{}: a silent orgasm: she is broken, so nothing shows", Debug::Label(a));
+			return;
+		}
 		Pulse::Climax(a, t.id);
 		s->holdSince = 0.0f;
 		// A dominant's climax is the partner's permission, and they climax with it; a crazed one climaxes with their partner, whenever they do.
@@ -1844,6 +1919,7 @@ namespace Face::Engine
 		std::scoped_lock l(Settings::lock);
 		if (!t.active) return;
 		RefreshDerived(t, false);
+		Virginity::OnTick(t);
 		UpdateExcitementRates(t);
 		UpdateClimaxControl(t);
 		++t.tick;
@@ -1891,6 +1967,41 @@ namespace Face::Engine
 		t.nextTick = Scenes::Now() + TickInterval(t);
 	}
 
+	namespace
+	{
+		// A scene is over for this actor: its orgasms in it count toward growing into another personality and toward being obsessed with a partner (Experience). Only a
+		// personality OSIS settled on by itself grows or becomes obsessed: what the player chose, and the player's own, stays. The caller holds Settings::lock.
+		void EvolveAfterScene(Thread& t, Slot& s, RE::Actor* a)
+		{
+			const int orgasms = s.orgasms - s.orgasmsSettled;
+			s.orgasmsSettled = s.orgasms;
+			if (!Settings::Evolution::bEnabled || !a || a->IsPlayerRef() || orgasms < 0) return;
+			int stored = -1;
+			{
+				std::scoped_lock dl(g_dataLock);
+				if (const auto it = g_npcPersonality.find(a->GetFormID()); it != g_npcPersonality.end()) stored = it->second;
+			}
+			if (stored < 0 || !(stored & kPinnedFlag)) return;
+			const int cur = EditionPersonality(stored & 0xFF);
+			std::vector<RE::FormID> partners;
+			for (const auto& other : t.slots) {
+				if (&other != &s && other.Get()) partners.push_back(other.id);
+			}
+			const auto result = Experience::OnSessionEnd(a->GetFormID(), cur, orgasms, partners);
+			Debug::Log(Debug::Cat::Pers, "{}: a scene of {} orgasm(s) as {} | {}", Debug::Label(a), orgasms, PersonalityName(cur), Experience::Describe(a->GetFormID(), cur, true));
+			if (result.obsessedWith != 0) {
+				logger::info("Personality: {} ({:08X}) has become obsessed with someone: {}", a->GetDisplayFullName(), a->GetFormID(), result.why);
+			}
+			if (result.next >= 0 && PersonalityAvailable(EditionPersonality(result.next))) {
+				{
+					std::scoped_lock dl(g_dataLock);
+					g_npcPersonality[a->GetFormID()] = EditionPersonality(result.next) | kPinnedFlag;
+				}
+				logger::info("Personality: {} ({:08X}) has grown from {} to {}: {}", a->GetDisplayFullName(), a->GetFormID(), PersonalityName(cur), PersonalityName(result.next), result.why);
+			}
+		}
+	}
+
 	void EndScene(Thread& t)
 	{
 		std::scoped_lock l(Settings::lock);
@@ -1902,10 +2013,13 @@ namespace Face::Engine
 				g_rateRequested.erase(s.id);
 			}
 		}
+		Virginity::OnSceneEnd(t);
 		for (auto& s : t.slots) {
-			if (s.broken) g_brokenCarry[s.id] = Scenes::Now();
+		if (s.broken) g_brokenCarry[s.id] = Scenes::Now();
 			auto* a = s.Get();
 			if (!a) continue;
+			EvolveAfterScene(t, s, a);
+			Experience::SetObsessedNow(s.id, false);
 			Pulse::ClearActor(a, t.id);
 			ClearOSEDPrototypeActor(s, a);
 			ClearLook(a);

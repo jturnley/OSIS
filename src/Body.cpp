@@ -11,6 +11,7 @@
 
 #include "Scenes.h"
 #include "Settings.h"
+#include "Virginity.h"
 
 namespace Body
 {
@@ -297,6 +298,7 @@ namespace Body
 	// excitement so it builds, and never more than the climax curl, which still wins outright.
 	void OnPaint(const Pulse::Beat& b)
 	{
+		if (b.actor && Virginity::IsBroken(b.actor)) return;
 		float want = 0.0f;
 		if (b.footAction && b.actor) {
 			std::scoped_lock l(Settings::lock);
@@ -419,6 +421,7 @@ namespace Body
 
 	void OnClimaxPeak(RE::Actor* a, float value)
 	{
+		if (Virginity::IsBroken(a)) return;  // shut down: no toe curl, no grip
 		float mag;
 		{
 			std::scoped_lock l(Settings::lock);

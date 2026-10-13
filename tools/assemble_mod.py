@@ -250,6 +250,10 @@ Settings are in the SKSE Menu Framework (section "OSIS"). They are kept in
 multipliers, are in `SKSE/Plugins/OSIS/morphs.json`. The mod does not ship either file: the plugin
 creates them the first time the game runs with it, and adds to the INI any setting a newer version
 introduces. Updating the mod therefore keeps what you chose; delete a file to go back to its defaults.
+`SKSE/Plugins/OSIS/npc_personalities.txt` is a table of starting personalities for about 1,600 NPCs by name, from their SkyrimNet and CHIM bios; it is replaced when the mod is updated,
+so put your own lines in `npc_personalities_user.txt` beside it (same format, `name|personality|suffix`).
+`SKSE/Plugins/OSIS/npc_religion.txt` says which women are religious, for the first-time model (OVirginity Reflowered must be installed for that: it says who is a virgin); your own lines go in
+`npc_religion_user.txt` (`name|religious`, `name|dibella` or `name|none`).
 
 Changes from the originals that you'll notice:
 - The Living Skin sweat layer is gone (a face overlay never lined up with the body).

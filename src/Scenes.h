@@ -74,6 +74,7 @@ namespace Scenes
 		// This actor's own orgasms in the scene, for the face. Per actor and timed by the clock: the thread-wide window they used
 		// to share was re-armed by every orgasm of anyone, so in a scene of repeated orgasms it never ended.
 		int orgasms = 0;
+		int orgasmsSettled = 0;     // of those, the ones already counted toward the actor's experience (Experience), when a scene ends and picks up again
 		int rapidRun = 0;           // orgasms in a row that came within the rapid window of the one before
 		float lastOrgasmAt = 0.0f;
 		float orgasmGap = 0.0f;      // seconds between the last two orgasms; 0 for the first

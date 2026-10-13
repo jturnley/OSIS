@@ -6,6 +6,7 @@
 #include "UI.h"
 
 #include "Arousal.h"
+#include "Experience.h"
 #include "Body.h"
 #include "Compat.h"
 #include "Debug.h"
@@ -686,6 +687,10 @@ namespace
 				" and _Submissive"
 #endif
 				" are read too.");
+			Check("NPC bios place a personality", bBioPersonality,
+				"An NPC whose name is in the bio tables starts with the personality those give: about 1,600 NPCs of the base game and a few mods, sorted by what their SkyrimNet and CHIM bios say of them "
+				"(Data/SKSE/Plugins/OSIS/npc_personalities.txt; your own lines go in npc_personalities_user.txt beside it, in the same format, and win). Below an SPID or OSIS keyword, above the voice set. "
+				"Everyone else gets one as before. It only matters when an actor's personality is first settled.");
 			Check("Voice set shapes personality", bVoiceArchetype,
 				"An actor's voice type suggests a personality when nothing else has set one.");
 			Check("OBlush-aware shyness", bOBlushSync, "While OBlush has an actor blushing, the grammar treats them as shy.");
@@ -807,6 +812,48 @@ namespace
 			SliderI("Wild stage shift", iStageShiftWild, -3, 3, tip);
 		}
 #endif
+		{
+			std::scoped_lock l(Settings::lock);
+			using namespace Settings::Evolution;
+			ig::SeparatorText("Growing into another personality");
+			Check("Personalities grow with experience", bEnabled,
+				"A personality OSIS settled on by itself changes as an actor goes through scenes: so many scenes with so many orgasms by them in each, and they become another one; and so many "
+				"scenes of a great many with the same partner, and they become crazed about that partner alone. What you set by hand, and the player's own, never changes. The counts are kept in your save, "
+				"and start again when an actor's personality changes.");
+			if (bEnabled) {
+				ig::TextDisabled("Each rule: how many scenes count, and how many orgasms the actor needs in one scene for it to count.");
+				SliderI("Stoic -> Balanced: scenes", iStoicSessions, 1, 100, "Scenes of the orgasms below that make a stoic a balanced one.");
+				SliderI("Stoic -> Balanced: orgasms in each", iStoicOrgasms, 1, 50);
+				SliderI("Shy -> Timid: scenes", iShySessions, 1, 100, "Scenes of the orgasms below that make a shy one a timid one.");
+				SliderI("Shy -> Timid: orgasms in each", iShyOrgasms, 1, 50);
+				SliderI("Timid -> Balanced: scenes", iTimidSessions, 1, 100, "Scenes of the orgasms below that make a timid one a balanced one.");
+				SliderI("Timid -> Balanced: orgasms in each", iTimidOrgasms, 1, 50);
+				SliderI("Vocal -> Wild: scenes", iVocalSessions, 1, 100, "Scenes of the orgasms below that make a vocal one a wild one.");
+				SliderI("Vocal -> Wild: orgasms in each", iVocalOrgasms, 1, 50);
+				SliderI("Obsession: scenes with one partner", iCrazedSessions, 1, 100, "Scenes with the same partner, of the orgasms below, that make an actor crazed about that partner: in every scene they are in together, and nobody else. Their own personality is untouched.");
+				SliderI("Obsession: orgasms in each", iCrazedOrgasms, 1, 100);
+			}
+			ig::TextDisabled("%s", Experience::Status().c_str());
+			}
+			{
+				std::scoped_lock l(Settings::lock);
+				using namespace Settings::Virginity;
+				ig::SeparatorText("First times");
+				Check("A woman's first times shape her personality", bEnabled,
+					"For women OVirginity Reflowered says are virgins (it must be installed; its ovirginity_config.json lists decide some by name): their first consensual scene gives them a personality "
+					"(shy, timid, or what the usual rules give; a religious woman is always shy, one who worships Dibella balanced, vocal or wild), a scene with an orgasm that does not end it may make them "
+					"balanced, and the scene that does end it can leave them stoic (a bad first time) or balanced, vocal or wild (an extraordinary one). Only a personality OSIS settled on by itself changes.");
+				if (bEnabled) {
+					SliderI("First scene: shy (%)", iShyChance, 0, 100, "The chance a virgin's first consensual scene gives her the shy personality. A religious woman is always shy.");
+					SliderI("First scene: timid (%)", iTimidChance, 0, 100, "The chance it gives her timid. The rest follow the usual rules (bio, voice, AI values, a seeded roll).");
+					SliderI("An orgasm, still a virgin: balanced (%)", iBalancedChance, 0, 100, "The chance a scene with an orgasm that leaves her a virgin makes her balanced. It is rolled every such scene until she loses it.");
+					SliderI("A bad first time: stoic (%)", iNegativeStoicChance, 0, 100, "No orgasm before the penetration, a rough scene, or the speed past the limit below before she has an orgasm: the chance she becomes stoic (otherwise she stays as she is).");
+					SliderI("A bad first time: speed limit", iSpeedLimit, 0, 10, "The scene's speed (0 is the first) that the penetrating partner may not go above before she has an orgasm.");
+					SliderI("An extraordinary first time: orgasms", iExtraordinaryOrgasms, 1, 50, "A first time with this many orgasms makes her balanced, vocal or wild.");
+					SliderI("An extraordinary first time: chance each (%)", iExtraordinaryChance, 0, 100, "The chance of each of balanced, vocal and wild at that number of orgasms.");
+					SliderI("Each orgasm above: shift (%)", iExtraordinaryStep, 0, 50, "Each orgasm over the number moves this many percent from balanced to each of vocal and wild.");
+				}
+			}
 		ig::TextWrapped("Each actor's personality is worked out the first time a scene needs it and then kept in your save game, "
 			"so it is the same in every scene and after every load - the SPID roll is not. What you set below always wins.");
 		if (ig::Button("Work every personality out again")) OnGame([]() {

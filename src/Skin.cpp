@@ -17,6 +17,7 @@
 #include "Scenes.h"
 #include "Scheduler.h"
 #include "Settings.h"
+#include "Virginity.h"
 
 namespace Skin
 {
@@ -123,6 +124,7 @@ namespace Skin
 		{
 			std::scoped_lock l(Settings::lock);
 			if (Compat::Disabled(Compat::kSkin) || !Settings::Skin::bEnabled || !Settings::General::bEnabled || !a || a->IsDead() || a->IsChild() || !a->Is3DLoaded()) return false;
+			if (Virginity::IsBroken(a)) return false;  // shut down: no blush, no tears, nothing
 			if (!Face::Engine::IsHuman(a)) return false;
 			auto* base = a->GetActorBase();
 			female = base && base->GetSex() == RE::SEX::kFemale;

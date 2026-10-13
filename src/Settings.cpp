@@ -92,6 +92,7 @@ namespace Settings
 				{ "Face", "bGazeConsentOnly", &Face::bGazeConsentOnly },
 #endif
 				{ "Face", "bClimaxChoreo", &Face::bClimaxChoreo },
+				{ "Face", "bBioPersonality", &Face::bBioPersonality },
 				{ "Face", "bVoiceArchetype", &Face::bVoiceArchetype },
 				{ "Face", "bPositionalDomSub", &Face::bPositionalDomSub },
 				{ "Face", "bRichEmotions", &Face::bRichEmotions },
@@ -202,6 +203,27 @@ namespace Settings
 				{ "LipSync", "iTongueMode", &LipSync::iTongueMode },
 				{ "LipSync", "fTongueMinOpen", &LipSync::fTongueMinOpen },
 				{ "LipSync", "bYieldToDDF", &LipSync::bYieldToDDF },
+				{ "Virginity", "bEnabled", &Virginity::bEnabled },
+				{ "Virginity", "iShyChance", &Virginity::iShyChance },
+				{ "Virginity", "iTimidChance", &Virginity::iTimidChance },
+				{ "Virginity", "iBalancedChance", &Virginity::iBalancedChance },
+				{ "Virginity", "iNegativeStoicChance", &Virginity::iNegativeStoicChance },
+				{ "Virginity", "iSpeedLimit", &Virginity::iSpeedLimit },
+				{ "Virginity", "iExtraordinaryOrgasms", &Virginity::iExtraordinaryOrgasms },
+				{ "Virginity", "iExtraordinaryChance", &Virginity::iExtraordinaryChance },
+				{ "Virginity", "iExtraordinaryStep", &Virginity::iExtraordinaryStep },
+
+				{ "Evolution", "bEnabled", &Evolution::bEnabled },
+				{ "Evolution", "iStoicSessions", &Evolution::iStoicSessions },
+				{ "Evolution", "iStoicOrgasms", &Evolution::iStoicOrgasms },
+				{ "Evolution", "iShySessions", &Evolution::iShySessions },
+				{ "Evolution", "iShyOrgasms", &Evolution::iShyOrgasms },
+				{ "Evolution", "iTimidSessions", &Evolution::iTimidSessions },
+				{ "Evolution", "iTimidOrgasms", &Evolution::iTimidOrgasms },
+				{ "Evolution", "iVocalSessions", &Evolution::iVocalSessions },
+				{ "Evolution", "iVocalOrgasms", &Evolution::iVocalOrgasms },
+				{ "Evolution", "iCrazedSessions", &Evolution::iCrazedSessions },
+				{ "Evolution", "iCrazedOrgasms", &Evolution::iCrazedOrgasms },
 
 #if !OSIS_LITE
 				{ "Voice", "bEnabled", &Voice::bEnabled },
@@ -326,6 +348,12 @@ namespace Settings
 			Arousal::iOverlaySlots = std::clamp(Arousal::iOverlaySlots, 0, 32);
 			LipSync::fAttack = std::clamp(LipSync::fAttack, 0.005f, 0.5f);
 			LipSync::fBrows = std::clamp(LipSync::fBrows, 0.0f, 1.0f);
+			for (int* v : { &Virginity::iShyChance, &Virginity::iTimidChance, &Virginity::iBalancedChance, &Virginity::iNegativeStoicChance, &Virginity::iExtraordinaryChance, &Virginity::iExtraordinaryStep }) *v = std::clamp(*v, 0, 100);
+			Virginity::iSpeedLimit = std::clamp(Virginity::iSpeedLimit, 0, 10);
+			Virginity::iExtraordinaryOrgasms = std::clamp(Virginity::iExtraordinaryOrgasms, 1, 50);
+			if (Virginity::iShyChance + Virginity::iTimidChance > 100) Virginity::iTimidChance = 100 - Virginity::iShyChance;
+			for (int* v : { &Evolution::iStoicSessions, &Evolution::iShySessions, &Evolution::iTimidSessions, &Evolution::iVocalSessions, &Evolution::iCrazedSessions }) *v = std::clamp(*v, 1, 200);
+			for (int* v : { &Evolution::iStoicOrgasms, &Evolution::iShyOrgasms, &Evolution::iTimidOrgasms, &Evolution::iVocalOrgasms, &Evolution::iCrazedOrgasms }) *v = std::clamp(*v, 1, 100);
 			LipSync::fRelease = std::clamp(LipSync::fRelease, 0.02f, 1.0f);
 			LipSync::iTongueMode = std::clamp(LipSync::iTongueMode, 0, 2);
 			LipSync::fTongueMinOpen = std::clamp(LipSync::fTongueMinOpen, 0.0f, 1.0f);
@@ -556,6 +584,13 @@ namespace Settings
 					"; Mouth follows the moan OStim plays (decoded from your voice-set .wav files at startup).\n"
 					"; bShapeMouth: the mouth's shape follows the sound too (a hum closes the lips, an \"oh\" rounds them, a bright cry spreads them, breath parts them). fBrows 0..1: the brows follow the moan (up with a rising pitch, together with a loud one); 0 is off.\n"
 					"; bYieldToDDF: stand down while Dynamic Dialogue Framework is installed (both drive the mouth)." },
+				{ "Virginity",
+					"; First times, for women OVirginity Reflowered says are virgins (it must be installed; its ovirginity_config.json lists decide some by name). A virgin's first consensual scene gives her shy (iShyChance percent) or timid (iTimidChance), the rest whatever the usual rules give; a religious one is always shy, one who worships Dibella is balanced, vocal or wild.\n"
+					"; iBalancedChance: a scene with an orgasm that does not end her virginity may make her balanced. A bad first time (no orgasm before the penetration, a rough scene, or the speed past iSpeedLimit before she has an orgasm) makes her stoic with iNegativeStoicChance percent. An extraordinary one (iExtraordinaryOrgasms or more orgasms) makes her balanced, vocal or wild, iExtraordinaryChance percent each, moved by iExtraordinaryStep per orgasm above that number.\n"
+					"; The npc_religion.txt table in Data/SKSE/Plugins/OSIS says who is religious (put your own lines in npc_religion_user.txt)." },
+				{ "Evolution",
+					"; A personality OSIS settled on by itself grows with experience; one you set by hand, and the player's own, never does. A session is one scene; each rule is a number of sessions with at least that many orgasms by the actor in each (the counts are kept in the save).\n"
+					"; Stoic to balanced, shy to timid, timid to balanced, vocal to wild. iCrazedSessions / iCrazedOrgasms: sessions of that many orgasms with the same partner make the actor crazed about that one partner, in every scene they are in together, and nobody else; their own personality is untouched." },
 #if !OSIS_LITE
 				{ "Voice",
 					"; The victim of a non-consensual scene: OStim moans muted, a cry for help that guards/allies answer, personality lines, a scream at the breaking climax, then hard breathing. Vanilla Skyrim.esm lines only.\n"

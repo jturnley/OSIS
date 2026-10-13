@@ -71,6 +71,7 @@ namespace Settings
 		inline bool bGaze = true;
 		inline bool bGazeConsentOnly = false;
 		inline bool bClimaxChoreo = true;
+		inline bool bBioPersonality = true;   // an NPC the bio tables know (npc_personalities.txt) starts with the personality they give; below SPID and the OSIS keywords, above the voice set
 		inline bool bVoiceArchetype = true;
 		inline bool bPositionalDomSub = true;
 		inline bool bRichEmotions = true;
@@ -205,6 +206,43 @@ namespace Settings
 		inline int iTongueMode = kTongueStop;
 		inline float fTongueMinOpen = 0.45f;  // how far the jaw is held open while a tongue is out
 		inline bool bYieldToDDF = true;       // stand down while Dynamic Dialogue Framework is installed (both drive the mouth)
+	}
+
+	// ---------------------------------------------------------------- first times (Virginity.h)
+	namespace Virginity
+	{
+		inline bool bEnabled = true;  // needs OVirginity Reflowered: its data says which women are virgins
+		// A virgin woman's first consensual scene: shy, timid, or (the rest) whatever the usual rules give her. A religious one is always shy; one who worships Dibella is balanced, vocal or wild.
+		inline int iShyChance = 40;
+		inline int iTimidChance = 40;
+		// A scene with an orgasm that does not end her virginity: the chance she becomes balanced (the beginning of a healthy relationship with her own sexuality).
+		inline int iBalancedChance = 20;
+		// A bad first time (no orgasm before the penetration, a rough scene, or the scene's speed past iSpeedLimit before she has one): the chance she becomes stoic.
+		inline int iNegativeStoicChance = 50;
+		inline int iSpeedLimit = 0;  // the scene's speed index (0 is the first): going above it before she has an orgasm is a bad first time
+		// An extraordinary first time, with at least iExtraordinaryOrgasms orgasms: iExtraordinaryChance percent each of balanced, vocal and wild; every orgasm above that number moves
+		// iExtraordinaryStep percent from balanced to each of vocal and wild (over 100 in all, they are scaled to 100).
+		inline int iExtraordinaryOrgasms = 5;
+		inline int iExtraordinaryChance = 30;
+		inline int iExtraordinaryStep = 5;
+	}
+
+	// ---------------------------------------------------------------- personalities grow with experience (Experience.h)
+	namespace Evolution
+	{
+		inline bool bEnabled = true;  // a personality OSIS settled on by itself changes with experience; one the player set, and the player's own, never does
+		// Each rule: scenes that count, and the orgasms the actor needs in one scene for it to count. Reaching the scenes makes them the next personality; the last is not a
+		// personality change but an obsession with one partner.
+		inline int iStoicSessions = 10;   // stoic -> balanced
+		inline int iStoicOrgasms = 2;
+		inline int iShySessions = 5;      // shy -> timid
+		inline int iShyOrgasms = 5;
+		inline int iTimidSessions = 5;    // timid -> balanced
+		inline int iTimidOrgasms = 5;
+		inline int iVocalSessions = 10;   // vocal -> wild
+		inline int iVocalOrgasms = 10;
+		inline int iCrazedSessions = 10;  // obsession: sessions of this many orgasms with the same partner, and the actor is crazed about that partner (and nobody else)
+		inline int iCrazedOrgasms = 20;
 	}
 
 	// ---------------------------------------------------------------- moan volume (both editions)
