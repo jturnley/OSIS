@@ -39,6 +39,7 @@ namespace Papyrus
 	void IsThreadRunning(std::int32_t a_thread, std::function<void(bool)> a_done);
 	void SetExpressionsEnabled(RE::Actor* a_actor, bool a_enabled, bool a_allowOverride = true);
 	void HasExpressionOverride(RE::Actor* a_actor, std::function<void(bool)> a_done);
+	void HasSchlong(RE::Actor* a_actor, std::function<void(bool)> a_done);  // OActor.HasSchlong: what OSSO and OStim take an actor's sex to be (the debug trace asks)
 	void PlayExpression(RE::Actor* a_actor, const std::string& a_event, std::function<void(float)> a_done = {});
 	void ClearExpression(RE::Actor* a_actor);
 	void EquipObject(RE::Actor* a_actor, const char* a_type, std::function<void(bool)> a_done = {});

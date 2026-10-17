@@ -40,6 +40,8 @@ namespace LipSync
 		int cls = 1;
 	};
 	[[nodiscard]] Level LevelOf(const RE::BSResource::ID& a_id);
+	// The path (relative to Data) of a voice-set sound file, for the debug trace; empty when the file is not one a voice set names.
+	[[nodiscard]] std::string PathOf(const RE::BSResource::ID& a_id);
 	struct LevelScale
 	{
 		bool ready = false;

@@ -244,27 +244,31 @@ namespace Virginity
 		}
 
 #if !OSIS_LITE
-		// A non-consensual first time: broken 30%, stoic 30%, shy 25%, submissive 10%, and 5% crazed about the first partner who gives her an orgasm.
+		// A non-consensual first time: broken 28%, stoic 28%, shy 24%, submissive 10%, 5% crazed about the first partner who gives her an orgasm, and 5% dominant (taken from broken, stoic and shy).
 		int ChooseTrauma(RE::Actor* a_actor, Record& a_rec, std::string& a_why)
 		{
 			const int roll = Roll(100);
-			if (roll < 30) {
+			if (roll < 28) {
 				a_rec.broken = 1;
 				a_rec.brokenRate = kBrokenBase;
 				a_why = "a non-consensual first time (broken)";
 				return P::kStoic;  // what she is as a personality while broken, and what she becomes when she is not
 			}
-			if (roll < 60) {
+			if (roll < 56) {
 				a_why = "a non-consensual first time (stoic)";
 				return P::kStoic;
 			}
-			if (roll < 85) {
+			if (roll < 80) {
 				a_why = "a non-consensual first time (shy)";
 				return P::kShy;
 			}
-			if (roll < 95) {
+			if (roll < 90) {
 				a_why = "a non-consensual first time (submissive)";
 				return P::kSubmissive;
+			}
+			if (roll >= 95) {
+				a_why = "a non-consensual first time (dominant)";
+				return P::kDominant;
 			}
 			a_rec.pendingCrazed = 1;
 			std::string source;

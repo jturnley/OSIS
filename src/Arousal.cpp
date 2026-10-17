@@ -54,8 +54,9 @@ namespace Arousal
 			std::uint32_t lastTick = 0;
 			bool legacyCleared = false;
 			bool female = true;
-			bool penisPaused = false;  // left alone for the rest of the scene because they have a penis in it; see PenisInPlay
+			bool penisPaused = false;  // left alone for the rest of the scene because a penis is in it and in their mouth or theirs; see LeaveAloneReason
 			bool penisSeen = false;
+			const char* pauseWhy = nullptr;
 			bool ube = false;     // a UBE race: its own sliders and its own UV map, so CBBE/3BA rows and textures are not for it
 
 			std::vector<std::string> blushNodes;
@@ -177,14 +178,20 @@ namespace Arousal
 			return 0xFF2030;
 		}
 
-		// Whether the actor has a penis in the scene's current node: a handjob, a vaginal, anal or oral act, masturbation (a role whose action definition
-		// requires "penis"). Read from the scene's data, so it does not depend on the actor's sex or on a schlong mod.
-		bool PenisInPlay(RE::Actor* a)
+		// Why the actor's body is better left alone for this scene (nullptr: no reason yet). A RaceMenu body refresh, which every morph change is, upsets the
+		// physics of what is attached: an SMP head's lips stop wrapping around a penis, whether the actor is the one with the penis or the one with the mouth on it.
+		const char* LeaveAloneReason(RE::Actor* a)
 		{
 			auto* t = Scenes::ThreadOf(a);
-			if (!t || !t->meta) return false;
+			if (!t || !t->meta) return nullptr;
 			auto* sl = t->Find(a);
-			return sl && sl->pos >= 0 && OStimData::HasPenisRole(*t->meta, sl->pos);
+			if (!sl || sl->pos < 0) return nullptr;
+			const auto pos = static_cast<std::size_t>(sl->pos);
+			if (OStimData::HasPenisRole(*t->meta, sl->pos)) return "has a penis in this scene";
+			if (OStimData::HasMouthOnPenis(*t->meta, sl->pos)) return "has their mouth on a penis in this scene";
+			// A female-bodied actor in a slot the scene means for a man is a futa (OStim's "futas use the male role"): from the start of the scene, not only once the penis comes into it.
+			if (pos < t->meta->actors.size() && t->meta->actors[pos].intendedSex == "male") return "is a female body in a male role (a futa)";
+			return nullptr;
 		}
 
 		void ClearBlush(RE::Actor* a, ActorState& st)
@@ -531,9 +538,9 @@ namespace Arousal
 			blush += std::format("{}{}={:.2f}", blush.empty() ? "" : " ", st.blushNodes[i], i < st.blushAlpha.size() ? st.blushAlpha[i] : 0.0f);
 		}
 		return std::format("arousal {:.0f}{} ({}) target {:.2f} level {:.3f} shown {:.2f} | OStim excitement {:.2f} rising {:.3f}/s boost {:.2f} | flushMult {:.2f} faceFlush {:.2f} blushGate {:.2f} | "
-						   "personality {} | futa-paused={} seen={} | {} morph(s) set | body blush [{}]",
+						   "personality {} | left alone={} ({}) | {} morph(s) set | body blush [{}]",
 			st.arousal, st.haveArousal ? "" : " (none from a mod)", st.why, st.target, st.level, st.shown, st.exc, st.excRate, st.boost, st.flushMult, st.faceFlush, st.blushGate,
-			Face::Engine::PersonalityName(st.pers), st.penisPaused, st.penisSeen, std::ranges::count_if(st.applied, [](float v) { return !std::isnan(v) && v != 0.0f; }), blush);
+			Face::Engine::PersonalityName(st.pers), st.penisPaused, st.penisSeen && st.pauseWhy ? st.pauseWhy : "no reason", std::ranges::count_if(st.applied, [](float v) { return !std::isnan(v) && v != 0.0f; }), blush);
 	}
 
 	void Init()
@@ -669,11 +676,16 @@ namespace Arousal
 			// It lasts the whole scene once it starts, not only while the penis is in a mouth: a refresh in a handjob or before the act can leave an SMP
 			// head's lips with nothing to wrap around when the blowjob comes. The body keeps its last look and catches up when the scene is over.
 			if (st.penisSeen && !Scenes::InAnyScene(a)) st.penisSeen = false;  // the scene is over (or this is the outside-scenes tracking): the next one starts fresh
-			if (s.pauseOral && st.female && !st.penisSeen && PenisInPlay(a)) st.penisSeen = true;
+			if (s.pauseOral && st.female && !st.penisSeen) {
+				if (const char* why = LeaveAloneReason(a)) {
+					st.penisSeen = true;
+					st.pauseWhy = why;
+				}
+			}
 			const bool paused = s.pauseOral && st.penisSeen;
 			if (paused != st.penisPaused) {
 				st.penisPaused = paused;
-				if (paused) logger::info("Arousal: {} has a penis in this scene: their body morphs and blush are left alone for the rest of it", st.name);
+				if (paused) logger::info("Arousal: {} {}: their body morphs and blush are left alone for the rest of it", st.name, st.pauseWhy ? st.pauseWhy : "has a penis in this scene");
 			}
 			if (paused) continue;
 

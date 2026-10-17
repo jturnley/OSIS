@@ -13,8 +13,8 @@
 //  - a scene with an orgasm that does not end her virginity may make her balanced (20%), every time until it does;
 //  - the scene that ends it leaves her stoic half of the time if it was bad (no orgasm before the penetration, a rough scene, or the speed past the first before she has one), and
 //    balanced, vocal or wild if it was extraordinary (five orgasms or more, shifting with each one above);
-//  - in the full edition, a non-consensual first time leaves her broken (30%), stoic (30%), shy (25%), submissive (10%) or, 5% of the time, crazed about the first partner to give
-//    her an orgasm. A broken woman is shut down during sex (Virginity::IsBroken: the face, the body, the voice and the arousal rate do not respond, whatever else is going on) until a
+//  - in the full edition, a non-consensual first time leaves her broken (28%), stoic (28%), shy (24%), submissive (10%), dominant (5%) or, 5% of the time, crazed about the first partner to
+//    give her an orgasm. A broken woman is shut down during sex (Virginity::IsBroken: the face, the body, the voice and the arousal rate do not respond, whatever else is going on) until a
 //    session of ten silent "orgasms", with nothing rough in it, makes her stoic.
 // Men have no first time. Only a personality OSIS settled on by itself changes; one the player set stays. The state is kept in the save (Serialization, record VIRG).
 namespace Virginity

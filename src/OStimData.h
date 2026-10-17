@@ -76,9 +76,17 @@ namespace OStimData
 		bool hands = false;
 	};
 	[[nodiscard]] PPAContact PPAContactFor(const Scene& a_scene, int a_pos);
+
+	// What an action's definition requires of the body in one of its roles (actor 0, target 1, performer 2), as bits: kReqPenis, kReqHand, kReqVagina,
+	// kReqAnus, kReqMouth. 0 when the action has no definition or asks for nothing.
+	inline constexpr std::uint8_t kReqPenis = 1, kReqHand = 2, kReqVagina = 4, kReqAnus = 8, kReqMouth = 16;
+	[[nodiscard]] std::uint8_t ActionRequirements(std::string_view a_type, int a_role);
 	// Whether the actor at this position has a penis in any action of the scene's current node (a role whose definition requires "penis"): a handjob,
 	// a vaginal, anal or oral act, masturbation. Read from the scene's data, so it needs neither a schlong mod nor the sex of the actor.
 	[[nodiscard]] bool HasPenisRole(const Scene& a_scene, int a_pos);
+	// Whether the actor at this position has their mouth on a penis in any action of the scene's current node (a role whose definition requires "mouth" in an act whose other role
+	// requires "penis": a blowjob, deepthroating, licking a penis).
+	[[nodiscard]] bool HasMouthOnPenis(const Scene& a_scene, int a_pos);
 
 	// What OStim's action definitions allow an actor to do with their voice ("moan", "talk" and "muffled" in each role's JSON), merged over
 	// every action the scene has them in, as OStim does (Graph/Action/ActionActor.cpp). known is false when none of the actions has a definition.

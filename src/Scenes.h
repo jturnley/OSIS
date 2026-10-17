@@ -39,10 +39,12 @@ namespace Scenes
 		float takeoverRecheck = 0.0f;  // when to say it again; OStim can drop the first one
 		std::string voiceName;
 		bool voiceRequested = false;
+		bool voiceRechecked = false;  // debug trace: OStim was asked a second time, a few seconds into the scene, which voice set the actor has (a mod may assign one as the scene starts)
 		float excitementFactor = 1.0f;  // consent: our scale on OStim's excitement rate (1 = untouched)
 		// Personality control (Engine.cpp UpdateClimaxControl): this actor's climax is stalled by us, when we last said so, when to say
 		// permit a second time, and since when they have been held at the edge.
 		bool stallActive = false;
+		bool stallIsRecovery = false;  // the stall is only the wait between orgasms (fRepeatOrgasmGap), not a dominant's or a crazed actor's control
 		float stallIssuedAt = -100.0f;
 		float permitRepeatAt = 0.0f;
 		float holdSince = 0.0f;

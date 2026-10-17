@@ -18,6 +18,7 @@
 #include "OStimData.h"
 #include "Hooks.h"
 #include "Papyrus.h"
+#include "SceneLimits.h"
 #include "Scenes.h"
 #include "Scheduler.h"
 #include "Settings.h"
@@ -282,6 +283,7 @@ namespace
 		ig::Text("Body: %s", Body::Status().c_str());
 		ig::Text("Living Skin: %s", Skin::Status().c_str());
 		ig::TextWrapped("Lip-Sync: %s", LipSync::Status().c_str());
+		ig::TextWrapped("Scene limits: %s", SceneLimits::Status().c_str());
 #if !OSIS_LITE
 		ig::TextWrapped("Scene lock: %s", SceneLock::Status().c_str());
 #endif
@@ -357,6 +359,9 @@ namespace
 					"so Lip-Sync stands down while DDF is installed (see the Lip-Sync page).");
 				ModuleRow("Arousal (body morphs)", Settings::Arousal::bEnabled, Compat::kArousal,
 					"Arousal body morphs and body blush. Off for another arousal-morph mod.");
+				ModuleRow("Scene limits (by personality)", Settings::SceneLimits::bEnabled, -1,
+					"Passive personalities (shy, timid, submissive) play only scenes that do not put them on top until their own first orgasm, and aggressive ones (dominant, crazed) only scenes that do. "
+					"Trims the scene menu and redirects other scenes that do not fit. Off for a mod that picks the scenes itself.");
 #if !OSIS_LITE
 				ModuleRow("Victim Voice", Settings::Voice::bEnabled, -1,
 					"Mutes OStim's moans on a victim and speaks their lines. Off for another mod that voices the scene.");
@@ -739,6 +744,10 @@ namespace
 				"The dominant lets them go after this long at the edge if they have not climaxed themselves.");
 			SliderF("Dominant: excitement rate", fDominantExcitementMult, 0.5f, 2.0f, "%.2f", "Times OStim's rate for a dominant: their own pleasure comes first.");
 			SliderF("Crazed: partner's excitement rate", fCrazedDriveMult, 1.0f, 4.0f, "%.2f", "Times OStim's rate for whoever a crazed actor is with (not a dominant).");
+			ig::SeparatorText("Repeat orgasms");
+			SliderF("Seconds between an actor's orgasms", fRepeatOrgasmGap, 0.0f, 600.0f, "%.0f",
+				"After an orgasm, everyone but a wild or crazed actor (who are insatiable) waits at the edge until this many seconds have passed before the next one, using OStim's stall. "
+				"OStim lets excitement drop only part of the way after an orgasm, so a fast scene can bring one every few seconds. 0 leaves it to OStim. Independent of the control above.");
 		}
 		ig::SeparatorText("Moans by personality");
 		ig::TextWrapped("What each personality's moans are in each phase of a scene. Moans: none at all, as they come, or the quiet, normal or loud third of all your voice files (every file was "
@@ -854,6 +863,23 @@ namespace
 					SliderI("Each orgasm above: shift (%)", iExtraordinaryStep, 0, 50, "Each orgasm over the number moves this many percent from balanced to each of vocal and wild.");
 				}
 			}
+			{
+				std::scoped_lock l(Settings::lock);
+				using namespace Settings::SceneLimits;
+				ig::SeparatorText("Scene limits");
+				Check("Passive and aggressive personalities choose their scenes", bEnabled,
+					"Until their own first orgasm in a scene, a passive personality (shy, timid, submissive) plays only scenes that do not put it on top or in charge (no cowgirl, riding, face-sitting...), "
+					"and an aggressive one (dominant, crazed) only scenes that do. Foreplay, kissing, oral and a handjob are always allowed. Who is on top is read from OStim's scene data; "
+					"correct it in Data/SKSE/Plugins/OSIS/scene_roles_user.txt. Consensual scenes only. Two actors who want the same role (two aggressive, or two passive) are not limited, since someone has to be on top.");
+				if (bEnabled) {
+					Check("The player's personality limits the player too", bPlayer, "Off: only the NPCs' personalities limit the scene menu, so you can always choose your own role.");
+					Check("Take over OStim's auto mode (not recommended)", bTakeOverAuto, "Replaces OStim's auto mode, on a thread with a limit, with one that picks a scene that fits every few seconds. OStim's own pacing (the speed, the ending at the climax) is lost with it, so scenes can drag on. Off: OStim's auto mode runs and a scene that does not fit is redirected.");
+					Check("Redirect scenes that do not fit", bRedirect, "A scene that lands on one that does not fit (the search menu, another mod's choice) is navigated to the nearest that does.");
+					if (bRedirect) Check("Say so on screen", bNotify, "A line at the top of the screen when the player's scene is redirected.");
+					SliderF("Auto mode: seconds between scenes", fAutoInterval, 5.0f, 120.0f, "%.0f", "How often the auto mode we take over picks its next scene.");
+				}
+				ig::TextDisabled("%s", SceneLimits::Status().c_str());
+			}
 		ig::TextWrapped("Each actor's personality is worked out the first time a scene needs it and then kept in your save game, "
 			"so it is the same in every scene and after every load - the SPID roll is not. What you set below always wins.");
 		if (ig::Button("Work every personality out again")) OnGame([]() {
@@ -926,7 +952,8 @@ namespace
 			ig::SeparatorText("Head tilt (crazed)");
 			Check("Crazed actors tilt their head", bHeadTilt,
 				"A crazed actor holds a tilt of the head toward a shoulder, switching side now and then: the anime stare, and out of place in Skyrim, which is the point. "
-				"Rolled about the line to whoever they look at, so there is no axis to set. Eased in and out; off when the scene is not consensual or in the afterglow.");
+				"Rolled about the line to whoever they look at, so there is no axis to set. Eased in and out; off when the scene is not consensual or in the afterglow. "
+				"Off by default: moving the head and neck bones can break SMP hair (it was reported to), so turn it on only if your hair copes.");
 			if (bHeadTilt) SliderF("Tilt degrees", fHeadTiltDegrees, 0.0f, 30.0f, "%.0f",
 				"How far the head rolls. About 10 reads as a tilt; past 20 the neck starts to stretch on most meshes, and an SMP head's hair and neck move more.");
 			ig::SeparatorText("With PPA");
@@ -1197,10 +1224,10 @@ namespace
 				"and everything is put back after it (or after the slow fade, below).");
 			Check("Arousal features slowly fade after scene (may cause increased GPU load)", bFadeAfterScene,
 				"Off (the default): the body morphs and the body blush are put back the moment the scene ends. On: they ease back over the next several seconds, at the Resolution half-life below, and are put back after that. The blush is drawn as extra copies of the body, so keeping it up after the scene costs GPU for as long as it fades. Does not matter while 'Also outside OStim scenes' is on, which keeps them following the arousal.");
-			Check("Pause a female body's morphs and blush when she has a penis in the scene", bPauseOnOral,
-				"For a female-bodied actor who has a penis (a futa): once the scene gives her one (a handjob, a blowjob, vaginal or anal sex), her body morphs and blush are "
-				"left as they are for the rest of the scene, and catch up afterwards. Every morph change refreshes the whole body in RaceMenu, about once a second, which "
-				"can upset an attached penis's physics (an SMP head's lips then stop wrapping around it). A male body is never touched by this, so nothing changes for one.");
+			Check("Pause a female body's morphs and blush around a penis in the scene", bPauseOnOral,
+				"For a female-bodied actor who has a penis (a futa: from the start of the scene when the scene gives her a man's role, otherwise once it gives her one) or who has her mouth on one (a blowjob): "
+				"her body morphs and blush are left as they are for the rest of the scene, and catch up afterwards. Every morph change refreshes the whole body in RaceMenu, about once a second, which "
+				"can upset what is attached (an SMP head's lips then stop wrapping around a penis, whether it is her mouth or her penis). A male body is never touched by this, so nothing changes for one.");
 			if (bOutsideScenes) {
 				ig::TextColored(kWarn, "Warning: this can use a lot of resources.");
 				ig::TextWrapped("It keeps the player and up to %d nearby NPCs updated all the time you play, scene or not: body morphs, and the body "

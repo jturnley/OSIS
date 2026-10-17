@@ -254,6 +254,8 @@ introduces. Updating the mod therefore keeps what you chose; delete a file to go
 so put your own lines in `npc_personalities_user.txt` beside it (same format, `name|personality|suffix`).
 `SKSE/Plugins/OSIS/npc_religion.txt` says which women are religious, for the first-time model (OVirginity Reflowered must be installed for that: it says who is a virgin); your own lines go in
 `npc_religion_user.txt` (`name|religious`, `name|dibella` or `name|none`).
+Scene limits (shy, timid and submissive actors avoid scenes that put them on top, dominant and crazed ones avoid scenes that put them underneath, until their own first orgasm) read who is on top from
+OStim's scene data; correct a scene it gets wrong in `SKSE/Plugins/OSIS/scene_roles_user.txt` (`scene|<scene id>|a,p`, or `tag|<tag>|p,a`; `a` active, `p` passive, `n` neutral, one per actor).
 
 Changes from the originals that you'll notice:
 - The Living Skin sweat layer is gone (a face overlay never lined up with the body).

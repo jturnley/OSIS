@@ -246,6 +246,12 @@ namespace Papyrus
 			[done = std::move(a_done)](const RE::BSScript::Variable& v) { done(AsBool(v)); });
 	}
 
+	void HasSchlong(RE::Actor* a_actor, std::function<void(bool)> a_done)
+	{
+		CallStatic("OActor", "HasSchlong", RE::MakeFunctionArguments(std::move(a_actor)),
+			[done = std::move(a_done)](const RE::BSScript::Variable& v) { done(AsBool(v)); });
+	}
+
 	void PlayExpression(RE::Actor* a_actor, const std::string& a_event, std::function<void(float)> a_done)
 	{
 		Debug::Log(Debug::Cat::Papyrus, "OActor.PlayExpression {} event={}", Debug::Label(a_actor), a_event);
