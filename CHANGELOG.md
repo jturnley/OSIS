@@ -3,6 +3,9 @@
 ## 2.0 beta 3, in progress (plugin version 2.0.15)
 
 ### Changed
+- **The debug trace shows the RaceMenu overlay slots.** At every scene change and as a scene ends, each painted actor gets a `[skin]` line: `overlay slots at the scene change to X: body 3/12 used [2=other:cumoverlaysreast1.dds, 6=ours:...] free [0 1 3 ...] |
+  face ... | OSIS holds slots: blush=0 saliva=1 tear=2`. A blush repaint says which body slots it took and cleared, and when a face effect is written into a slot that another mod's texture holds it says so (`face slot 1 held '...' when the saliva overlay
+  was written over it`). For finding out who overwrites whose overlay (a report: OCum's cum overlay vanishing at a scene change).
 - **The debug trace says which voice set and which file a moan is.** Each `[moan]` line for an OStim voice-set sound now ends with `| file <the sound file's path>`, and the trace has `OStim's voice set for this actor: 'X'` for every actor at the
   start of a scene and again six seconds in (a voice-set mod such as OSSO can assign one as the scene starts). For tracking down why an actor, the player especially, has a voice other than the one chosen in the MCM.
 - **Repeat orgasms are capped for everyone but a wild or crazed actor** (Face > "Seconds between an actor's orgasms", `fRepeatOrgasmGap`, 45 s by default, 0 is off). OStim lets excitement drop only part of the way
@@ -167,6 +170,10 @@
   its own moans; on its own it just makes scenes quiet. Not yet tested in game.
 
 ### Fixed
+- **Living Skin no longer paints over another mod's overlay on the face.** It claimed its face slots once per 3D load and wrote each texture only when that effect first showed (saliva at an oral scene, tears, blush), so a slot
+  that was reserved but still empty could be taken by another mod in between (OCum Ascended's cum on the face picks the first slot whose texture is empty) and then overwritten, which looked like the overlay vanishing at
+  a scene change. It now looks at the slot just before writing, and if another mod's texture is in it, claims the slots again and uses another or, with none free, paints nothing (the log says
+  `face slot N now holds '...' (another mod's)`). The body blush got the same care: when it repaints or clears, it blanks only nodes that still show its own texture, and by node name, not by position.
 - **A futa's blowjob: the lips still did not wrap with the arousal module on (hotfix 3)** (reported on the Nexus page: with hotfix 3 and default settings the giver's SMP-head lips did not wrap around a futa follower's
   penis, and did again with Arousal (body morphs) switched off). Hotfix 3 left the *receiver's* body alone once a penis role came into the scene, but nothing protected the giver, whose body the arousal module
   also refreshes about once a second (each morph change is a RaceMenu body refresh), nor the futa's body in the foreplay before the penis was in play. The pause for a female-bodied actor (Arousal page, "Pause a

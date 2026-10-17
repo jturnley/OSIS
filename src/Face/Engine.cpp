@@ -1838,6 +1838,12 @@ namespace Face::Engine
 	{
 		std::scoped_lock l(Settings::lock);
 		RefreshDerived(t, true);
+		if (Debug::On()) {
+			const auto why = std::format("at the scene change to {}", t.sceneID);
+			for (auto& sl : t.slots) {
+				if (sl.painted) Debug::OverlaySlots(sl.Get(), why);
+			}
+		}
 		SceneLimits::OnSceneChanged(t);
 		for (auto& sl : t.slots) sl.ppaGaveUp = false;  // a new node, a new look at whether PPA is driving the mouth
 #if !OSIS_LITE
@@ -2042,6 +2048,11 @@ namespace Face::Engine
 			for (auto& s : t.slots) {
 				g_rateBase.erase(s.id);
 				g_rateRequested.erase(s.id);
+			}
+		}
+		if (Debug::On()) {
+			for (auto& sl : t.slots) {
+				if (sl.painted) Debug::OverlaySlots(sl.Get(), "as the scene ends");
 			}
 		}
 		Virginity::OnSceneEnd(t);

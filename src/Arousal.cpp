@@ -196,7 +196,11 @@ namespace Arousal
 
 		void ClearBlush(RE::Actor* a, ActorState& st)
 		{
-			for (const auto& node : st.blushNodes) Papyrus::ClearOverlay(a, st.female, node);
+			for (size_t i = 0; i < st.blushNodes.size(); ++i) {
+				// Only what is still ours: another mod may have taken the slot since, and its overlay is not ours to blank.
+				if (i < st.blushTextures.size() && !Overlays::NodeHolds(a, st.blushNodes[i], st.blushTextures[i]).value_or(true)) continue;
+				Papyrus::ClearOverlay(a, st.female, st.blushNodes[i]);
+			}
 			st.blushNodes.clear();
 			st.blushTextures.clear();
 			st.blushAlpha.clear();
@@ -302,7 +306,20 @@ namespace Arousal
 					if (s.matte) Papyrus::SetOverlayMatte(a, st.female, node);
 					nodes.push_back(std::move(node));
 				}
-				for (size_t i = nodes.size(); i < st.blushNodes.size(); ++i) Papyrus::ClearOverlay(a, st.female, st.blushNodes[i]);
+				// The old nodes no longer in use come down by name, and only those still showing our texture: a new claim can skip a slot another mod has taken since,
+				// and clearing by position would blank the wrong node.
+				std::string cleared;
+				for (size_t i = 0; i < st.blushNodes.size(); ++i) {
+					if (std::ranges::find(nodes, st.blushNodes[i]) != nodes.end()) continue;
+					if (i < st.blushTextures.size() && !Overlays::NodeHolds(a, st.blushNodes[i], st.blushTextures[i]).value_or(true)) continue;
+					Papyrus::ClearOverlay(a, st.female, st.blushNodes[i]);
+					cleared += (cleared.empty() ? "" : ", ") + st.blushNodes[i];
+				}
+				if (Debug::On()) {
+					std::string painted;
+					for (const auto& n : nodes) painted += (painted.empty() ? "" : ", ") + n;
+					Debug::Log(Debug::Cat::Arousal, "{}: body blush repainted: {} row(s) in [{}], cleared [{}]; the body slots read as {}", Debug::Label(a), nodes.size(), painted, cleared, Overlays::Describe(a, false, have, textures));
+				}
 				st.blushNodes = std::move(nodes);
 				st.blushTextures = std::move(textures);
 				st.blushWanted = std::move(wanted);
@@ -729,6 +746,16 @@ namespace Arousal
 			ClearActor(st);
 			return true;
 		});
+	}
+
+	std::string DescribeSlots(RE::Actor* a)
+	{
+		std::vector<std::string> ours;
+		if (a) {
+			std::scoped_lock l(g_stateLock);
+			if (const auto it = g_states.find(a->GetFormID()); it != g_states.end()) ours = it->second.blushTextures;
+		}
+		return Overlays::Describe(a, false, g_bodyOverlays, ours);
 	}
 
 	int BodyOverlaySlots() { return g_bodyOverlays; }

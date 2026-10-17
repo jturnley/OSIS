@@ -43,5 +43,7 @@ namespace Skin
 	[[nodiscard]] std::string Status();
 	// For the debug trace: which overlays this actor has on, and their slots.
 	[[nodiscard]] std::string Describe(RE::Actor* a_actor);
+	// For the debug trace: which of the actor's RaceMenu face overlay slots are in use, by what (our effects or another mod's), and which are free. Main thread.
+	[[nodiscard]] std::string DescribeSlots(RE::Actor* a_actor);
 	[[nodiscard]] std::string ResolvedPath(int a_effect);  // 0 blush, 1 saliva, 2 tear
 }

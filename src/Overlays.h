@@ -25,6 +25,14 @@ namespace Overlays
 	[[nodiscard]] std::vector<int> Claim(RE::Actor* a_actor, bool a_face, int a_count, int a_first, int a_total,
 		const std::vector<std::string>& a_ours);
 
+	// Whether it is safe to write into the slot now: it is unused, already shows one of a_ours, or cannot be read (no 3D to look at). False when another mod's texture
+	// is in it, so a caller that reserved the slot some time ago and writes it only now does not paint over what has since been put there.
+	[[nodiscard]] bool SlotUsable(RE::Actor* a_actor, bool a_face, int a_slot, const std::vector<std::string>& a_ours);
+	// The diffuse texture the slot shows now (lower case); empty when it is unused, the node is gone or the 3D is not loaded. For the debug trace.
+	[[nodiscard]] std::string Peek(RE::Actor* a_actor, bool a_face, int a_slot);
+	// One line for the debug trace: how many of the actor's body or face slots are in use, which ones and by what (ours, or another mod's), and which are free.
+	[[nodiscard]] std::string Describe(RE::Actor* a_actor, bool a_face, int a_total, const std::vector<std::string>& a_ours);
+
 	// For the Status page: "3 of 12 taken by other mods".
 	[[nodiscard]] std::string Report(RE::Actor* a_actor, bool a_face, int a_total, const std::vector<std::string>& a_ours);
 

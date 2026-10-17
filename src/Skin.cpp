@@ -80,10 +80,19 @@ namespace Skin
 		// Which face slots this actor can spare. Other mods write into the same numbered nodes -
 		// an ahegao mod's blush, OBlush, a hand-painted overlay - so the slots are read back off
 		// the actor rather than counted off from the configured first slot.
-		void ClaimFaceSlots(RE::Actor* a, State& st)
+		std::vector<std::string> OurPaths()
+		{
+			std::vector<std::string> out;
+			for (int e = 0; e < kCount; ++e) {
+				if (auto path = Path(e); !path.empty()) out.push_back(std::move(path));
+			}
+			return out;
+		}
+
+		void ClaimFaceSlots(RE::Actor* a, State& st, bool force = false)
 		{
 			const void* root = a ? a->Get3D(false) : nullptr;
-			if (root == st.last3D && st.slot[kBlush] >= 0) return;
+			if (!force && root == st.last3D && st.slot[kBlush] >= 0) return;
 			st.last3D = root;
 			st.slot.fill(-1);
 
@@ -111,6 +120,21 @@ namespace Skin
 
 		std::string Node(int slot) { return std::format("Face [Ovl{}]", slot); }
 
+		// Another mod has taken a slot that was reserved for one of our effects: claim the slots again from what is free now. An effect that is showing and has to move
+		// takes its old paint down (when it is still ours) and is painted again in its new slot the next time it is asked for.
+		void ReclaimFaceSlots(RE::Actor* a, State& st)
+		{
+			const auto before = st.slot;
+			ClaimFaceSlots(a, st, true);
+			for (int e = 0; e < kCount; ++e) {
+				const int was = before[static_cast<std::size_t>(e)];
+				if (was < 0 || was == st.slot[static_cast<std::size_t>(e)] || !st.on[static_cast<std::size_t>(e)]) continue;
+				if (Overlays::NodeHolds(a, Node(was), Path(e)).value_or(false)) Papyrus::ClearOverlay(a, st.female, Node(was));
+				st.on[static_cast<std::size_t>(e)] = false;
+				st.until[static_cast<std::size_t>(e)] = 0.0f;
+			}
+		}
+
 		float StyleScalar()
 		{
 			if (!Settings::Skin::bStyleGated) return 1.0f;
@@ -135,7 +159,7 @@ namespace Skin
 		{
 			const auto path = Path(effect);
 			ClaimFaceSlots(a, st);
-			const int slot = st.slot[effect];
+			int slot = st.slot[effect];
 			if (path.empty()) {
 				const auto msg = std::format("no texture for effect {}", effect);
 				if (g_status != msg) Debug::Log(Debug::Cat::Skin, "{}: {}", Debug::Label(a), msg);
@@ -154,6 +178,19 @@ namespace Skin
 				if (g_status != msg) Debug::Log(Debug::Cat::Skin, "{}: {}", Debug::Label(a), msg);
 				g_status = msg;
 				return;
+			}
+			// Slots are claimed once per 3D and written only when an effect first shows, so another mod may have taken this one in between (OCum's cum on the face, say): look again
+			// just before writing, and go to another slot rather than paint over what has been put there.
+			if (!Overlays::SlotUsable(a, true, slot, OurPaths())) {
+				Debug::Log(Debug::Cat::Skin, "{}: face slot {} now holds '{}' (another mod's), so the {} overlay is not written there; the slots are claimed again", Debug::Label(a), slot, Overlays::Peek(a, true, slot), std::array{ "blush", "saliva", "tear" }[effect]);
+				ReclaimFaceSlots(a, st);
+				slot = st.slot[effect];
+				if (slot < 0) {
+					const auto msg = std::format("no free face overlay slot (skee64.ini has {}, other mods hold the rest)", g_faceSlots);
+					if (g_status != msg) Debug::Log(Debug::Cat::Skin, "{}: {}", Debug::Label(a), msg);
+					g_status = msg;
+					return;
+				}
 			}
 			const auto node = Node(slot);
 			if (!st.on[effect]) Debug::Log(Debug::Cat::Skin, "{}: {} overlay applied in face slot {} at alpha {:.2f}, held {:.1f} s ({})", Debug::Label(a), std::array{ "blush", "saliva", "tear" }[effect], slot, alpha, holdSeconds, path);
@@ -558,6 +595,23 @@ namespace Skin
 				st.on[static_cast<std::size_t>(e)] && st.until[static_cast<std::size_t>(e)] > 0.0f ? std::format(", {:.1f} s left", st.until[static_cast<std::size_t>(e)] - now) : std::string());
 		}
 		return out + std::format(" | blush alpha {:.2f} | female={} distress={} victim={} broken={} | saliva beats {}", st.blushAlpha, st.female, st.distress, st.victim, st.broken, st.salivaCount);
+	}
+
+	std::string DescribeSlots(RE::Actor* a)
+	{
+		std::vector<std::string> ours;
+		for (int e = 0; e < kCount; ++e) {
+			if (auto path = Path(e); !path.empty()) ours.push_back(std::move(path));
+		}
+		std::string ownership;
+		if (a) {
+			std::scoped_lock l(g_lock);
+			if (const auto it = g_states.find(a->GetFormID()); it != g_states.end()) {
+				static constexpr std::array names{ "blush", "saliva", "tear" };
+				for (int e = 0; e < kCount; ++e) ownership += std::format("{}{}={}", ownership.empty() ? "" : " ", names[static_cast<std::size_t>(e)], it->second.slot[static_cast<std::size_t>(e)]);
+			}
+		}
+		return Overlays::Describe(a, true, g_faceSlots, ours) + (ownership.empty() ? std::string() : " | OSIS holds slots: " + ownership);
 	}
 
 	std::string Status()
