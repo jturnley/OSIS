@@ -281,6 +281,14 @@ namespace OStimData
 		return known ? sum : -1.0f;
 	}
 
+	std::uint8_t ActionRequirements(std::string_view a_type, int a_role)
+	{
+		if (a_role < 0 || a_role > 2) return 0;
+		std::scoped_lock l(g_lock);
+		const auto it = g_actionReq.find(Canonical(Lower(a_type)));
+		return it == g_actionReq.end() ? std::uint8_t{ 0 } : it->second[a_role];
+	}
+
 	PPAContact PPAContactFor(const Scene& a_scene, int a_pos)
 	{
 		constexpr std::uint8_t kPenis = 1, kHand = 2, kHole = 4 | 8 | 16;
@@ -334,6 +342,24 @@ namespace OStimData
 			const int who[3] = { act.actor, act.target, act.performer };
 			for (int r = 0; r < 3; ++r) {
 				if (who[r] == a_pos && (it->second[r] & 1) != 0) return true;
+			}
+		}
+		return false;
+	}
+
+	bool HasMouthOnPenis(const Scene& a_scene, int a_pos)
+	{
+		std::scoped_lock l(g_lock);
+		for (const auto& act : a_scene.actions) {
+			const auto it = g_actionReq.find(act.type);
+			if (it == g_actionReq.end()) continue;
+			const auto& m = it->second;
+			const int who[3] = { act.actor, act.target, act.performer };
+			for (int r = 0; r < 3; ++r) {
+				if (who[r] != a_pos || (m[r] & kReqMouth) == 0) continue;
+				for (int o = 0; o < 3; ++o) {
+					if (o != r && who[o] >= 0 && who[o] != a_pos && (m[o] & kReqPenis) != 0) return true;
+				}
 			}
 		}
 		return false;

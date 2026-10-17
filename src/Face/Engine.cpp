@@ -7,6 +7,7 @@
 #include "BioPersonality.h"
 #include "Debug.h"
 #include "Experience.h"
+#include "SceneLimits.h"
 #include "Virginity.h"
 
 #include "Body.h"
@@ -121,6 +122,7 @@ namespace Face::Engine
 			const RE::FormID base = a->IsPlayerRef() ? 0x7 : (a->GetActorBase() ? a->GetActorBase()->GetFormID() : 0);
 			if (!base) return;
 			Papyrus::GetVoiceSetName(base, [key](std::string name) {
+				Debug::Log(Debug::Cat::Moan, "{}: OStim's voice set for this actor: '{}' (empty: none assigned, so the actor's voice type, then the default for their sex)", Debug::Label(key), name);
 				std::scoped_lock l(g_dataLock);
 				g_voiceNames[key] = std::move(name);
 			});
@@ -261,12 +263,21 @@ namespace Face::Engine
 						why = partnerClimaxing ? "their partner is climaxing now" : (s.climaxing ? "their own orgasm is under way" : "crazed: waiting for their partner's orgasm");
 					}
 				}
+				// Recovery: nobody but a wild or crazed actor (who are insatiable) climaxes again within fRepeatOrgasmGap seconds of their last orgasm. OStim lets excitement drop only part of
+				// the way after an orgasm, so a fast scene can bring one every few seconds; the stall holds the actor at the edge until the gap is over.
+				bool recovering = false;
+				if (!want && S::fRepeatOrgasmGap > 0.0f && pers[i] != Pers::kWild && pers[i] != Pers::kCrazed && s.lastOrgasmAt > 0.0f && !s.climaxing && now - s.lastOrgasmAt < S::fRepeatOrgasmGap) {
+					want = true;
+					recovering = true;
+					why = "recovering from their last orgasm";
+				}
 				if (!want) s.holdSince = 0.0f;
 				if (want) {
 					if (!s.stallActive) {
-						logger::info("Control: {:08X} {} ({}) climax held", a->GetFormID(), a->GetDisplayFullName(), PersonalityName(pers[i]));
+						if (!recovering) logger::info("Control: {:08X} {} ({}) climax held", a->GetFormID(), a->GetDisplayFullName(), PersonalityName(pers[i]));
 						Debug::Log(Debug::Cat::Control, "{}: climax held ({}), raw excitement {}", Debug::Label(a), why, Raw(a));
 					}
+					s.stallIsRecovery = recovering;
 					s.stallActive = true;
 					if (now - s.stallIssuedAt >= 4.0f) {
 						Papyrus::StallClimax(a);
@@ -276,7 +287,8 @@ namespace Face::Engine
 					s.stallActive = false;
 					Papyrus::PermitClimax(a);
 					s.permitRepeatAt = now + 2.5f;  // said once more, in case OStim had not yet taken the first
-					logger::info("Control: {:08X} {} climax permitted", a->GetFormID(), a->GetDisplayFullName());
+					if (!s.stallIsRecovery) logger::info("Control: {:08X} {} climax permitted", a->GetFormID(), a->GetDisplayFullName());
+					s.stallIsRecovery = false;
 					Debug::Log(Debug::Cat::Control, "{}: climax permitted ({}), held for {:.1f} s, raw excitement {}", Debug::Label(a), why, s.holdSince > 0.0f ? now - s.holdSince : 0.0f, Raw(a));
 				} else if (s.permitRepeatAt > 0.0f && now >= s.permitRepeatAt) {
 					Papyrus::PermitClimax(a);
@@ -1790,6 +1802,7 @@ namespace Face::Engine
 		t.sceneOral = HasOralSceneTag(t);
 		UpdateNormalStateFlag(t, true);
 		Virginity::OnThreadReady(t);
+		SceneLimits::OnThreadReady(t);
 #if !OSIS_LITE
 		if (!g_brokenCarry.empty()) {
 			const float now = Scenes::Now();
@@ -1825,6 +1838,7 @@ namespace Face::Engine
 	{
 		std::scoped_lock l(Settings::lock);
 		RefreshDerived(t, true);
+		SceneLimits::OnSceneChanged(t);
 		for (auto& sl : t.slots) sl.ppaGaveUp = false;  // a new node, a new look at whether PPA is driving the mouth
 #if !OSIS_LITE
 		Voice::Sync(t);
@@ -1920,6 +1934,23 @@ namespace Face::Engine
 		if (!t.active) return;
 		RefreshDerived(t, false);
 		Virginity::OnTick(t);
+		SceneLimits::OnTick(t);
+		if (Debug::On() && Scenes::Now() - t.start > 6.0f) {
+			// A voice-set mod can assign a set as the scene starts, so the answer asked for at the start may be stale: ask once more, for the trace.
+			for (auto& sl : t.slots) {
+				auto* a = sl.Get();
+				if (!a || sl.voiceRechecked) continue;
+				sl.voiceRechecked = true;
+				const RE::FormID base = a->IsPlayerRef() ? 0x7 : (a->GetActorBase() ? a->GetActorBase()->GetFormID() : 0);
+				if (!base) continue;
+				Papyrus::GetVoiceSetName(base, [id = sl.id](std::string name) {
+					Debug::Log(Debug::Cat::Moan, "{}: OStim's voice set for this actor, a few seconds into the scene: '{}'", Debug::Label(id), name);
+				});
+				Papyrus::HasSchlong(a, [id = sl.id](bool has) {
+					Debug::Log(Debug::Cat::Moan, "{}: OActor.HasSchlong says {} (OSSO takes an actor with none to be female when it assigns a voice set)", Debug::Label(id), has ? "yes" : "NO");
+				});
+			}
+		}
 		UpdateExcitementRates(t);
 		UpdateClimaxControl(t);
 		++t.tick;
@@ -2014,6 +2045,7 @@ namespace Face::Engine
 			}
 		}
 		Virginity::OnSceneEnd(t);
+		SceneLimits::OnSceneEnd(t);
 		for (auto& s : t.slots) {
 		if (s.broken) g_brokenCarry[s.id] = Scenes::Now();
 			auto* a = s.Get();

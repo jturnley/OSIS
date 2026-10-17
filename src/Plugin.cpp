@@ -16,6 +16,7 @@
 #include "OStimData.h"
 #include "Release.h"
 #include "Scenes.h"
+#include "SceneLimits.h"
 #include "Scheduler.h"
 #include "Serialization.h"
 #include "Settings.h"
@@ -62,6 +63,7 @@ namespace Scheduler
 			Skin::Tick();
 			Arousal::Tick();
 			MoanVolume::Tick();
+			SceneLimits::Tick();
 			Debug::Tick();
 
 			std::vector<std::function<void()>> due;
@@ -159,6 +161,7 @@ namespace
 			Scenes::OnGameLoad();
 			Arousal::OnGameLoad();
 			Body::ClearAll();
+			SceneLimits::Clear();
 			Skin::ClearAll();
 #if !OSIS_LITE
 			SpellCast::Clear();

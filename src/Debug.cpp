@@ -17,6 +17,7 @@
 #include "LipSync.h"
 #include "MoanVolume.h"
 #include "Release.h"
+#include "SceneLimits.h"
 #include "Scenes.h"
 #include "Settings.h"
 #include "Skin.h"
@@ -188,6 +189,7 @@ namespace Debug
 			Write(Cat::Snap, std::format("  voice volume {}", MoanVolume::Describe(a)));
 			Write(Cat::Snap, std::format("  experience {}", Experience::Describe(a->GetFormID(), Face::Engine::Archetype(a))));
 			Write(Cat::Snap, std::format("  first times {}", Virginity::Describe(a)));
+			Write(Cat::Snap, std::format("  scene limit {}", SceneLimits::Describe(a)));
 #if !OSIS_LITE
 			Write(Cat::Snap, std::format("  moan {}", Moans::Describe(a)));
 #endif

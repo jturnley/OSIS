@@ -134,6 +134,8 @@ namespace Settings
 		// whenever they do. Consensual scenes only.
 		inline bool bPersonalityControl = true;
 		inline float fControlMaxHold = 150.0f;
+		// Repeat orgasms: everyone but a wild or crazed actor (who are insatiable) waits at least this many seconds after an orgasm before the next (OStim's stall, as above). 0 is no limit.
+		inline float fRepeatOrgasmGap = 45.0f;
 		inline float fCrazedDriveMult = 2.5f;
 		inline float fCrazedBlinkSeconds = 14.0f;  // a crazed actor's stare is unbroken: the lids are held open and close for an instant about this often (0: leave blinking alone)
 		inline float fDominantExcitementMult = 1.25f;
@@ -165,7 +167,7 @@ namespace Settings
 		// A crazed actor tilts their head toward a shoulder, the anime way: unnatural, which is the point. The bones are rolled about the line to who they look at,
 		// so there is no axis to set. The side changes now and then; the Test button shows it.
 		inline bool bYieldToPPA = true;      // leave the genital chain and the hands to PPA for as long as it is driving them (a penis in a hole or a hand)
-		inline bool bHeadTilt = true;
+		inline bool bHeadTilt = false;  // off by default: the roll moves the neck and head bones, which breaks an SMP hair that hangs from them
 		inline float fHeadTiltDegrees = 10.0f;
 	}
 
@@ -243,6 +245,19 @@ namespace Settings
 		inline int iVocalOrgasms = 10;
 		inline int iCrazedSessions = 10;  // obsession: sessions of this many orgasms with the same partner, and the actor is crazed about that partner (and nobody else)
 		inline int iCrazedOrgasms = 20;
+	}
+
+	// ---------------------------------------------------------------- scene limits by personality (SceneLimits.h)
+	namespace SceneLimits
+	{
+		// Until an actor's own first orgasm in a thread, a passive personality (shy, timid, submissive) plays only scenes that do not put it on top or in charge, and an aggressive one (dominant,
+		// crazed) only scenes that do. Scenes that give neither a role (foreplay, kissing, oral, a handjob...) are always allowed. Consensual scenes only.
+		inline bool bEnabled = true;
+		inline bool bPlayer = false;         // the player's own personality limits their scene menu too (off: only the NPCs' personalities do)
+		inline bool bTakeOverAuto = false;   // replace OStim's auto mode on a limited thread with one that picks among scenes that fit (off: OStim paces the scene and a scene that does not fit is redirected)
+		inline bool bRedirect = true;        // a scene that does not fit (the search menu, another mod) is navigated away from
+		inline bool bNotify = true;          // say so on screen when the player's scene is redirected
+		inline float fAutoInterval = 20.0f;  // seconds between the scenes our auto mode picks
 	}
 
 	// ---------------------------------------------------------------- moan volume (both editions)
@@ -359,7 +374,7 @@ namespace Settings
 		inline bool bEnabled = true;
 		inline bool bAffectPlayer = true;
 		inline bool bAffectNPCs = true;
-		inline bool bPauseOnOral = true;  // leave a female-bodied actor's morphs and blush alone while a penis is in someone's mouth in the scene (a futa receiving a blowjob)
+		inline bool bPauseOnOral = true;  // leave a female-bodied actor's morphs and blush alone for the scene once they have a penis (a futa) or their mouth is on one (a blowjob giver)
 		inline bool bFadeAfterScene = false;  // after a scene ends, let the morphs and the body blush fade out over a few seconds; off: put them back as the scene ends
 		inline bool bOutsideScenes = false;  // keep following the arousal (an arousal mod's number, for the player and the NPCs near them) when no OStim scene is running; costs resources, so off
 		inline int iSource = kAuto;

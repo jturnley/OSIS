@@ -51,6 +51,7 @@ namespace LipSync
 
 		std::mutex g_lock;
 		std::unordered_set<Key, KeyHash> g_wanted;                                     // moan files named by voice sets
+		std::unordered_map<Key, std::string, KeyHash> g_paths;                       // under g_lock: each wanted file's path, for the debug trace (which file is this sound?)
 		std::unordered_map<Key, std::shared_ptr<const Envelope>, KeyHash> g_envelopes;  // decoded
 		std::unordered_map<Key, float, KeyHash> g_levels;  // each decoded file's loudness (dBFS), built once by BuildLevels; read without a lock once g_levelsFrozen
 		std::atomic_bool g_levelsFrozen = false;
@@ -453,6 +454,10 @@ namespace LipSync
 			std::string firstEncoding, firstNotFound;
 			for (auto& m : files) {
 				try {
+					{
+						std::scoped_lock l(g_lock);
+						g_paths.emplace(m.key, m.path);
+					}
 					Skip why = Skip::kNone;
 					if (auto env = Decode(m.path, why)) {
 						std::scoped_lock l(g_lock);
@@ -864,6 +869,13 @@ namespace LipSync
 	{
 		if (!g_silenceFrozen.load(std::memory_order_acquire)) return false;
 		return g_silence.contains(ToKey(a_id));
+	}
+
+	std::string PathOf(const RE::BSResource::ID& a_id)
+	{
+		std::scoped_lock l(g_lock);
+		const auto it = g_paths.find(ToKey(a_id));
+		return it == g_paths.end() ? std::string() : it->second;
 	}
 
 	Level LevelOf(const RE::BSResource::ID& a_id)

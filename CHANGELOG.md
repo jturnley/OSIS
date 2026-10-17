@@ -1,8 +1,31 @@
 # Changelog
 
-## Unreleased (after 2.0 beta 2, hotfix 3)
+## 2.0 beta 3, in progress (plugin version 2.0.15)
 
 ### Changed
+- **The debug trace says which voice set and which file a moan is.** Each `[moan]` line for an OStim voice-set sound now ends with `| file <the sound file's path>`, and the trace has `OStim's voice set for this actor: 'X'` for every actor at the
+  start of a scene and again six seconds in (a voice-set mod such as OSSO can assign one as the scene starts). For tracking down why an actor, the player especially, has a voice other than the one chosen in the MCM.
+- **Repeat orgasms are capped for everyone but a wild or crazed actor** (Face > "Seconds between an actor's orgasms", `fRepeatOrgasmGap`, 45 s by default, 0 is off). OStim lets excitement drop only part of the way
+  after an orgasm, so a fast scene could bring one every six seconds (the first game test: a wild actor, 18 orgasms in 270 s, the last 11 in 74 s). After an orgasm every other actor is now held at the edge with OStim's stall
+  (the one the dominant's control uses) until the gap is over, then permitted. A wild actor and a crazed one are insatiable and keep OStim's pace. The log is quiet about it, the debug trace has the `[control]` lines
+  (`climax held (recovering from their last orgasm)`).
+- **A crazed actor's head tilt is off by default** (Body > "Crazed actors tilt their head", `bHeadTilt`). It rolls the head and neck bones, and a report says that breaks SMP hair hung from them. An INI that already
+  has `bHeadTilt = true` (the settings file is written on the first run) keeps it: switch it off on the Body page, or set `bHeadTilt = false` in the `[Body]` section.
+- **Scene limits by personality** (both editions; Personality page > Scene limits; `[SceneLimits]` in the INI, on by default). Until an actor's own first orgasm in a scene, a *passive* personality (shy, timid,
+  submissive) plays only scenes that do not put it on top or in charge (no cowgirl, riding, face-sitting...), and an *aggressive* one (dominant, crazed) only scenes that do. It applies to men and women alike, to
+  consensual scenes only, and ends for each actor at their own first orgasm in the thread (a new scene starts it again). Foreplay, kissing, oral, handjobs, transitions to those and anything the data does not settle are
+  neutral and always allowed. Two actors who want the same role (two aggressive, such as crazed and dominant, or two passive) cannot both have it, and limiting either to the scenes that suit them leaves very few, so neither is limited. The player's
+  own personality limits nothing unless `bPlayer` is on, so you can always choose your own role.
+  - **Who is on top** is read from OStim's scene data, in this order: the scene's actor tags (`ontop` / `onbottom`); its scene tags (cowgirl, reverse cowgirl, femdom, face-sitting, riding put the one with the vagina
+    on top; missionary, doggy, behind, prone, mating, bent over the one with the penis); the postures (the one lying down while the other is not is underneath); the scene's `performer`; and last the action itself (the
+    one penetrating, spanking, choking or grinding leads). In a big install (about 2,700 two-person scenes with such an act) roughly 8% are decided by actor tags, 57% by scene tags, 6% by postures, 1% by the performer
+    and 28% by the action. Where it is wrong, put your own lines in `Data/SKSE/Plugins/OSIS/scene_roles_user.txt` (`scene|<scene id>|a,p` or `tag|<tag>|p,a`: one role per actor, `a` active, `p` passive, `n` neutral).
+  - **Enforced** the way the full edition's non-consensual scene lock is (and that lock still wins on a non-consensual thread): the player's scene menu is trimmed to the options that fit (never to nothing), and
+    anything that lands on a scene that does not fit (OStim's auto mode, the search menu, another mod's choice) is navigated to the nearest that does, preferring ones that give the limited actor their own kind of
+    role, with a line on screen when the player is in it (`bNotify`). When nothing within reach fits it is left to OStim. OStim's auto mode keeps pacing the scene; taking it over (`bTakeOverAuto`, off by default,
+    "not recommended") replaces its pacing with a random scene every `fAutoInterval` seconds, so scenes can drag on. A scene with one actor (an NPC masturbating) has nobody to be on top of and is never limited.
+  - Everything is in `OSIS.log` (the limits and every redirect) and, with debug logging on, `OSIS-Debug.log` (`scene limits:` lines with the roles each new scene was given and why, and a `scene limit` line per actor in the
+    snapshots). The Personality page shows the roles of the scenes the limited threads are on.
 - **First times: a woman's first encounters shape her personality** (both editions; Personality page > First times; `[Virginity]` in the INI, on by default; needs OVirginity Reflowered, whose data says
   who is a virgin: OSIS reads its stored answer, then the `alwaysvirgin` / `nevervirgin` lists of whichever `ovirginity_config.json` wins in your load order, and asks OVirginity to work out the rest). Men have
   no first time. For a virgin woman who is not the player:
@@ -14,7 +37,7 @@
     time and as she was otherwise; an *extraordinary* one (5 or more orgasms, not in a rough scene) gives balanced, vocal or wild 30% each, with every orgasm above 5 moving 5% from balanced to each of vocal and
     wild (30/30/30 at 5, 25/35/35 at 6, and so on; over 100% in all they are scaled to 100, so 11 orgasms give 50% each of vocal and wild). The bad conditions come first, except that 5 or more orgasms in a scene
     that was not rough win. Anything else is an ordinary first time and changes nothing.
-  - **The full edition's non-consensual first time** leaves her broken (30%), stoic (30%), shy (25%), submissive (10%) or crazed about the first partner to give her an orgasm (5%: the obsession of the previous entry,
+  - **The full edition's non-consensual first time** leaves her broken (28%), stoic (28%), shy (24%), submissive (10%), dominant (5%) or crazed about the first partner to give her an orgasm (5%: the obsession of the previous entry,
     with that partner only).
   - **Broken** (full edition): a woman who is shut down during sex. Her face, body, blush, tears, voice, moans and lip-sync do not respond at all, even at orgasm; her excitement builds at exactly 0.02 of OStim's rate (a tenth of
     a stoic's), whatever else would change it (other personalities, a crazed partner's drive, consent multipliers); when it reaches the top it silently goes back to zero (nothing shows or sounds) and her rate goes up by
@@ -142,6 +165,16 @@
 - **New setting, Voice > "Director mode: mute OStim's moans on every actor" (`bDirectorMuteMoans`, off by default).** With the face in Director mode it mutes OStim's
   voice-set sounds on every actor whose face OSIS paints, using the victim muting's start hook and sweep, and Lip-Sync stops following them. Groundwork for OSIS playing
   its own moans; on its own it just makes scenes quiet. Not yet tested in game.
+
+### Fixed
+- **A futa's blowjob: the lips still did not wrap with the arousal module on (hotfix 3)** (reported on the Nexus page: with hotfix 3 and default settings the giver's SMP-head lips did not wrap around a futa follower's
+  penis, and did again with Arousal (body morphs) switched off). Hotfix 3 left the *receiver's* body alone once a penis role came into the scene, but nothing protected the giver, whose body the arousal module
+  also refreshes about once a second (each morph change is a RaceMenu body refresh), nor the futa's body in the foreplay before the penis was in play. The pause for a female-bodied actor (Arousal page, "Pause a
+  female body's morphs and blush around a penis in the scene", on by default) now also starts, and lasts for the rest of the scene:
+  - for whoever has their **mouth on a penis** (a blowjob, deepthroat, penis licking: `OStimData::HasMouthOnPenis`), the giver;
+  - from the **first moment of the scene** for a female body the scene puts in a man's role (OStim's "futas use the male role"), instead of waiting for the act.
+  The log says which (`Arousal: X has their mouth on a penis in this scene: their body morphs and blush are left alone for the rest of it`), and the debug snapshot's `arousal` line has `left alone=`. Still the best guess
+  the data allows: if the lips still do not wrap, the `OSIS-Debug.log` (General > Debug logging) shows every `[arousal] ...morphs updated` line and when the blowjob node began.
 
 ## 2.0 beta 2, hotfix 3 (plugin version 2.0.14)
 

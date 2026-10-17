@@ -318,10 +318,12 @@ namespace MoanVolume
 					g_applied[id] = { d.volume, Scenes::Now(), false, target.id };
 				}
 				if (d.mute) g_muted.fetch_add(1, std::memory_order_relaxed);
-				Debug::Log(Debug::Cat::Moan, "{:08X}: voice-set sound {} ({}, stage {}): {}{}", target.id, id, kPhaseNames[static_cast<std::size_t>(d.phase)], target.stage,
+				const std::string file = Debug::On() ? LipSync::PathOf(a_sound->resourceID) : std::string();
+				Debug::Log(Debug::Cat::Moan, "{:08X}: voice-set sound {} ({}, stage {}): {}{}{}", target.id, id, kPhaseNames[static_cast<std::size_t>(d.phase)], target.stage,
 					d.mute ? std::string("muted: the rule says no moans") : std::format("starts at {:.2f} x{:.2f} = {:.2f}", before, d.factor, d.volume),
 					level.known ? std::format(" | the file measures {:.1f} dBFS, {}{}", level.db, kClassNames[static_cast<std::size_t>(level.cls)], d.gain != 1.0f ? std::format(", leveling gain x{:.2f}", d.gain) : std::string())
-								: std::string(" | the file's loudness is not known"));
+								: std::string(" | the file's loudness is not known"),
+								file.empty() ? std::string() : " | file " + file);
 				return d.volume;
 			}
 

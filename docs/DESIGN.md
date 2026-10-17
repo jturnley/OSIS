@@ -186,10 +186,13 @@ followed NPC set is sticky (`Gather`), and an arousal mod is queried every 5th t
 morphs and the blush ease back after a scene; without it `Tick` calls `ClearAllNow` the tick the last scene ends, and `ClearActor` also sets a male's
 genital response back to rest, since nothing else would.
 
-`Arousal::Tick` also leaves alone a female-bodied actor (`st.female`) who has a penis in the scene (`PenisInPlay` -> `OStimData::HasPenisRole`, any role whose action
-definition requires "penis", so it needs neither a schlong mod nor the sex of the actor), for the rest of the scene once seen (`penisSeen`), while `bPauseOnOral` is on: no
-morph writes, so no `UpdateModelWeight`, and no overlay work. A male body gets no morph rows and so no refresh to begin with. This is a guess at why an SMP head's lips
-stopped wrapping around a futa's penis (reported, not reproduced; hotfix 2's pause, only while a blowjob targeted her, did not cure it); `penisPaused` logs when it applies.
+`Arousal::Tick` also leaves alone a female-bodied actor (`st.female`) for the rest of the scene once `LeaveAloneReason` finds one (`penisSeen`, `pauseWhy`), while `bPauseOnOral` is on: she has a penis in the
+scene (`OStimData::HasPenisRole`, any role whose action definition requires "penis", so it needs neither a schlong mod nor the sex of the actor), her mouth is on one
+(`OStimData::HasMouthOnPenis`: a role requiring "mouth" in an act whose other role requires "penis"), or the scene gives her slot a man's role (`intendedSex` "male": a futa under
+OStim's "futas use the male role", known from the first node). No morph writes then, so no `UpdateModelWeight`, and no overlay work. A male body gets no morph rows and so no
+refresh to begin with. This is a guess at why an SMP head's lips stop wrapping around a penis (reported, not reproduced: hotfix 2's pause, only while a blowjob targeted the
+futa, and hotfix 3's, once a penis role was in play, did not cure it, and the reporter's confirmation was that switching the module off does); `penisPaused` logs when it applies and
+the debug snapshot's `arousal` line says why.
 
 The Faces module stands down for Ahegao Expressions the way it does for an old OSED core: `Compat::Disabled(kFace)` is true while
 `Compat::AhegaoYield()` (installed and `bAhegaoAutoYield`, or `bAhegaoModYield`), and `ApplyAll` paints nothing (the scene is still tracked and
@@ -247,8 +250,29 @@ and `OnOrgasm` of the dominant forces (`OActor.Climax` with IgnoreStall) any par
 `fControlMaxHold` seconds at the edge (`holdSince`, from 97) the dominant lets them go. A crazed actor is stalled the other way
 round: its own climax waits for a partner's, and the partner's `OnOrgasm` forces it (`forcedAt` stops a force from re-forcing); a crazed *man* is forced only while he is
 `Engaged` (stimulated) and at 60 excitement or more (`kMaleWithPartnerMin`), a woman always.
+**Repeat orgasms** (`fRepeatOrgasmGap`, independent of `bPersonalityControl`, any thread): after OStim's reset an actor sits at about half excitement, so a fast scene gave a wild actor an orgasm every 6.5 s
+(18 in 270 s, the first game test). In `UpdateClimaxControl`, when nothing else wants the actor stalled and they are not wild or crazed, `Slot::lastOrgasmAt` is within the gap and their own orgasm is not under way, they are stalled
+like a dominant's partner (`stallIsRecovery` keeps it out of `OSIS.log`), and permitted when the gap is over. The first orgasm is never delayed; a broken woman's silent cycles do not set `lastOrgasmAt`; a forced climax
+(`ForceClimax`, a dominant's permission or a crazed partner's) ignores the stall.
 Excitement rates: a crazed actor scales everyone else but a dominant by `fCrazedDriveMult`, a dominant scales themselves by
 `fDominantExcitementMult`. A held actor is not "imminent" for the arousal response (`IsClimaxHeld`).
+
+## Scene limits by personality
+
+`SceneLimits.h/.cpp`, both editions, `[SceneLimits]`. Hooks from `Face::Engine`: `OnThreadReady`, `OnSceneChanged`, `OnTick` (after `RefreshDerived`, so `Thread::consent` is current) and `EndScene`; `Tick` and `Clear` from the plugin's main-thread
+tick and game load. `Refresh` rebuilds a thread's `Limit` per actor: `Archetype` gives the personality (shy, timid, submissive passive; dominant, crazed aggressive), `Slot::orgasms > 0` lifts it, the player's own is `Dir::kNone` unless `bPlayer`,
+and with two live actors who want the same role both `yield` (limiting one to the scenes that suit it leaves few: first the stronger personality kept its limit, crazed over dominant, which left a crazed woman with a dominant
+man only the handful of scenes that put her on top, so now neither is limited). A thread is `Active` when the module is on, the scene is
+consensual and a limit binds. `Classify` turns a scene node into a `Role` per actor position (cached; `ExplainRoles` says why): your `scene_roles_user.txt` first (a scene line, then the first tag line), a transition is its
+destination, otherwise every action that `KindOf` calls positional (penetration and toys, grinding, mounting, smothering, spanking, choking, hair pulling, breast slapping; giver = the action's actor, receiver = its target) is
+decided by `GiverOnTop`: the actor tags `ontop` / `onbottom`; the scene tag labels (`kFemLabels`: the role whose definition requires a vagina or anus is on top, `kMaleLabels`: the one requiring a penis, only if exactly one family
+is present, via `OStimData::ActionRequirements`); the postures (lying versus not); an explicit `performer` that is the receiver; else the giver. Oral on a vagina or anus (`kHole`) counts only on a tag or actor tag (face-sitting,
+femdom), so ordinary oral stays neutral. An actor on top in some pairs and underneath in others is neutral. `AllowedLocked` is `Breaks == nullptr`: no binding limit sees its forbidden role (a passive one `kActive`, an aggressive one
+`kPassive`). The steering is `SceneLock`'s (see that section) with `Choose` filtering by `Breaks` and ranking by `Fit` (limited actors given their own role), `Move` looking within 3 steps, then 6, and `Check` (every second and on every
+scene change) redirecting with `NavigateTo`. The auto-mode takeover (`bTakeOverAuto`, off by default) hands OStim's auto mode back (`Release`) when no limit binds any more; it is off because stopping OStim's auto mode
+also stops its pacing (the first game test: two solo NPC scenes with a shy actor, auto mode taken over, hopped between unrelated scenes for 250 s without an orgasm, where unlimited ones ended in 76 s). `Refresh` gives
+no limit to a thread with fewer than two live actors, since a role needs a pair. The menu trim (`TrimMenu`, UI thread) is SceneLock's, keeping at least one option. Lock order:
+Scenes lock, `Settings::lock`, `g_lock`, `g_roleLock` (a leaf).
 
 ## First times
 

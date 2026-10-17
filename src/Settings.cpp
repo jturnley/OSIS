@@ -149,6 +149,7 @@ namespace Settings
 				{ "Face", "fStoicExcitementMult", &Face::fStoicExcitementMult },
 				{ "Face", "bPersonalityControl", &Face::bPersonalityControl },
 				{ "Face", "fControlMaxHold", &Face::fControlMaxHold },
+				{ "Face", "fRepeatOrgasmGap", &Face::fRepeatOrgasmGap },
 				{ "Face", "fCrazedDriveMult", &Face::fCrazedDriveMult },
 				{ "Face", "fCrazedBlinkSeconds", &Face::fCrazedBlinkSeconds },
 				{ "Face", "fDominantExcitementMult", &Face::fDominantExcitementMult },
@@ -224,6 +225,12 @@ namespace Settings
 				{ "Evolution", "iVocalOrgasms", &Evolution::iVocalOrgasms },
 				{ "Evolution", "iCrazedSessions", &Evolution::iCrazedSessions },
 				{ "Evolution", "iCrazedOrgasms", &Evolution::iCrazedOrgasms },
+				{ "SceneLimits", "bEnabled", &SceneLimits::bEnabled },
+				{ "SceneLimits", "bPlayer", &SceneLimits::bPlayer },
+				{ "SceneLimits", "bTakeOverAuto", &SceneLimits::bTakeOverAuto },
+				{ "SceneLimits", "bRedirect", &SceneLimits::bRedirect },
+				{ "SceneLimits", "bNotify", &SceneLimits::bNotify },
+				{ "SceneLimits", "fAutoInterval", &SceneLimits::fAutoInterval },
 
 #if !OSIS_LITE
 				{ "Voice", "bEnabled", &Voice::bEnabled },
@@ -319,6 +326,7 @@ namespace Settings
 			Face::fStoicExcitementMult = std::clamp(Face::fStoicExcitementMult, 0.1f, 1.0f);
 			Face::fSubmissiveRoughMult = std::clamp(Face::fSubmissiveRoughMult, 0.5f, 2.0f);
 			Face::fControlMaxHold = std::clamp(Face::fControlMaxHold, 20.0f, 600.0f);
+			Face::fRepeatOrgasmGap = std::clamp(Face::fRepeatOrgasmGap, 0.0f, 600.0f);
 			Face::fCrazedDriveMult = std::clamp(Face::fCrazedDriveMult, 1.0f, 4.0f);
 			Face::fCrazedBlinkSeconds = std::clamp(Face::fCrazedBlinkSeconds, 0.0f, 60.0f);
 			Face::fDominantExcitementMult = std::clamp(Face::fDominantExcitementMult, 0.5f, 2.0f);
@@ -354,6 +362,7 @@ namespace Settings
 			if (Virginity::iShyChance + Virginity::iTimidChance > 100) Virginity::iTimidChance = 100 - Virginity::iShyChance;
 			for (int* v : { &Evolution::iStoicSessions, &Evolution::iShySessions, &Evolution::iTimidSessions, &Evolution::iVocalSessions, &Evolution::iCrazedSessions }) *v = std::clamp(*v, 1, 200);
 			for (int* v : { &Evolution::iStoicOrgasms, &Evolution::iShyOrgasms, &Evolution::iTimidOrgasms, &Evolution::iVocalOrgasms, &Evolution::iCrazedOrgasms }) *v = std::clamp(*v, 1, 100);
+			SceneLimits::fAutoInterval = std::clamp(SceneLimits::fAutoInterval, 5.0f, 120.0f);
 			LipSync::fRelease = std::clamp(LipSync::fRelease, 0.02f, 1.0f);
 			LipSync::iTongueMode = std::clamp(LipSync::iTongueMode, 0, 2);
 			LipSync::fTongueMinOpen = std::clamp(LipSync::fTongueMinOpen, 0.0f, 1.0f);
@@ -591,6 +600,10 @@ namespace Settings
 				{ "Evolution",
 					"; A personality OSIS settled on by itself grows with experience; one you set by hand, and the player's own, never does. A session is one scene; each rule is a number of sessions with at least that many orgasms by the actor in each (the counts are kept in the save).\n"
 					"; Stoic to balanced, shy to timid, timid to balanced, vocal to wild. iCrazedSessions / iCrazedOrgasms: sessions of that many orgasms with the same partner make the actor crazed about that one partner, in every scene they are in together, and nobody else; their own personality is untouched." },
+				{ "SceneLimits",
+					"; Until an actor's own first orgasm in a scene, a passive personality (shy, timid, submissive) plays only scenes that do not put it on top or in charge (no cowgirl, riding, face-sitting...), and an aggressive one (dominant, crazed) only scenes that do. Scenes that give neither a role (foreplay, kissing, oral, a handjob) are always allowed. Consensual scenes only.\n"
+					"; Who is on top comes from OStim's scene data: actor tags, scene tags (cowgirl, missionary, doggy...), postures and the actions. Where it is wrong, put your own lines in Data/SKSE/Plugins/OSIS/scene_roles_user.txt (scene|id|roles or tag|tag|roles; roles: a (active), p (passive) or n (neutral), one per actor, comma separated).\n"
+					"; bPlayer: the player's own personality limits their scene menu too. bTakeOverAuto (off by default): replace OStim's auto mode, on a thread with a limit, with one that picks among scenes that fit, one every fAutoInterval seconds; OStim's own pacing (speed, ending at the climax) is lost, so scenes may drag on. Off: OStim's auto mode runs and a scene that does not fit is redirected. bRedirect: a scene that does not fit is navigated away from. bNotify: say so on screen when the player's scene is redirected." },
 #if !OSIS_LITE
 				{ "Voice",
 					"; The victim of a non-consensual scene: OStim moans muted, a cry for help that guards/allies answer, personality lines, a scream at the breaking climax, then hard breathing. Vanilla Skyrim.esm lines only.\n"
@@ -909,6 +922,7 @@ namespace Settings
 		fSubmissiveRoughMult = 1.35f;
 		bPersonalityControl = true;
 		fControlMaxHold = 150.0f;
+		fRepeatOrgasmGap = 45.0f;
 		fCrazedDriveMult = 2.5f;
 		fCrazedBlinkSeconds = 14.0f;
 		fDominantExcitementMult = 1.25f;
