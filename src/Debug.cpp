@@ -231,6 +231,12 @@ namespace Debug
 
 	void SnapshotNow() { g_snapNow = true; }
 
+	void OverlaySlots(RE::Actor* a_actor, std::string_view a_why)
+	{
+		if (!On() || !a_actor) return;
+		Write(Cat::Skin, std::format("{}: overlay slots {}: {} | {}", Label(a_actor), a_why, Arousal::DescribeSlots(a_actor), Skin::DescribeSlots(a_actor)));
+	}
+
 	void Tick()
 	{
 		if (!On()) return;

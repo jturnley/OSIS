@@ -93,6 +93,44 @@ namespace Overlays
 		return path && !a_texture.empty() && Lower(path).contains(Lower(a_texture));
 	}
 
+	bool SlotUsable(RE::Actor* a, bool face, int slot, const std::vector<std::string>& ours)
+	{
+		const auto tex = SlotTexture(a, face, slot);
+		if (!tex) return true;  // nothing to look at: nothing of anyone's to lose, and the first write builds what is missing
+		return LooksUnused(*tex) || IsOurs(*tex, ours);
+	}
+
+	std::string Peek(RE::Actor* a, bool face, int slot)
+	{
+		const auto tex = SlotTexture(a, face, slot);
+		return tex && !LooksUnused(*tex) ? *tex : std::string();
+	}
+
+	std::string Describe(RE::Actor* a, bool face, int total, const std::vector<std::string>& ours)
+	{
+		if (!a) return "no actor";
+		std::string used, free;
+		int seen = 0, taken = 0;
+		for (int i = 0; i < total; ++i) {
+			const auto tex = SlotTexture(a, face, i);
+			if (!tex) continue;
+			++seen;
+			if (LooksUnused(*tex)) {
+				free += (free.empty() ? "" : " ") + std::to_string(i);
+				continue;
+			}
+			++taken;
+			// The last two parts of the path say what it is (cumoverlays\breast1.dds) without the folder every overlay shares.
+			std::string shown = *tex;
+			if (const auto cut = shown.rfind('\\'); cut != std::string::npos && cut > 0) {
+				if (const auto cut2 = shown.rfind('\\', cut - 1); cut2 != std::string::npos) shown = shown.substr(cut2 + 1);
+			}
+			used += std::format("{}{}={}:{}", used.empty() ? "" : ", ", i, IsOurs(*tex, ours) ? "ours" : "other", shown);
+		}
+		if (seen == 0) return std::format("{} slots not readable (3D not loaded)", face ? "face" : "body");
+		return std::format("{} {}/{} used [{}] free [{}]", face ? "face" : "body", taken, seen, used, free);
+	}
+
 	std::string Report(RE::Actor* a, bool face, int total, const std::vector<std::string>& ours)
 	{
 		if (!a) return "no actor";

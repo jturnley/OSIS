@@ -65,6 +65,8 @@ namespace Debug
 	void Tick();
 	// A scene was set up or torn down: say where everything stands, whatever the snapshot clock says.
 	void SnapshotNow();
+	// One line for an actor's RaceMenu overlay slots, body and face: which are in use, by whom (ours or another mod's) and which are free. a_why says what happened (a scene change).
+	void OverlaySlots(RE::Actor* a_actor, std::string_view a_why);
 
 	// ---------------------------------------------------------------- formatting helpers
 	[[nodiscard]] const char* PhonemeName(int a_id);
