@@ -870,7 +870,7 @@ namespace Face::Engine::detail
 		void ApplyArchetype(Preset& e, int arch)
 		{
 			if (arch == 3) {
-				Add2(e, 20, 0.15f);
+				Add2(e, 20, 0.05f);  // the shy rule in ApplyPersonalityFace carries the worried brows; this one used to add 0.15 on top of its 0.25
 			} else if (arch == 4) {
 				Mul(e, 0, 0.6f);
 				Mul(e, 11, 0.6f);
@@ -1125,8 +1125,9 @@ namespace Face::Engine::detail
 			return ClampF(1.0f - (static_cast<float>(enj) - 20.0f) / 60.0f, 0.0f, 1.0f);
 		}
 
-		// Timid: the closeness is what they cannot face, so the eyes are shut a lot of the time and now and then, one beat in eight, they peek.
-		bool TimidPeeking(const Thread& t, int seed) { return (t.tick + seed) % 8 == 0; }
+		// Timid: the closeness is what they cannot face, so the eyes are shut a lot of the time and now and then, one beat in five, they peek (it was one in eight, and with the lids
+		// at 0.60 to 0.90 the eyes were shut nearly all of the time).
+		bool TimidPeeking(const Thread& t, int seed) { return (t.tick + seed) % 5 == 0; }
 
 		// What each personality does to the face itself, on top of whatever the pool or a template gave. Their weights in the picks (moods,
 		// build-up faces, climax faces) do most of the work; this is what no pick can say. It runs after the eye scalar, so the eyes are not
@@ -1167,15 +1168,18 @@ namespace Face::Engine::detail
 					if (building) SwapClashingMood(e, kNotHappy, 10, 0.5f);
 					break;
 				}
-				Add2(e, 20, 0.25f * c);
-				Add2(e, 22, 0.18f * c);
-				Add2(e, 28, 0.08f * c);
-				Add(e, 2, 0.30f * c);
+				// Sized for the start of a scene, where c is 1: conflicted, not crying. It used to be brows in 0.25, up 0.18, lips 0.30, eyes down 0.35 and a sad mood of 0.70 on top
+				// of the build-up face and the archetype's brows (0.15 more). A face probe of a shy actor (a report, with Strength and Profile up: x1.45 on the mood, x1.84 on the lids
+				// and brows) rendered mood sad 1.00, brows in 0.84 and up 0.80, eyes down 0.64 and the lips pressed at 0.73 for the whole lead-in.
+				Add2(e, 20, 0.12f * c);
+				Add2(e, 22, 0.10f * c);
+				Add2(e, 28, 0.04f * c);
+				Add(e, 2, 0.08f * c);
 				Mul(e, 0, 1.0f - 0.5f * c);
-				Add(e, 24, 0.35f * c);
+				Add(e, 24, 0.18f * c);
 				if (c > 0.45f) {
 					e[30] = 11.0f;
-					e[31] = 0.15f + 0.55f * c;
+					e[31] = 0.10f + 0.30f * c;
 				}
 				break;
 			}
@@ -1184,9 +1188,11 @@ namespace Face::Engine::detail
 				// partner now and then (SetGaze looks at them for it). The blink channel is the only thing that closes the lids; squint narrows them.
 				if (!building && dom != kAfterglow) break;
 				if (building) SwapClashingMood(e, (1u << 0) | (1u << 6), 10, 0.5f);  // they enjoy it a lot: no anger or disgust
-				float close = dom == kAnticipation ? 0.35f : 0.60f + 0.30f * ClampF((static_cast<float>(enj) - 20.0f) / 60.0f, 0.0f, 1.0f);
-				if (dom == kPlateau) close = 0.92f;
-				if (dom == kAfterglow) close = 0.55f;
+				// How far the lids are held, at least (a build-up face that shuts the eyes harder keeps its own): a little at the start, more as it builds, nearly shut at the edge. It used to
+				// be 0.35 at the start, 0.60 to 0.90 in the build-up, 0.92 at the edge and 0.55 after, which kept the eyes shut almost all of the time.
+				float close = dom == kAnticipation ? 0.20f : 0.45f + 0.30f * ClampF((static_cast<float>(enj) - 20.0f) / 60.0f, 0.0f, 1.0f);
+				if (dom == kPlateau) close = 0.85f;
+				if (dom == kAfterglow) close = 0.45f;
 				Debug::Log(Debug::Cat::Face, "{}: timid rule: eyes {} (lids {:.2f}, enjoying it a lot: no anger or disgust)", Debug::Label(s.id), building && TimidPeeking(t, seed) ? "peeking at the partner" : "shut", close);
 				if (building && TimidPeeking(t, seed)) {
 					e[16] = e[17] = 0.0f;
@@ -1247,7 +1253,7 @@ namespace Face::Engine::detail
 				const bool flip = ((t.tick / 33 + seed) % 2) == 0;
 				const int downLead = flip ? 18 : 19, downTrail = flip ? 19 : 18;  // BrowDown L / R
 				const int upLead = flip ? 22 : 23, upTrail = flip ? 23 : 22;      // BrowUp L / R
-				const float weight = 0.6f + 0.4f * heat;
+				const float weight = 0.45f + 0.55f * heat;  // the brows build with the excitement: about half at the start (it was 0.6 + 0.4 * heat)
 				Debug::Log(Debug::Cat::Face, "{}: crazed rule: {} | brows look {} ({}), lead side {}, weight {:.2f} | lids held open, no squint, grin (Eee) under it", Debug::Label(s.id),
 					creepy ? "creepy look (the partner is climaxing): smile at full, brows at their lowest" : "yandere stare", look, look == 0 ? "the menace" : (look == 1 ? "the manic" : "the unevenness"), flip ? "left" : "right", weight);
 				if (look == 0) {  // the menace
@@ -1270,10 +1276,10 @@ namespace Face::Engine::detail
 					e[31] = 1.0f;
 				} else if (((t.tick / 8 + seed) % 10) < 2) {
 					e[30] = 8.0f;  // the anger behind it, for a moment
-					e[31] = 0.45f;
+					e[31] = 0.25f + 0.20f * heat;
 				} else {
 					e[30] = 10.0f;
-					e[31] = 0.85f;
+					e[31] = 0.40f + 0.45f * heat;  // the smile builds with the excitement too: it was a fixed 0.85 from the first second
 				}
 				break;
 			}
