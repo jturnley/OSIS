@@ -134,22 +134,18 @@ namespace Face::Output
 	[[nodiscard]] bool IsPainted(RE::Actor* a_actor);
 	[[nodiscard]] std::size_t PaintedCount();
 
-	// Diagnostics. For a_seconds of face writes (the clock starts at the next write, so time
-	// spent in a menu does not count), log once a second per actor: what we wrote, what the
-	// game finally rendered, what dialogue lip-sync contributed, and how often anything else
-	// changed the face between two of our writes. Separates "the engine asks for a flat face"
-	// from "something overwrites it" with numbers instead of guesses.
-	void ArmProbe(float a_seconds);
-	[[nodiscard]] bool Probing();
+	// Diagnostics. While debug logging is on (General > Debug logging) the face is watched frame by frame: what changed between two of our writes, what the game
+	// rendered, how often it jumped or snapped, and what had to be put back. This is what it saw for this actor since the last call, for the snapshot's watch line.
+	[[nodiscard]] std::string DescribeWatch(RE::Actor* a_actor);
 
 	// Called from the per-frame animation hooks.
 	void Update(RE::Actor* a_actor, float a_delta);
 	// Called from the face node's own update, immediately before the game turns the face keyframes
 	// into the values it renders. With OStim's writer on (layered) it puts our last values back over
 	// anything OStim wrote since. Does no easing and writes only what Update last did. Returns the
-	// probe's reading of the rendered totals before the update, or -1 when not probing.
+	// reading of the rendered totals before the update, or -1 when debug logging is off.
 	float ReassertFace(RE::BSFaceGenAnimationData* a_data);
-	// Probe only: after that update, did the rendered totals move?
+	// Debug logging only: after that update, did the rendered totals move?
 	void NoteFaceRead(RE::BSFaceGenAnimationData* a_data, float a_pre);
 	// Fallback when the NPC animation hook couldn't be installed: every painted NPC, from
 	// the main-thread heartbeat.

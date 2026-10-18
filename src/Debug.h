@@ -17,8 +17,9 @@
 //  [moan]     the Director's own moans                                      [climax]  orgasms and the climax faces        [control] stalls and permits
 //  [body]     curl, genital bend, head tilt, PPA claims                     [arousal] morphs and blush                    [skin]    overlays
 //  [event]    OStim and SLED events in                                      [papyrus] calls out to OStim                  [snap]    a line per actor every second
-// The [snap] lines are the answer to "what is this actor doing right now": personality, phase, excitement, who owns the face, and the values the game is
-// rendering. Nothing is written, and almost nothing is computed, while debug logging is off.
+// The [snap] lines are the answer to "what is this actor doing right now": personality, phase, excitement, who owns the face, the values the game is
+// rendering, and a watch line: with debug logging on the face is watched frame by frame (what changed between OSIS's writes, jumps and snaps in the rendered
+// face, what had to be put back; the old "Probe faces" buttons). Nothing is written, and almost nothing is computed, while debug logging is off.
 //
 // The file is not touched until debug logging is switched on, and the previous session's file is kept as OSIS-Debug.previous.log (once per launch), so the
 // trace of a session that crashed is still there after the game is started again.

@@ -141,10 +141,6 @@ namespace Face::Output
 		std::unordered_map<RE::FormID, State> g_states;
 		std::atomic<std::size_t> g_count{ 0 };
 
-		std::atomic<float> g_probeArm{ 0.0f };    // seconds requested; the run starts at the next write
-		std::atomic<float> g_probeUntil{ 0.0f };
-		std::atomic<bool> g_probeDone{ true };
-
 		float Val(const RE::BSFaceGenKeyframeMultiple& kf, std::uint32_t i) { return kf.values && i < kf.count ? kf.values[i] : 0.0f; }
 
 		int Top(const RE::BSFaceGenKeyframeMultiple& kf, std::uint32_t n, float& v)
@@ -199,11 +195,11 @@ namespace Face::Output
 					s.lastDelta = d;
 				}
 				for (std::uint32_t i = first; i < end && i < 17; ++i) {
-					if (s.fin[i] - now[i] <= 0.20f || p.snapsLogged >= 80) continue;
-					++p.snapsLogged;
+					if (s.fin[i] - now[i] <= 0.20f) continue;
 					++s.snaps;
-					logger::info("Probe {:08X} {}: SNAP {} #{} {:.2f} -> {:.2f} in one frame; keyframe now {:.2f}; we wrote {}", a->GetFormID(),
-						a->GetDisplayFullName(), name, i, s.fin[i], now[i], Val(key, i),
+					if (p.snapsLogged >= 20) continue;  // all are counted; only the first few between two snapshots are written out
+					++p.snapsLogged;
+					Debug::Log(Debug::Cat::Face, "{}: SNAP {} #{} {:.2f} -> {:.2f} in one frame; keyframe now {:.2f}; we wrote {}", Debug::Label(a), name, i, s.fin[i], now[i], Val(key, i),
 						(ours && (mask & (1u << i))) ? std::format("{:.2f}", ours[i]) : std::string("nothing last frame"));
 				}
 			}
@@ -247,46 +243,31 @@ namespace Face::Output
 			if (p.exprWritten) check(fg.expressionKeyFrame, p.expr, 0, true, p.hitExpr, p.dExpr, p.chExpr, p.foundExpr, p.oursExpr);
 		}
 
-		// Once a second: our last writes against what the game rendered from them. The game's
-		// final values (expression3 / modifier3 / phoneme3) are what reaches the face mesh.
-		void ProbeLog(RE::Actor* a, Probe& p, const RE::BSFaceGenAnimationData& fg)
+		// While debug logging is on, the face is watched frame by frame (ProbeEntry, and ReassertFace for what it had to put back): the keyframe sizes are written
+		// once for an actor, and what the detector saw is read out with every snapshot (WatchLine, through DescribeWatch).
+		void LogKeyframeSizes(RE::Actor* a, Probe& p, const RE::BSFaceGenAnimationData& fg)
 		{
-			if (!p.countsLogged) {
-				p.countsLogged = true;
-				logger::info("Probe {:08X} {}: keyframe sizes expr {}/{} mod {}/{} mouth {}/{} (input/rendered), transition target {}",
-					a->GetFormID(), a->GetDisplayFullName(), fg.expressionKeyFrame.count, fg.expression3.count, fg.modifierKeyFrame.count,
-					fg.modifier3.count, fg.phenomeKeyFrame.count, fg.phoneme3.count, fg.transitionTargetKeyFrame ? "present" : "none");
-			}
-			float ov, rv, opv, rpv;
-			const int om = p.exprWritten ? Top(p.expr, ov) : -1;
-			const int rm = Top(fg.expression3, kExpressions, rv);
-			int op = -1;
-			opv = 0.0f;
-			for (int i = 0; i < kPhonemes; ++i) {
-				if ((p.phMask & (1u << i)) && p.ph[i] > opv) {
-					opv = p.ph[i];
-					op = i;
-				}
-			}
-			const int rp = Top(fg.phoneme3, kPhonemes, rpv);
-			const auto m = [&](int i) { return (p.modMask & (1u << i)) ? p.mod[i] : -1.0f; };
-			logger::info(
-				"Probe {:08X} {}: mood ours {}@{:.2f} rendered {}@{:.2f} | brows ours dn {:.2f} in {:.2f} up {:.2f} sq {:.2f}, rendered dn {:.2f} in {:.2f} up {:.2f} sq {:.2f}, blink ours {:.2f} rendered {:.2f} | "
-				"mouth ours {}@{:.2f} rendered {}@{:.2f}, dialogue lip-sync max {:.2f} | changed by something else between our writes: mood {}/{} brows {}/{} mouth {}/{} frames, "
-				"override found off {} | lip-sync clips started {}",
-				a->GetFormID(), a->GetDisplayFullName(), om, ov, rm, rv, m(kBrowDownL), m(kBrowInL), m(kBrowUpL), m(kSquintL),
-				Val(fg.modifier3, kBrowDownL), Val(fg.modifier3, kBrowInL), Val(fg.modifier3, kBrowUpL), Val(fg.modifier3, kSquintL),
-				m(kBlinkL), Val(fg.modifier3, kBlinkL),
-				op, opv, rp, rpv, p.dlgPh, p.hitExpr, p.frames, p.hitMod, p.frames, p.hitPh, p.frames, p.overrideOff, p.trackStarts);
+			if (p.countsLogged) return;
+			p.countsLogged = true;
+			Debug::Log(Debug::Cat::Face, "{}: keyframe sizes expr {}/{} mod {}/{} mouth {}/{} (input/rendered), transition target {}", Debug::Label(a), fg.expressionKeyFrame.count,
+				fg.expression3.count, fg.modifierKeyFrame.count, fg.modifier3.count, fg.phenomeKeyFrame.count, fg.phoneme3.count, fg.transitionTargetKeyFrame ? "present" : "none");
+		}
+
+		// What the detector saw since the last snapshot, with the counters started over. The game's final values (expression3 / modifier3 / phoneme3) are what
+		// reaches the face mesh; what we asked for and what was rendered are already in the snapshot's out line, so this is only what changed between them.
+		std::string WatchLine(Probe& p)
+		{
+			if (p.frames == 0) return "no face frames since the last snapshot";
+			std::string out = std::format(
+				"{} frames | changed by something else between our writes: mood {} brows {} mouth {} frames, override found off {} | rendered frame to frame (jumps/reversals/snaps): "
+				"mouth {}/{}/{} eyes+brows {}/{}/{} mood {}/{}/{} | the game's final values changed inside the face node update in {} of {} | outside changes put back before render: {} (largest {:.2f}) | "
+				"dialogue lip-sync max {:.2f} | lip-sync clips started {}",
+				p.frames, p.hitExpr, p.hitMod, p.hitPh, p.overrideOff, p.ser[0].jumps, p.ser[0].reversals, p.ser[0].snaps, p.ser[1].jumps, p.ser[1].reversals, p.ser[1].snaps,
+				p.ser[2].jumps, p.ser[2].reversals, p.ser[2].snaps, p.movedInside, p.preChecked, p.restores, p.restoreWorst, p.dlgPh, p.trackStarts);
 			if (p.chExpr >= 0 || p.chMod >= 0 || p.chPh >= 0) {
-				logger::info("Probe {:08X}: largest outside changes: mood #{} {:.2f} where we wrote {:.2f}; modifier #{} {:.2f} where we wrote {:.2f}; phoneme #{} {:.2f} where we wrote {:.2f}",
-					a->GetFormID(), p.chExpr, p.foundExpr, p.oursExpr, p.chMod, p.foundMod, p.oursMod, p.chPh, p.foundPh, p.oursPh);
+				out += std::format(" | largest outside changes: mood #{} {:.2f} where we wrote {:.2f}; modifier #{} {:.2f} where we wrote {:.2f}; phoneme #{} {:.2f} where we wrote {:.2f}",
+					p.chExpr, p.foundExpr, p.oursExpr, p.chMod, p.foundMod, p.oursMod, p.chPh, p.foundPh, p.oursPh);
 			}
-			logger::info("Probe {:08X}: rendered face frame to frame - mouth {} jumps / {} reversals / {} snaps, eyes+brows {} / {} / {}, mood {} / {} / {} ({} frames); "
-				"the game's final values changed inside the face node update in {} of {} frames; "
-				"outside changes to our face put back before render: {} (largest {:.2f})",
-				a->GetFormID(), p.ser[0].jumps, p.ser[0].reversals, p.ser[0].snaps, p.ser[1].jumps, p.ser[1].reversals, p.ser[1].snaps,
-				p.ser[2].jumps, p.ser[2].reversals, p.ser[2].snaps, p.frames, p.movedInside, p.preChecked, p.restores, p.restoreWorst);
 			const auto keep = p;
 			p = Probe{};
 			for (std::size_t g = 0; g < keep.ser.size(); ++g) {
@@ -294,7 +275,6 @@ namespace Face::Output
 				p.ser[g].sum = keep.ser[g].sum;
 				p.ser[g].have = keep.ser[g].have;
 			}
-			p.snapsLogged = keep.snapsLogged;
 			p.ph = keep.ph;
 			p.mod = keep.mod;
 			p.expr = keep.expr;
@@ -303,6 +283,7 @@ namespace Face::Output
 			p.exprWritten = keep.exprWritten;
 			p.valid = keep.valid;
 			p.countsLogged = true;
+			return out;
 		}
 
 		State* Get(RE::Actor* a, bool create)
@@ -452,12 +433,6 @@ namespace Face::Output
 			st->exprUsed = true;
 			st->exprRelease = false;
 		}
-		if (Scenes::Now() < g_probeUntil.load()) {
-			logger::info("Probe {:08X} {}: preset mood {}@{:.2f} brows dn {:.2f} in {:.2f} up {:.2f} squint {:.2f} look down {:.2f} up {:.2f}, mouth {} (strengths expr {:.2f} mod {:.2f})",
-				a->GetFormID(), a->GetDisplayFullName(), mood, e[31] * exprStr, e[16 + kBrowDownL] * modStr, e[16 + kBrowInL] * modStr,
-				e[16 + kBrowUpL] * modStr, e[16 + kSquintL] * modStr, e[16 + kLookDown] * modStr, e[16 + kLookUp] * modStr,
-				skipPhonemes ? "left alone" : "set", exprStr, modStr);
-		}
 	}
 
 	void ReleaseMood(RE::Actor* a, float speed)
@@ -523,15 +498,7 @@ namespace Face::Output
 			Debug::Log(Debug::Cat::Mouth, "{}: lip-sync track {} ({:.2f} s long, started {:.2f} s ago, gain {:.2f}, max open {:.2f}, pitch {}, shape {}, brows {:.2f})", Debug::Label(a),
 				st->track == env ? "re-anchored" : "started", env->Duration(), Scenes::Now() - start, params.gain, params.maxOpen,
 				env->medianHz > 0.0f ? std::format("{:.0f} Hz", env->medianHz) : std::string("unvoiced"), params.shapeMouth ? "follows the sound" : "plain", params.browGain);
-			if (Scenes::Now() < g_probeUntil.load()) {
-				++st->probe.trackStarts;
-				if (st->track == env) {
-					logger::info("Probe {:08X} {}: the same lip-sync clip restarted, start moved {:+.2f} s", a->GetFormID(), a->GetDisplayFullName(), start - st->trackStart);
-				} else {
-					logger::info("Probe {:08X} {}: lip-sync clip started ({:.2f} s long, {:.2f} s in){}", a->GetFormID(), a->GetDisplayFullName(),
-						env->Duration(), Scenes::Now() - start, st->TrackActive(Scenes::Now()) ? " while the previous clip was still playing" : "");
-				}
-			}
+			if (Debug::On()) ++st->probe.trackStarts;
 			st->track = std::move(env);
 			st->trackStart = start;
 		}
@@ -688,15 +655,14 @@ namespace Face::Output
 
 	std::size_t PaintedCount() { return g_count.load(); }
 
-	void ArmProbe(float seconds)
+	std::string DescribeWatch(RE::Actor* a)
 	{
-		g_probeUntil = 0.0f;
-		g_probeDone = false;
-		g_probeArm = std::max(1.0f, seconds);
-		logger::info("Face probe: armed for {:.0f} s; starts with the next face write ({} face(s) being written)", seconds, g_count.load());
+		if (!a) return "none";
+		std::scoped_lock l(g_lock);
+		const auto it = g_states.find(a->GetFormID());
+		if (it == g_states.end()) return "no face state (nothing of ours has been written for this actor)";
+		return WatchLine(it->second.probe);
 	}
-
-	bool Probing() { return Scenes::Now() < g_probeUntil.load() || g_probeArm.load() > 0.0f; }
 
 	void Update(RE::Actor* a, float dt)
 	{
@@ -719,25 +685,15 @@ namespace Face::Output
 		st.fg = fg;
 		RE::BSSpinLockGuard guard(fg->lock);
 		const float now = Scenes::Now();
-		if (const float arm = g_probeArm.exchange(0.0f); arm > 0.0f) {
-			g_probeUntil = now + arm;
-			logger::info("Face probe: running for {:.0f} s", arm);
-		}
-		const bool probing = now < g_probeUntil.load();
+		const bool probing = Debug::On();  // the face is watched frame by frame while debug logging is on
 		auto& pr = st.probe;
 		if (probing) {
+			LogKeyframeSizes(a, pr, *fg);
 			ProbeEntry(a, pr, *fg);
-			if (pr.next <= 0.0f) {
-				pr.next = now + 1.0f;
-			} else if (now >= pr.next) {
-				ProbeLog(a, pr, *fg);
-				pr.next = now + 1.0f;
-			}
 			pr.phMask = pr.modMask = 0;
 			pr.exprWritten = false;
-		} else {
-			if (pr.valid || pr.frames) pr = Probe{};
-			if (!g_probeDone.exchange(true)) logger::info("Face probe: done");
+		} else if (pr.valid || pr.frames) {
+			pr = Probe{};
 		}
 
 		if (st.reseedAll) {
@@ -999,7 +955,7 @@ namespace Face::Output
 		auto& st = *found;
 
 		RE::BSSpinLockGuard guard(data->lock);
-		const bool probing = Scenes::Now() < g_probeUntil.load();
+		const bool probing = Debug::On();
 		const float pre = probing ? FinalSum(*data) : -1.0f;
 		if (!st.layered) {
 			// This face is ours alone (OStim's writer is off). Put back whatever we last wrote over anything that
@@ -1029,12 +985,11 @@ namespace Face::Output
 				++st.probe.restores;
 				st.probe.restoreWorst = std::max(st.probe.restoreWorst, worst);
 				if (restored >= 4) {
-					RE::Actor* who = nullptr;
+					RE::FormID whoId = 0;
 					for (auto& [id, other] : g_states) {
-						if (&other == &st) who = RE::TESForm::LookupByID<RE::Actor>(id);
+						if (&other == &st) whoId = id;
 					}
-					logger::info("Probe {:08X} {}: face reset by something else, {} channels (largest {:.2f}); put back before it rendered",
-							who ? who->GetFormID() : 0u, who ? who->GetDisplayFullName() : "?", restored, worst);
+					Debug::Log(Debug::Cat::Face, "{}: face reset by something else, {} channels (largest {:.2f}); put back before it rendered", Debug::Label(whoId), restored, worst);
 				}
 			}
 			return pre;

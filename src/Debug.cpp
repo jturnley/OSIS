@@ -13,6 +13,7 @@
 #include "Body.h"
 #include "Compat.h"
 #include "Face/Engine.h"
+#include "Face/Library.h"
 #include "Face/Output.h"
 #include "LipSync.h"
 #include "MoanVolume.h"
@@ -161,10 +162,14 @@ namespace Debug
 		{
 			return std::format(
 				"T{} {} {}{} | dom={} enj={} raw={} phrase={} rate=x{:.2f} | owners face={} mouth={} eye={} head={} | climaxing={} orgasms={} stall={} broken={} victim={} | "
-				"ppaYield={} tongue={}/{} exprOverride={} takenOver={} extMouth={} | tilt={} blinkNext={:.1f}",
+				"ppaYield={} tongue={}/{} exprOverride={} takenOver={} extMouth={} | tilt={} blinkNext={:.1f} | library {}{}",
 				t.id, Label(a), s.female ? "F" : "M", s.player ? " player" : "", DomText(s.dom), s.enj, s.raw, s.phrase,
 				s.excitementFactor, s.faceOwner, s.mouthOwner, s.eyeOwner, s.headOwner, s.climaxing, s.orgasms, s.stallActive, s.broken, s.victim, s.ppaYield, s.tongueOut,
-				s.tongueOn, s.exprOverride, s.takenOver, s.externalMouthUntil > Scenes::Now(), s.tilting, s.blinkNextAt > 0.0f ? s.blinkNextAt - Scenes::Now() : 0.0f);
+				s.tongueOn, s.exprOverride, s.takenOver, s.externalMouthUntil > Scenes::Now(), s.tilting, s.blinkNextAt > 0.0f ? s.blinkNextAt - Scenes::Now() : 0.0f,
+				t.meta && s.pos >= 0 ? Face::Library::Describe(*t.meta, s.pos) : std::string("no scene data"),
+				s.orgasms > 0 ? std::format(" | orgasm {} ({:.0f} s ago{}{})", s.orgasms, Scenes::Now() - s.lastOrgasmAt,
+					s.orgasms > 1 ? std::format(", {:.0f} s after the one before", s.orgasmGap) : std::string(),
+					s.climaxing && Scenes::Now() < s.climaxUntil ? ", climax face" : "") : std::string());
 		}
 
 		void SnapActor(const ActorRow& row)
@@ -182,6 +187,7 @@ namespace Debug
 			const int pers = Face::Engine::Archetype(a, &source);
 			Write(Cat::Snap, std::format("  personality {} ({})", Face::Engine::PersonalityName(pers), source));
 			Write(Cat::Snap, std::format("  out  {}", Face::Output::Describe(a)));
+			Write(Cat::Snap, std::format("  watch {}", Face::Output::DescribeWatch(a)));
 			Write(Cat::Snap, std::format("  body {}", Body::Describe(a)));
 			Write(Cat::Snap, std::format("  arousal {}", Arousal::Describe(a)));
 			Write(Cat::Snap, std::format("  skin {}", Skin::Describe(a)));

@@ -299,15 +299,6 @@ namespace
 		ig::SetItemTooltip("Emergency reset: neutral faces, any tongue we put out taken back, and OStim's own face writer "
 		                   "back on for everyone.");
 		ig::SameLine();
-		if (ig::Button("Probe faces (30 s)")) OnGame([]() { Face::Output::ArmProbe(30.0f); });
-		ig::SetItemTooltip("Diagnostics for a face that will not move. For 30 seconds after you close this menu, OSIS.log gets a "
-		                   "line per actor per second: what OSIS asked for, what the game actually rendered, and whether "
-		                   "anything else changed the face in between. Use it during a scene and send the log.");
-		ig::SameLine();
-		if (ig::Button("Probe faces (3 min)")) OnGame([]() { Face::Output::ArmProbe(180.0f); });
-		ig::SetItemTooltip("The same, for three minutes - long enough to take in a climax. Click it, close the menu, and "
-		                   "play the scene through.");
-		ig::SameLine();
 		if (ig::Button("Clear body + skin effects")) OnGame([]() {
 			Body::ClearAll();
 			Skin::ClearAll();
@@ -337,7 +328,7 @@ namespace
 			}
 			if (ig::IsItemHovered()) {
 				ig::SetTooltip("Writes OSIS-Debug.log next to OSIS.log: everything OSIS does or decides, a line each, and every second a line per actor with their personality, phase, "
-				               "excitement, who owns the face and what the game is rendering. The last session's file is kept as OSIS-Debug.previous.log. Costs a little disk and a little time.");
+				               "excitement, who owns the face, what the game is rendering and whether anything else changed the face between OSIS's writes (frame by frame). The last session's file is kept as OSIS-Debug.previous.log. Costs a little disk and a little time.");
 			}
 			if (bDebug) {
 				SliderF("Debug: seconds between actor snapshots", fDebugSnapshotSeconds, 0.25f, 10.0f, "%.2f", "How often the debug log says where every actor in a scene stands.");

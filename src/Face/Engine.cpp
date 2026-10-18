@@ -491,19 +491,6 @@ namespace Face::Engine
 			}
 		}
 
-		// What the probe's beat line says about this actor's orgasms and personality.
-		std::string OrgasmNote(const Slot& s)
-		{
-			const float now = Scenes::Now();
-			std::string out = std::format(", personality {} ({})", PersonalityName(s.arch), s.archSource);
-			if (s.orgasms > 0) {
-				out += std::format(", orgasm {} ({:.0f} s ago{}{})", s.orgasms, now - s.lastOrgasmAt,
-					s.orgasms > 1 ? std::format(", {:.0f} s after the one before", s.orgasmGap) : std::string(),
-					s.climaxing && now < s.climaxUntil ? ", climax face" : "");
-			}
-			return out;
-		}
-
 		void ApplyAll(Thread& t, bool arc)
 		{
 			if (!t.active) return;
@@ -642,17 +629,6 @@ namespace Face::Engine
 				// "OStim mouth" on every actor the grammar is in fact driving.
 				if (!ym && LipSyncMouthActive(s, a)) s.mouthOwner = "Face + Lip-Sync";
 				UpdateOSEDTongue(t, s, a, ym);
-			}
-			if (arc && Output::Probing()) {
-				for (auto& s : t.slots) {
-					auto* a = s.Get();
-					if (!a) continue;
-					logger::info("Probe {:08X} {}: beat {} - mode {}, face '{}', mouth '{}', eyes '{}', head '{}', excitement {}{}{}{}{}{}; OStim library: {}", a->GetFormID(),
-						a->GetDisplayFullName(), t.tick, S::iMode == S::kDirector ? "Director" : (S::iMode == S::kEnhanced ? "Enhanced" : "Assist"),
-						s.faceOwner, s.mouthOwner, s.eyeOwner, s.headOwner, Raw(a), t.normalActive ? ", normal state" : "",
-						Scenes::Now() < s.afterglowUntil ? ", afterglow" : "", s.takenOver ? ", OStim face off" : ", OStim face ON", s.painted ? "" : ", not painted", OrgasmNote(s),
-						t.meta && s.pos >= 0 ? Library::Describe(*t.meta, s.pos) : std::string("no scene data"));
-				}
 			}
 		}
 	}
