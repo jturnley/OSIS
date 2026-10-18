@@ -71,7 +71,9 @@ namespace Settings
 		inline bool bGaze = true;
 		inline bool bGazeConsentOnly = false;
 		inline bool bClimaxChoreo = true;
+#if OSIS_BIO_TABLES
 		inline bool bBioPersonality = true;   // an NPC the bio tables know (npc_personalities.txt) starts with the personality they give; below SPID and the OSIS keywords, above the voice set
+#endif
 		inline bool bVoiceArchetype = true;
 		inline bool bPositionalDomSub = true;
 		inline bool bRichEmotions = true;

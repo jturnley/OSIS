@@ -291,6 +291,8 @@ stoic at the session's end. `Experience::BecomeObsessed` makes the 5% a crazed w
 
 ## NPC bios
 
+**Not in the build for now.** The code (`BioPersonality.h/.cpp`, `Face::bBioPersonality`, its menu check, the `Bio` source in `ResolvePersonality`, and the read of the shipped `npc_religion.txt`) is behind `OSIS_BIO_TABLES`, which is 0 (`xmake f --bio_tables=y` builds it again), and the two shipped tables are not in `dist/`: the bios they were read from are under SkyrimNet's Plugin License, which does not clearly allow it. The tables are on the 3.0 branch. `npc_religion_user.txt` still works.
+
 `BioPersonality.h/.cpp`, both editions. `ResolvePersonality` asks `BioPersonality::Lookup` after the SPID keyword and the OSIS keywords and before the voice set (source "Bio"; `Face::bBioPersonality`). The tables are
 `Data/SKSE/Plugins/OSIS/npc_personalities.txt` (shipped from `dist/`, built from the bio spreadsheet by a scratchpad script: adult NPCs only, `name|personality|suffix`) and `npc_personalities_user.txt` (the player's, wins),
 read once by `EnsureLoaded` (`std::call_once`) into two multimaps keyed by the name with everything but letters and digits as one space. Where several lines share a name `Find` takes the one whose suffix

@@ -5,6 +5,8 @@
 
 #pragma once
 
+#if OSIS_BIO_TABLES
+
 // A starting personality for an NPC by name, from the bios of the SkyrimNet and CHIM NPCs: Data/SKSE/Plugins/OSIS/npc_personalities.txt (shipped; one
 // line per NPC, "name|personality|suffix") and npc_personalities_user.txt beside it (the player's own lines, which win). An NPC with a line starts with
 // that personality; any other falls through to the voice set, the AI values and the seeded roll (Face::Engine::ResolvePersonality). The files are
@@ -19,3 +21,5 @@ namespace BioPersonality
 	[[nodiscard]] std::string Describe(RE::Actor* a_actor);
 	[[nodiscard]] std::string Status();
 }
+
+#endif  // OSIS_BIO_TABLES

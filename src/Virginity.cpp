@@ -20,7 +20,9 @@ namespace Virginity
 		namespace V = Settings::Virginity;
 
 		constexpr auto kConfig = "Data/SKSE/Plugins/StorageUtilData/ovirginity_config.json";
+#if OSIS_BIO_TABLES
 		constexpr auto kReligion = "Data/SKSE/Plugins/OSIS/npc_religion.txt";
+#endif
 		constexpr auto kReligionUser = "Data/SKSE/Plugins/OSIS/npc_religion_user.txt";
 		constexpr float kBrokenBase = 0.02f;   // the multiplier on OStim's excitement rate for a broken woman: a tenth of a stoic's
 		constexpr float kBrokenStep = 0.01f;   // and what every silent "orgasm" adds to it
@@ -132,7 +134,9 @@ namespace Virginity
 						read("nevervirgin", g_neverVirgin);
 					}
 				}
+#if OSIS_BIO_TABLES
 				ReadFaith(kReligion, g_faith);
+#endif
 				ReadFaith(kReligionUser, g_faithUser);
 				logger::info("First times: OVirginity Reflowered {}; {} always and {} never virgin by name (ovirginity_config.json); {} religious or Dibella names ({} of your own)", g_present ? "found" : "not found, so nothing here applies",
 					g_alwaysVirgin.size(), g_neverVirgin.size(), g_faith.size(), g_faithUser.size());

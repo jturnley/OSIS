@@ -250,10 +250,8 @@ Settings are in the SKSE Menu Framework (section "OSIS"). They are kept in
 multipliers, are in `SKSE/Plugins/OSIS/morphs.json`. The mod does not ship either file: the plugin
 creates them the first time the game runs with it, and adds to the INI any setting a newer version
 introduces. Updating the mod therefore keeps what you chose; delete a file to go back to its defaults.
-`SKSE/Plugins/OSIS/npc_personalities.txt` is a table of starting personalities for about 1,600 NPCs by name, from their SkyrimNet and CHIM bios; it is replaced when the mod is updated,
-so put your own lines in `npc_personalities_user.txt` beside it (same format, `name|personality|suffix`).
-`SKSE/Plugins/OSIS/npc_religion.txt` says which women are religious, for the first-time model (OVirginity Reflowered must be installed for that: it says who is a virgin); your own lines go in
-`npc_religion_user.txt` (`name|religious`, `name|dibella` or `name|none`).
+Who is religious, for the first-time model (OVirginity Reflowered must be installed for that: it says who is a virgin), comes from the base game's temple and priest factions;
+put names of your own in `SKSE/Plugins/OSIS/npc_religion_user.txt` (`name|religious`, `name|dibella` or `name|none`).
 Scene limits (shy, timid and submissive actors avoid scenes that put them on top, dominant and crazed ones avoid scenes that put them underneath, until their own first orgasm) read who is on top from
 OStim's scene data; correct a scene it gets wrong in `SKSE/Plugins/OSIS/scene_roles_user.txt` (`scene|<scene id>|a,p`, or `tag|<tag>|p,a`; `a` active, `p` passive, `n` neutral, one per actor).
 
@@ -392,7 +390,7 @@ def assemble(build_dir, data_dirs, edition, without):
                      "- Lip-sync reads uncompressed WAV moans only: voice packs in .fuz or xWMA are not lip-synced, and a Dynamic Dialogue Framework line is left to its own lip data.\n"
                      "- UBE: the blush textures are not shipped (convert Body Blushing's to the UBE UV) and the UBE slider values are a first estimate.\n"
                      "- Scene limits read who is on top from OStim's scene data and some scenes are read wrongly; scene_roles_user.txt takes your own lines.\n"
-                     "- Scene limits, first times, bio personalities and growth, the moan rules by personality, the recovery after an orgasm and Lip-Sync between DDF's lines are new and have had little play-testing.\n")
+                     "- Scene limits, first times, personality growth, the moan rules by personality, the recovery after an orgasm and Lip-Sync between DDF's lines are new and have had little play-testing.\n")
         submissive = ''
         if edition:  # the personality is in the full edition only
             submissive = ("\n- **Submissive** (this edition only): turned on by rough scenes, and accepts any kind of scene, forced or not,"

@@ -5,6 +5,8 @@
 
 #include "BioPersonality.h"
 
+#if OSIS_BIO_TABLES
+
 #include "Face/Engine.h"
 
 namespace BioPersonality
@@ -154,3 +156,5 @@ namespace BioPersonality
 		return std::format("{} NPC(s) by name, {} of your own", g_shipped.size(), g_user.size());
 	}
 }
+
+#endif  // OSIS_BIO_TABLES

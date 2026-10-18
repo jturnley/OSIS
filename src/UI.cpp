@@ -692,10 +692,12 @@ namespace
 				" and _Submissive"
 #endif
 				" are read too.");
+#if OSIS_BIO_TABLES
 			Check("NPC bios place a personality", bBioPersonality,
 				"An NPC whose name is in the bio tables starts with the personality those give: about 1,600 NPCs of the base game and a few mods, sorted by what their SkyrimNet and CHIM bios say of them "
 				"(Data/SKSE/Plugins/OSIS/npc_personalities.txt; your own lines go in npc_personalities_user.txt beside it, in the same format, and win). Below an SPID or OSIS keyword, above the voice set. "
 				"Everyone else gets one as before. It only matters when an actor's personality is first settled.");
+#endif
 			Check("Voice set shapes personality", bVoiceArchetype,
 				"An actor's voice type suggests a personality when nothing else has set one.");
 			Check("OBlush-aware shyness", bOBlushSync, "While OBlush has an actor blushing, the grammar treats them as shy.");
@@ -855,7 +857,7 @@ namespace
 					"balanced, and the scene that does end it can leave them stoic (a bad first time) or balanced, vocal or wild (an extraordinary one). Only a personality OSIS settled on by itself changes.");
 				if (bEnabled) {
 					SliderI("First scene: shy (%)", iShyChance, 0, 100, "The chance a virgin's first consensual scene gives her the shy personality. A religious woman is always shy.");
-					SliderI("First scene: timid (%)", iTimidChance, 0, 100, "The chance it gives her timid. The rest follow the usual rules (bio, voice, AI values, a seeded roll).");
+					SliderI("First scene: timid (%)", iTimidChance, 0, 100, "The chance it gives her timid. The rest follow the usual rules (voice, AI values, a seeded roll).");
 					SliderI("An orgasm, still a virgin: balanced (%)", iBalancedChance, 0, 100, "The chance a scene with an orgasm that leaves her a virgin makes her balanced. It is rolled every such scene until she loses it.");
 					SliderI("A bad first time: stoic (%)", iNegativeStoicChance, 0, 100, "No orgasm before the penetration, a rough scene, or the speed past the limit below before she has an orgasm: the chance she becomes stoic (otherwise she stays as she is).");
 					SliderI("A bad first time: speed limit", iSpeedLimit, 0, 10, "The scene's speed (0 is the first) that the penetrating partner may not go above before she has an orgasm.");

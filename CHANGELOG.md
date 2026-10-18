@@ -2,7 +2,7 @@
 
 ## 2.0 beta 3 (plugin version 2.0.15)
 
-The feature-complete 2.0. It stays a beta while it is tried out: what is left is bug reports, not features. Beta 2's code level and its three hotfixes, plus personalities that place themselves (from an NPC's bio, from a first time, by growing with experience), scene limits by personality, moans chosen and levelled by personality with a face that follows how they sound, Lip-Sync that works between Dynamic Dialogue Framework's lines, a recovery after each orgasm, gentler start faces for shy, timid and crazed actors, and a debug log that records what OSIS did and why.
+The feature-complete 2.0. It stays a beta while it is tried out: what is left is bug reports, not features. Beta 2's code level and its three hotfixes, plus personalities that place themselves (from a first time, by growing with experience), scene limits by personality, moans chosen and levelled by personality with a face that follows how they sound, Lip-Sync that works between Dynamic Dialogue Framework's lines, a recovery after each orgasm, gentler start faces for shy, timid and crazed actors, and a debug log that records what OSIS did and why.
 
 ### Changed
 - **Lip-Sync works between Dynamic Dialogue Framework's lines instead of standing down whenever DDF is installed.** The whole module was switched off for as long as DDF was in the load order, so every moan played with a still mouth, even
@@ -38,9 +38,8 @@ The feature-complete 2.0. It stays a beta while it is tried out: what is left is
 - **First times: a woman's first encounters shape her personality** (both editions; Personality page > First times; `[Virginity]` in the INI, on by default; needs OVirginity Reflowered, whose data says
   who is a virgin: OSIS reads its stored answer, then the `alwaysvirgin` / `nevervirgin` lists of whichever `ovirginity_config.json` wins in your load order, and asks OVirginity to work out the rest). Men have
   no first time. For a virgin woman who is not the player:
-  - **Her first consensual scene gives her a personality:** shy 40%, timid 40%, the other 20% whatever the usual rules give (bio, voice, AI values, a seeded roll). A religious woman is always shy; one who
-    worships Dibella is balanced, vocal or wild, a third each. Who is religious: `SKSE/Plugins/OSIS/npc_religion.txt` (a draft, 30 names read from the bios' summaries and the Dibella ones from their text; your own lines go in
-    `npc_religion_user.txt`, `name|none` takes one out) and the base game's temple and priest factions (Markarth's Temple of Dibella counts as Dibella).
+  - **Her first consensual scene gives her a personality:** shy 40%, timid 40%, the other 20% whatever the usual rules give (voice, AI values, a seeded roll). A religious woman is always shy; one who
+    worships Dibella is balanced, vocal or wild, a third each. Who is religious: the base game's temple and priest factions (Markarth's Temple of Dibella counts as Dibella), and any names you put in `SKSE/Plugins/OSIS/npc_religion_user.txt` (`name|religious`, `name|dibella`, or `name|none` to take one out).
   - **A scene with an orgasm that does not end her virginity** gives a 20% chance she becomes balanced, rolled every such scene until it ends.
   - **The scene that ends it:** a *bad* first time (no orgasm before the penetration, a rough scene, or the scene's speed going above the first before she has an orgasm; setting `iSpeedLimit`) leaves her stoic 50% of the
     time and as she was otherwise; an *extraordinary* one (5 or more orgasms, not in a rough scene) gives balanced, vocal or wild 30% each, with every orgasm above 5 moving 5% from balanced to each of vocal and
@@ -53,13 +52,6 @@ The feature-complete 2.0. It stays a beta while it is tried out: what is left is
     0.01; ten of those in one session with nothing rough or non-consensual in it make her stoic. As a personality she is a stoic underneath. Her state is kept in the save (record VIRG).
   Only a personality OSIS settled on by itself changes; one you set by hand, and the player's, never does. The log says each step (`First times: X is Shy: a virgin's first consensual scene (shy)`), and the debug trace has a
   `first times` line for every actor.
-- **NPCs start with a personality from their bio** (both editions; Personality page > "NPC bios place a personality", `bBioPersonality`, on by default). The spreadsheet of every SkyrimNet and CHIM bio
-  sorted into the nine personalities is now a table the mod ships, `SKSE/Plugins/OSIS/npc_personalities.txt`: 1,627 adult NPCs of the base game and a few mods, by name (children and creatures are left out), each with
-  the last three hex digits of their base form id where two NPCs share a name. An NPC in the table starts with that personality, below an SPID or OSIS keyword and above the voice set; everyone else is settled as
-  before (voice set, AI values, a seeded roll). It decides only when an actor's personality is first settled, so the choice is kept in the save like any other, and can still grow with experience. The file is
-  not to be edited (a new version replaces it): your own lines go in `npc_personalities_user.txt` beside it, in the same format (`name|personality|suffix`), and win. The table is 26% dominant and 29% stoic,
-  which is what the bios say (soldiers, guards, nobles, merchants); `Personality: ... pinned as X (Bio)` in the log, and `bio` in the debug trace's rule explanation, show where one came from. The default
-  edition plays the table's 60 submissives as timid.
 - **Personalities grow with experience, and an actor can become obsessed with one partner** (both editions; Personality page > Growing into another personality; `[Evolution]` in the INI, on by default). A scene
   is a session, and what counts in it is the orgasms the actor had. Each personality that can grow has a rule, scenes that qualify and the orgasms an actor needs in one scene for it to count: **stoic to
   balanced** after 10 scenes of 2 or more, **shy to timid** after 5 scenes of 5 or more, **timid to balanced** after 5 scenes of 5 or more, and **vocal to wild** after 10 scenes of 10 or more. The scenes need not
@@ -197,7 +189,7 @@ The feature-complete 2.0. It stays a beta while it is tried out: what is left is
 - Lip-sync reads uncompressed WAV moans only (16 and 32-bit PCM). A voice pack in `.fuz` or xWMA is not lip-synced (the log says how many files), and a Dynamic Dialogue Framework line has its own lip data and is left to it.
 - UBE: the blush textures are not shipped (convert Body Blushing's to the UBE UV and put them in the folder the UBE regions read), and the UBE slider values are a first estimate.
 - Scene limits read who is on top from OStim's scene data, and some scenes are read wrongly (about a quarter are decided by the action alone). Put your own lines in `Data/SKSE/Plugins/OSIS/scene_roles_user.txt`.
-- Much of what is new has had little play-testing: the scene limits, first times, bio personalities and growth, the moan rules by personality, the recovery after an orgasm, and Lip-Sync between DDF's lines. `OSIS.log` says what they did, and with General > Debug logging on, `OSIS-Debug.log` records it second by second.
+- Much of what is new has had little play-testing: the scene limits, first times, personality growth, the moan rules by personality, the recovery after an orgasm, and Lip-Sync between DDF's lines. `OSIS.log` says what they did, and with General > Debug logging on, `OSIS-Debug.log` records it second by second.
 
 ### Testing it
 - Install over a previous OSIS build or fresh; start a new save for testing. Send `Documents/My Games/Skyrim Special Edition/SKSE/OSIS.log` with a report. For a face problem press "Probe faces" on the Face page first and play for a minute: the log then says what OSIS wrote against what the game rendered, second by second. For anything you cannot explain, tick General > "Debug logging", repeat it, and send `OSIS-Debug.log` from the same folder too.

@@ -92,7 +92,9 @@ namespace Settings
 				{ "Face", "bGazeConsentOnly", &Face::bGazeConsentOnly },
 #endif
 				{ "Face", "bClimaxChoreo", &Face::bClimaxChoreo },
+#if OSIS_BIO_TABLES
 				{ "Face", "bBioPersonality", &Face::bBioPersonality },
+#endif
 				{ "Face", "bVoiceArchetype", &Face::bVoiceArchetype },
 				{ "Face", "bPositionalDomSub", &Face::bPositionalDomSub },
 				{ "Face", "bRichEmotions", &Face::bRichEmotions },
@@ -596,7 +598,7 @@ namespace Settings
 				{ "Virginity",
 					"; First times, for women OVirginity Reflowered says are virgins (it must be installed; its ovirginity_config.json lists decide some by name). A virgin's first consensual scene gives her shy (iShyChance percent) or timid (iTimidChance), the rest whatever the usual rules give; a religious one is always shy, one who worships Dibella is balanced, vocal or wild.\n"
 					"; iBalancedChance: a scene with an orgasm that does not end her virginity may make her balanced. A bad first time (no orgasm before the penetration, a rough scene, or the speed past iSpeedLimit before she has an orgasm) makes her stoic with iNegativeStoicChance percent. An extraordinary one (iExtraordinaryOrgasms or more orgasms) makes her balanced, vocal or wild, iExtraordinaryChance percent each, moved by iExtraordinaryStep per orgasm above that number.\n"
-					"; The npc_religion.txt table in Data/SKSE/Plugins/OSIS says who is religious (put your own lines in npc_religion_user.txt)." },
+					"; Who is religious: the base game's temple and priest factions, and the names in Data/SKSE/Plugins/OSIS/npc_religion_user.txt (name|religious, name|dibella, or name|none to take one out)." },
 				{ "Evolution",
 					"; A personality OSIS settled on by itself grows with experience; one you set by hand, and the player's own, never does. A session is one scene; each rule is a number of sessions with at least that many orgasms by the actor in each (the counts are kept in the save).\n"
 					"; Stoic to balanced, shy to timid, timid to balanced, vocal to wild. iCrazedSessions / iCrazedOrgasms: sessions of that many orgasms with the same partner make the actor crazed about that one partner, in every scene they are in together, and nobody else; their own personality is untouched." },

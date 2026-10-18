@@ -9,6 +9,12 @@
 #define NOMMNOSOUND
 #define NOMINMAX
 
+// The NPC personality tables read from the SkyrimNet and CHIM bios (src/BioPersonality.*, the shipped npc_personalities.txt and npc_religion.txt) are not in the build for now:
+// SkyrimNet's Plugin License does not clearly allow it. 0 leaves the code out; `xmake f --bio_tables=y` builds it again.
+#ifndef OSIS_BIO_TABLES
+#define OSIS_BIO_TABLES 0
+#endif
+
 #include <algorithm>
 #include <array>
 #include <atomic>

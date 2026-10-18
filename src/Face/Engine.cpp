@@ -4,7 +4,9 @@
 // repository. Distributed WITHOUT ANY WARRANTY. <https://www.gnu.org/licenses/>
 
 #include "Face/Internal.h"
+#if OSIS_BIO_TABLES
 #include "BioPersonality.h"
+#endif
 #include "Debug.h"
 #include "Experience.h"
 #include "SceneLimits.h"
@@ -1406,12 +1408,14 @@ namespace Face::Engine
 			if (g_kVocal && a->HasKeyword(g_kVocal)) return source = "Keyword", 2;
 			if (g_kShy && a->HasKeyword(g_kShy)) return source = "Keyword", 3;
 			if (g_kDominant && a->HasKeyword(g_kDominant)) return source = "Keyword", 4;
+#if OSIS_BIO_TABLES
 			if (S::bBioPersonality) {
 				if (const int bio = BioPersonality::Lookup(a); bio >= 0) {
 					source = "Bio";
 					return EditionPersonality(bio);
 				}
 			}
+#endif
 			if (S::bVoiceArchetype) {
 				if (int va = VoiceArchetype(a); va >= 0) {
 					source = "Voice";
@@ -1440,8 +1444,13 @@ namespace Face::Engine
 			auto* b = a->GetActorBase();
 			const std::uint32_t h = b ? (b->GetFormID() * 2654435761u) >> 8 : 0;
 			const int roll = NewPersonalityRoll(a);
+#if OSIS_BIO_TABLES
+			const std::string bio = S::bBioPersonality ? BioPersonality::Describe(a) : std::string("off");
+#else
+			const std::string bio = "not in this build";
+#endif
 			return std::format("SPID {} | keywords stoic={} vocal={} shy={} dominant={} | bio {} | voice set '{}' -> {} | vanilla AI aggression {:.0f} confidence {:.0f} -> {} | new-type roll {:.3f} vs share {:.2f} -> {} | weighted fallback -> {}",
-				name(SPIDArchetype(a)), has(g_kStoic), has(g_kVocal), has(g_kShy), has(g_kDominant), S::bBioPersonality ? BioPersonality::Describe(a) : std::string("off"), VoiceName(a), name(S::bVoiceArchetype ? VoiceArchetype(a) : -1),
+				name(SPIDArchetype(a)), has(g_kStoic), has(g_kVocal), has(g_kShy), has(g_kDominant), bio, VoiceName(a), name(S::bVoiceArchetype ? VoiceArchetype(a) : -1),
 				avo->GetActorValue(RE::ActorValue::kAggression), avo->GetActorValue(RE::ActorValue::kConfidence), name(VanillaAIPersonality(a)),
 				static_cast<float>(h % 1000u) / 1000.0f, S::fNewPersonalityShare, roll >= 0 ? PersonalityName(roll) : "not rolled", PersonalityName(FallbackPersonality(a)));
 		}

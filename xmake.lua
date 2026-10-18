@@ -19,6 +19,14 @@ add_rules("mode.debug", "mode.releasedbg")
 
 add_requires("simpleini", "nlohmann_json")
 
+-- The NPC personality tables read from the SkyrimNet and CHIM bios (src/BioPersonality.*, npc_personalities.txt, npc_religion.txt) are out of the build for now: SkyrimNet's Plugin
+-- License does not clearly allow it. `xmake f --bio_tables=y` builds the code again (the data files are on the 3.0 branch).
+option("bio_tables")
+    set_default(false)
+    set_showmenu(true)
+    set_description("Build the bio-derived NPC personality tables")
+option_end()
+
 local projectRoot = os.projectdir():gsub("/", "\\") .. "\\"
 
 set_project("OSIS")
@@ -43,6 +51,9 @@ local function osis_plugin(targetname, lite)
         })
 
         add_packages("simpleini", "nlohmann_json")
+        if has_config("bio_tables") then
+            add_defines("OSIS_BIO_TABLES=1")
+        end
         add_includedirs("src", "include")
         -- SKSEMenuFramework.h is vendored and still uses <codecvt>.
         add_defines("_SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING")
