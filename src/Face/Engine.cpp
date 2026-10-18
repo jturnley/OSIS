@@ -139,6 +139,15 @@ namespace Face::Engine
 		// In a non-consensual scene with an identified victim, the victim builds at
 		// fVictimExcitementMult and everyone else at fAggressorExcitementMult, relative to OStim's
 		// own rate. The original rate comes back if the thread turns consensual.
+		// Recovery after an orgasm (everyone but a wild or crazed actor, who are insatiable): OStim leaves an actor about half excited, so a fast scene could bring the next
+		// orgasm in six seconds. The excitement is brought down to kRecoveryRaw a moment after the orgasm and then builds at a fraction of the actor's rate that eases back
+		// to the full rate over fRepeatOrgasmGap seconds, so the next one has to be built up to, instead of being held back at the edge.
+		constexpr float kRecoveryFloor = 0.10f;      // the rate right after the orgasm, as a share of the usual
+		constexpr int kRecoveryRaw = 10;            // the excitement (OStim's 0-100) they are brought down to
+		constexpr float kRecoveryDropDelay = 1.5f;  // seconds after the orgasm: OStim sets its own post-orgasm excitement first
+
+		bool Recovers(int a_pers) { return S::fRepeatOrgasmGap > 0.0f && a_pers != Pers::kWild && a_pers != Pers::kCrazed; }
+
 		void UpdateExcitementRates(Thread& t)
 		{
 			const bool anyVictim = t.victimKnown;
@@ -169,8 +178,21 @@ namespace Face::Engine
 					if (pers == Pers::kDominant && others) want *= S::fDominantExcitementMult;
 					else if (crazedOther && pers != Pers::kCrazed && pers != Pers::kDominant) want *= S::fCrazedDriveMult;
 				}
-				// A broken woman's rate is exactly hers (Virginity), whatever else would change it.
+				const float usual = want;  // before the recovery below: what the log reports as the actor's rate
 				const bool broken = Virginity::IsBroken(a);
+				if (!broken && s.lastOrgasmAt > 0.0f && Recovers(Archetype(a))) {
+					const float now = Scenes::Now();
+					if (s.recoveryDrop && now - s.lastOrgasmAt >= kRecoveryDropDelay) {
+						s.recoveryDrop = false;
+						if (const int raw = Raw(a); raw > kRecoveryRaw) {
+							Papyrus::ModifyExcitement(a, -static_cast<float>(raw - kRecoveryRaw));
+							Debug::Log(Debug::Cat::Control, "{}: recovering from an orgasm: excitement brought down from {} to {}", Debug::Label(a), raw, kRecoveryRaw);
+						}
+					}
+					const float x = std::clamp((now - s.lastOrgasmAt) / S::fRepeatOrgasmGap, 0.0f, 1.0f);
+					want *= std::round((kRecoveryFloor + (1.0f - kRecoveryFloor) * x * x) * 10.0f) / 10.0f;  // in tenths: a change is a call to OStim
+				}
+				// A broken woman's rate is exactly hers (Virginity), whatever else would change it.
 				if (broken) want = Virginity::BrokenRate(a);
 				want = broken ? ClampF(want, 0.01f, 1.0f) : ClampF(want, 0.05f, 4.0f);  // OStim divides by the rate to time the climax: never zero
 				if (std::abs(want - s.excitementFactor) < 0.001f) continue;
@@ -189,7 +211,8 @@ namespace Face::Engine
 				}
 				if (!base) continue;  // applied on a later tick, once OStim's own rate is known
 				Papyrus::SetExcitementMultiplier(a, *base * want);
-				logger::info("Consent: {:08X} {} excitement rate x{:.2f} of OStim's {:.2f}", id, a->GetDisplayFullName(), want, *base);
+				if (std::abs(usual - s.excitementUsual) >= 0.001f) logger::info("Consent: {:08X} {} excitement rate x{:.2f} of OStim's {:.2f}", id, a->GetDisplayFullName(), usual, *base);
+				s.excitementUsual = usual;
 				Debug::Log(Debug::Cat::Control, "{}: excitement rate x{:.2f} of OStim's {:.2f} = {:.3f} | personality {} | consent={} victimKnown={} | settings: wild x{:.2f} stoic x{:.2f} dominant x{:.2f} crazed drive x{:.2f} victim x{:.2f} aggressor x{:.2f}",
 					Debug::Label(a), want, *base, *base * want, PersonalityName(Archetype(a)), t.consent, t.victimKnown, S::fWildExcitementMult, S::fStoicExcitementMult, S::fDominantExcitementMult,
 					S::fCrazedDriveMult, S::fVictimExcitementMult, S::fAggressorExcitementMult);
@@ -263,21 +286,12 @@ namespace Face::Engine
 						why = partnerClimaxing ? "their partner is climaxing now" : (s.climaxing ? "their own orgasm is under way" : "crazed: waiting for their partner's orgasm");
 					}
 				}
-				// Recovery: nobody but a wild or crazed actor (who are insatiable) climaxes again within fRepeatOrgasmGap seconds of their last orgasm. OStim lets excitement drop only part of
-				// the way after an orgasm, so a fast scene can bring one every few seconds; the stall holds the actor at the edge until the gap is over.
-				bool recovering = false;
-				if (!want && S::fRepeatOrgasmGap > 0.0f && pers[i] != Pers::kWild && pers[i] != Pers::kCrazed && s.lastOrgasmAt > 0.0f && !s.climaxing && now - s.lastOrgasmAt < S::fRepeatOrgasmGap) {
-					want = true;
-					recovering = true;
-					why = "recovering from their last orgasm";
-				}
 				if (!want) s.holdSince = 0.0f;
 				if (want) {
 					if (!s.stallActive) {
-						if (!recovering) logger::info("Control: {:08X} {} ({}) climax held", a->GetFormID(), a->GetDisplayFullName(), PersonalityName(pers[i]));
+						logger::info("Control: {:08X} {} ({}) climax held", a->GetFormID(), a->GetDisplayFullName(), PersonalityName(pers[i]));
 						Debug::Log(Debug::Cat::Control, "{}: climax held ({}), raw excitement {}", Debug::Label(a), why, Raw(a));
 					}
-					s.stallIsRecovery = recovering;
 					s.stallActive = true;
 					if (now - s.stallIssuedAt >= 4.0f) {
 						Papyrus::StallClimax(a);
@@ -287,8 +301,7 @@ namespace Face::Engine
 					s.stallActive = false;
 					Papyrus::PermitClimax(a);
 					s.permitRepeatAt = now + 2.5f;  // said once more, in case OStim had not yet taken the first
-					if (!s.stallIsRecovery) logger::info("Control: {:08X} {} climax permitted", a->GetFormID(), a->GetDisplayFullName());
-					s.stallIsRecovery = false;
+					logger::info("Control: {:08X} {} climax permitted", a->GetFormID(), a->GetDisplayFullName());
 					Debug::Log(Debug::Cat::Control, "{}: climax permitted ({}), held for {:.1f} s, raw excitement {}", Debug::Label(a), why, s.holdSince > 0.0f ? now - s.holdSince : 0.0f, Raw(a));
 				} else if (s.permitRepeatAt > 0.0f && now >= s.permitRepeatAt) {
 					Papyrus::PermitClimax(a);
@@ -1909,6 +1922,7 @@ namespace Face::Engine
 		s->orgasmGap = again ? now - s->lastOrgasmAt : 0.0f;
 		s->rapidRun = again && s->orgasmGap < S::fRapidOrgasmSeconds ? s->rapidRun + 1 : 0;
 		s->lastOrgasmAt = now;
+		s->recoveryDrop = Recovers(Archetype(a));
 		++s->orgasms;
 		s->climaxStart = now;
 		// This orgasm's climax clip: one of the fifteen faces, long or short, as a standard or a rapid orgasm.

@@ -250,12 +250,12 @@ and `OnOrgasm` of the dominant forces (`OActor.Climax` with IgnoreStall) any par
 `fControlMaxHold` seconds at the edge (`holdSince`, from 97) the dominant lets them go. A crazed actor is stalled the other way
 round: its own climax waits for a partner's, and the partner's `OnOrgasm` forces it (`forcedAt` stops a force from re-forcing); a crazed *man* is forced only while he is
 `Engaged` (stimulated) and at 60 excitement or more (`kMaleWithPartnerMin`), a woman always.
-**Repeat orgasms** (`fRepeatOrgasmGap`, independent of `bPersonalityControl`, any thread): after OStim's reset an actor sits at about half excitement, so a fast scene gave a wild actor an orgasm every 6.5 s
-(18 in 270 s, the first game test). In `UpdateClimaxControl`, when nothing else wants the actor stalled and they are not wild or crazed, `Slot::lastOrgasmAt` is within the gap and their own orgasm is not under way, they are stalled
-like a dominant's partner (`stallIsRecovery` keeps it out of `OSIS.log`), and permitted when the gap is over. The first orgasm is never delayed; a broken woman's silent cycles do not set `lastOrgasmAt`; a forced climax
-(`ForceClimax`, a dominant's permission or a crazed partner's) ignores the stall.
-Excitement rates: a crazed actor scales everyone else but a dominant by `fCrazedDriveMult`, a dominant scales themselves by
-`fDominantExcitementMult`. A held actor is not "imminent" for the arousal response (`IsClimaxHeld`).
+**Recovery after an orgasm** (`fRepeatOrgasmGap`, any thread, everyone but a wild or crazed actor: `Recovers`): after OStim's reset an actor sits at about half excitement, so a fast scene gave a wild actor
+an orgasm every 6.5 s (18 in 270 s, the first game test). A first version stalled them at the edge (`OActor.StallClimax`) until the gap was over; in play that was constipated, and it also started too late (after the climax
+face) and let bursts through. Now `OnOrgasm` sets `Slot::recoveryDrop`, and `UpdateExcitementRates` (every tick) brings the excitement down to `kRecoveryRaw` (10) once `kRecoveryDropDelay` (1.5 s) has passed (OStim sets
+its own post-orgasm value first; `OActor.ModifyExcitement`), and multiplies the actor's rate factor by `kRecoveryFloor + (1 - kRecoveryFloor) * x^2`, x being the time since the orgasm over the setting, in tenths so a
+change is one call to OStim, not one per tick. Nothing is stalled and nothing is permitted: an actor who is stimulated enough can still get there early. The log's "Consent: ... excitement rate" line reports the
+factor before the recovery (`Slot::excitementUsual`), so a recovery does not write a line per step. A broken woman is not touched (her rate is hers).
 
 ## Scene limits by personality
 

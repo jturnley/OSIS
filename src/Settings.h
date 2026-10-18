@@ -134,7 +134,8 @@ namespace Settings
 		// whenever they do. Consensual scenes only.
 		inline bool bPersonalityControl = true;
 		inline float fControlMaxHold = 150.0f;
-		// Repeat orgasms: everyone but a wild or crazed actor (who are insatiable) waits at least this many seconds after an orgasm before the next (OStim's stall, as above). 0 is no limit.
+		// Recovery after an orgasm: everyone but a wild or crazed actor (who are insatiable) is brought down to almost no excitement a moment after it, and builds at a tenth of their usual
+		// rate that eases back to the full rate over this many seconds. 0 leaves it to OStim.
 		inline float fRepeatOrgasmGap = 45.0f;
 		inline float fCrazedDriveMult = 2.5f;
 		inline float fCrazedBlinkSeconds = 14.0f;  // a crazed actor's stare is unbroken: the lids are held open and close for an instant about this often (0: leave blinking alone)
@@ -207,7 +208,7 @@ namespace Settings
 		enum Tongue : int { kTongueStop = 0, kTongueHold = 1, kTongueIgnore = 2 };
 		inline int iTongueMode = kTongueStop;
 		inline float fTongueMinOpen = 0.45f;  // how far the jaw is held open while a tongue is out
-		inline bool bYieldToDDF = true;       // stand down while Dynamic Dialogue Framework is installed (both drive the mouth)
+		inline bool bYieldToDDF = true;       // leave an actor's mouth to a line Dynamic Dialogue Framework is speaking (both drive the mouth); the moans between lines are synced
 	}
 
 	// ---------------------------------------------------------------- first times (Virginity.h)

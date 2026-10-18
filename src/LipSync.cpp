@@ -662,9 +662,11 @@ namespace LipSync
 		Face::Output::TrackParams params;
 		int tongueMode = Settings::LipSync::kTongueStop;
 		float tongueMinOpen = 0.45f;
+		bool yieldToLine = false;  // a line someone is speaking (DDF, vanilla dialogue) holds that actor's mouth
 		{
 			std::scoped_lock l(Settings::lock);
 			if (!Settings::LipSync::bEnabled || !Settings::General::bEnabled) return;
+			yieldToLine = Settings::Face::bDialogueMouthYield && (!Compat::DDFActive() || Settings::LipSync::bYieldToDDF);
 			params.gain = Settings::LipSync::fGain;
 			params.maxOpen = Settings::LipSync::fMaxOpen;
 			params.attack = Settings::LipSync::fAttack;
@@ -745,6 +747,17 @@ namespace LipSync
 			// Oral / dialogue: the mouth belongs to the animation or the voice line.
 			auto* t = Scenes::ThreadOf(owner);
 			auto* s = t ? t->Find(owner) : nullptr;
+			// A spoken line (Dynamic Dialogue Framework's, or the game's) is playing its own lip data on this face: the line has the mouth for as long as it lasts, and the moans
+			// between lines are ours. The track is dropped at once, so the two never write the mouth together.
+			if (yieldToLine) {
+				auto* fg = owner->GetFaceGenAnimationData();
+				if (fg && fg->dialogueData) {
+					Face::Output::ClearMouthTrack(owner);
+					++g_stats.mouthBusy;
+					NoteWait(owner, "a spoken line holds the mouth");
+					continue;
+				}
+			}
 			if (s && (s->exprOverride || (s->externalMouthUntil > now))) {
 				++g_stats.mouthBusy;
 				NoteWait(owner, s->exprOverride ? "OStim's expression override (an oral or kiss pose) holds the mouth" : "another mod holds the mouth (SLED_LipSyncMouth)");

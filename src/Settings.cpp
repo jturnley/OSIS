@@ -592,7 +592,7 @@ namespace Settings
 				{ "LipSync",
 					"; Mouth follows the moan OStim plays (decoded from your voice-set .wav files at startup).\n"
 					"; bShapeMouth: the mouth's shape follows the sound too (a hum closes the lips, an \"oh\" rounds them, a bright cry spreads them, breath parts them). fBrows 0..1: the brows follow the moan (up with a rising pitch, together with a loud one); 0 is off.\n"
-					"; bYieldToDDF: stand down while Dynamic Dialogue Framework is installed (both drive the mouth)." },
+					"; bYieldToDDF: while Dynamic Dialogue Framework is speaking a line on an actor, leave that actor's mouth to it (both drive the mouth); the moans between its lines are lip-synced as usual." },
 				{ "Virginity",
 					"; First times, for women OVirginity Reflowered says are virgins (it must be installed; its ovirginity_config.json lists decide some by name). A virgin's first consensual scene gives her shy (iShyChance percent) or timid (iTimidChance), the rest whatever the usual rules give; a religious one is always shy, one who worships Dibella is balanced, vocal or wild.\n"
 					"; iBalancedChance: a scene with an orgasm that does not end her virginity may make her balanced. A bad first time (no orgasm before the penetration, a rough scene, or the speed past iSpeedLimit before she has an orgasm) makes her stoic with iNegativeStoicChance percent. An extraordinary one (iExtraordinaryOrgasms or more orgasms) makes her balanced, vocal or wild, iExtraordinaryChance percent each, moved by iExtraordinaryStep per orgasm above that number.\n"

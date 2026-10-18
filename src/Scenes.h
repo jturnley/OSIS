@@ -44,7 +44,8 @@ namespace Scenes
 		// Personality control (Engine.cpp UpdateClimaxControl): this actor's climax is stalled by us, when we last said so, when to say
 		// permit a second time, and since when they have been held at the edge.
 		bool stallActive = false;
-		bool stallIsRecovery = false;  // the stall is only the wait between orgasms (fRepeatOrgasmGap), not a dominant's or a crazed actor's control
+		bool recoveryDrop = false;      // their excitement is to be brought down a moment after their orgasm (fRepeatOrgasmGap)
+		float excitementUsual = 1.0f;  // the rate factor before the recovery after an orgasm, as last reported in the log
 		float stallIssuedAt = -100.0f;
 		float permitRepeatAt = 0.0f;
 		float holdSince = 0.0f;

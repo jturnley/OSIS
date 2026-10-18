@@ -54,7 +54,7 @@ namespace Compat
 		g_odf = std::filesystem::exists("Data/SKSE/Plugins/ODF_distribution_rules", odfEc);
 		if (g_odf) logger::info("Overlay Distribution Framework is installed: it claims overlay slots of its own");
 		g_ddf = dh && dh->LookupModByName("TMS_DynamicDialogue.esp");
-		if (g_ddf) logger::info("Dynamic Dialogue Framework is active: Lip-Sync stands down while bYieldToDDF is on");
+		if (g_ddf) logger::info("Dynamic Dialogue Framework is active: Lip-Sync leaves an actor's mouth to a line DDF is speaking (bYieldToDDF), and syncs the moans between lines");
 		g_ahegao = dh && dh->LookupModByName("AhegaoExpressions.esp");
 		logger::info("Ahegao Expressions {}", g_ahegao ? "is installed: the Faces module stands down while bAhegaoAutoYield is on" : "not found");
 	}
@@ -67,7 +67,6 @@ namespace Compat
 	bool Disabled(Module m)
 	{
 		if (g_yield[m]) return true;
-		if (m == kLipSync) return g_ddf && Settings::LipSync::bYieldToDDF;
 		if (m == kFace) return AhegaoYield();
 		return false;
 	}
@@ -75,7 +74,6 @@ namespace Compat
 	std::string Reason(Module m)
 	{
 		if (g_yield[m]) return g_reason[m];
-		if (m == kLipSync && g_ddf && Settings::LipSync::bYieldToDDF) return "stood down: Dynamic Dialogue Framework is active";
 		if (m == kFace && AhegaoYield()) return g_ahegao ? "stood down: Ahegao Expressions is installed" : "stood down: set to always yield to an ahegao mod";
 		return {};
 	}

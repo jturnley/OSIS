@@ -3,15 +3,19 @@
 ## 2.0 beta 3, in progress (plugin version 2.0.15)
 
 ### Changed
+- **Lip-Sync works between Dynamic Dialogue Framework's lines instead of standing down whenever DDF is installed.** The whole module was switched off for as long as DDF was in the load order, so every moan played with a still mouth, even
+  in the gaps between DDF's spoken lines. Now Lip-Sync leaves an actor's mouth only while a line is playing its own lip data on that face (`BSFaceGenAnimationData::dialogueData`, the test the face engine already used for "Yield mouth to
+  dialogue"), drops its track the moment one starts, and syncs the moans in between. `bYieldToDDF` now means "leave the mouth to DDF's lines" (on by default); off runs Lip-Sync over them too. The debug trace's lip counters count a line as
+  "mouth busy".
 - **The debug trace shows the RaceMenu overlay slots.** At every scene change and as a scene ends, each painted actor gets a `[skin]` line: `overlay slots at the scene change to X: body 3/12 used [2=other:cumoverlaysreast1.dds, 6=ours:...] free [0 1 3 ...] |
   face ... | OSIS holds slots: blush=0 saliva=1 tear=2`. A blush repaint says which body slots it took and cleared, and when a face effect is written into a slot that another mod's texture holds it says so (`face slot 1 held '...' when the saliva overlay
   was written over it`). For finding out who overwrites whose overlay (a report: OCum's cum overlay vanishing at a scene change).
 - **The debug trace says which voice set and which file a moan is.** Each `[moan]` line for an OStim voice-set sound now ends with `| file <the sound file's path>`, and the trace has `OStim's voice set for this actor: 'X'` for every actor at the
   start of a scene and again six seconds in (a voice-set mod such as OSSO can assign one as the scene starts). For tracking down why an actor, the player especially, has a voice other than the one chosen in the MCM.
-- **Repeat orgasms are capped for everyone but a wild or crazed actor** (Face > "Seconds between an actor's orgasms", `fRepeatOrgasmGap`, 45 s by default, 0 is off). OStim lets excitement drop only part of the way
-  after an orgasm, so a fast scene could bring one every six seconds (the first game test: a wild actor, 18 orgasms in 270 s, the last 11 in 74 s). After an orgasm every other actor is now held at the edge with OStim's stall
-  (the one the dominant's control uses) until the gap is over, then permitted. A wild actor and a crazed one are insatiable and keep OStim's pace. The log is quiet about it, the debug trace has the `[control]` lines
-  (`climax held (recovering from their last orgasm)`).
+- **Recovery after an orgasm, for everyone but a wild or crazed actor** (Face > "Recovery after an orgasm (s)", `fRepeatOrgasmGap`, 45 s by default, 0 is off). OStim leaves an actor about half excited after an orgasm, so a fast scene
+  could bring the next one in six seconds (the first game test: a wild actor, 18 orgasms in 270 s). A first version held the actor at the edge with OStim's stall; it worked, and felt constipated: arousal at 100 and nothing
+  to do with it. Now, 1.5 s after the orgasm their excitement is brought down to 10, and it builds at a tenth of their usual rate that eases back to the full rate over the recovery time, so the next orgasm is worked up to.
+  A wild actor and a crazed one are insatiable and keep OStim's pace. The debug trace has `recovering from an orgasm: excitement brought down from N to 10`.
 - **A crazed actor's head tilt is off by default** (Body > "Crazed actors tilt their head", `bHeadTilt`). It rolls the head and neck bones, and a report says that breaks SMP hair hung from them. An INI that already
   has `bHeadTilt = true` (the settings file is written on the first run) keeps it: switch it off on the Body page, or set `bHeadTilt = false` in the `[Body]` section.
 - **Scene limits by personality** (both editions; Personality page > Scene limits; `[SceneLimits]` in the INI, on by default). Until an actor's own first orgasm in a scene, a *passive* personality (shy, timid,

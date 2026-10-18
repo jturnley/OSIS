@@ -230,7 +230,7 @@ namespace
 			Row("OBlush (face blush yields to it)", Face::Engine::OBlushPresent());
 			Row("Devious Devices (gag/blindfold faces)", Face::Engine::DevicesPresent());
 			Row("Ahegao Expressions (Faces stands down, face blush yields to it)", Face::Engine::AhegaoPresent());
-			Row("Dynamic Dialogue Framework (Lip-Sync stands down)", Compat::DDFActive(), "installed", "not installed");
+			Row("Dynamic Dialogue Framework (Lip-Sync leaves its spoken lines alone)", Compat::DDFActive(), "installed", "not installed");
 			Row("Overlay Distribution Framework", Compat::ODFActive(), "installed (shares overlay slots)", "not installed");
 			ig::EndTable();
 		}
@@ -355,8 +355,8 @@ namespace
 				ModuleRow("Living Skin (face blush, saliva)", Settings::Skin::bEnabled, Compat::kSkin,
 					"RaceMenu face overlays. Off for a mod that uses the same overlay slots or blushes the face.");
 				ModuleRow("Lip-Sync", Settings::LipSync::bEnabled, Compat::kLipSync,
-					"Moves the mouth with OStim's moans. Off for a mod that also drives the mouth. Dynamic Dialogue Framework does, "
-					"so Lip-Sync stands down while DDF is installed (see the Lip-Sync page).");
+					"Moves the mouth with OStim's moans. Off for a mod that also drives the mouth. Dynamic Dialogue Framework speaks lines with their own lip movement, "
+					"so Lip-Sync leaves an actor's mouth to a line while it plays and syncs the moans between lines (see the Lip-Sync page).");
 				ModuleRow("Arousal (body morphs)", Settings::Arousal::bEnabled, Compat::kArousal,
 					"Arousal body morphs and body blush. Off for another arousal-morph mod.");
 				ModuleRow("Scene limits (by personality)", Settings::SceneLimits::bEnabled, -1,
@@ -744,10 +744,11 @@ namespace
 				"The dominant lets them go after this long at the edge if they have not climaxed themselves.");
 			SliderF("Dominant: excitement rate", fDominantExcitementMult, 0.5f, 2.0f, "%.2f", "Times OStim's rate for a dominant: their own pleasure comes first.");
 			SliderF("Crazed: partner's excitement rate", fCrazedDriveMult, 1.0f, 4.0f, "%.2f", "Times OStim's rate for whoever a crazed actor is with (not a dominant).");
-			ig::SeparatorText("Repeat orgasms");
-			SliderF("Seconds between an actor's orgasms", fRepeatOrgasmGap, 0.0f, 600.0f, "%.0f",
-				"After an orgasm, everyone but a wild or crazed actor (who are insatiable) waits at the edge until this many seconds have passed before the next one, using OStim's stall. "
-				"OStim lets excitement drop only part of the way after an orgasm, so a fast scene can bring one every few seconds. 0 leaves it to OStim. Independent of the control above.");
+			ig::SeparatorText("Recovery after an orgasm");
+			SliderF("Recovery after an orgasm (s)", fRepeatOrgasmGap, 0.0f, 600.0f, "%.0f",
+				"After an orgasm, everyone but a wild or crazed actor (who are insatiable) is brought down to almost no excitement, and builds again slowly at first, back to their usual pace "
+				"after this many seconds, so the next orgasm has to be worked up to. OStim alone lets excitement bounce back to about half, so a fast scene can bring one every few seconds. "
+				"0 leaves it to OStim.");
 		}
 		ig::SeparatorText("Moans by personality");
 		ig::TextWrapped("What each personality's moans are in each phase of a scene. Moans: none at all, as they come, or the quiet, normal or loud third of all your voice files (every file was "
@@ -1096,12 +1097,13 @@ namespace
 			if (iTongueMode != kTongueIgnore) SliderF("Hold the jaw open to", fTongueMinOpen, 0.0f, 1.0f, "%.2f",
 				"Raise this if the tongue still clips at its widest.");
 
-			Check("Stand down while Dynamic Dialogue Framework is installed", bYieldToDDF,
-				"DDF plays spoken lines with their own lip movement; with both driving the mouth, both break. Untick to run Lip-Sync anyway.");
+			Check("Leave the mouth to Dynamic Dialogue Framework's spoken lines", bYieldToDDF,
+				"DDF plays spoken lines with their own lip movement; with both driving the mouth, both break. While one plays on an actor, Lip-Sync leaves that actor's mouth to it, "
+				"and syncs the moans between lines. Untick to run Lip-Sync over its lines too.");
 		}
 		if (Compat::DDFActive()) {
-			if (Compat::Disabled(Compat::kLipSync)) ig::TextColored(kWarn, "Dynamic Dialogue Framework is active: Lip-Sync is standing down.");
-			else ig::TextColored(kWarn, "Dynamic Dialogue Framework is active: expect the two to fight over the mouth.");
+			if (Settings::LipSync::bYieldToDDF) ig::TextWrapped("Dynamic Dialogue Framework is active: Lip-Sync leaves an actor's mouth to a line while it is spoken, and syncs the moans between lines.");
+			else ig::TextColored(kWarn, "Dynamic Dialogue Framework is active: expect the two to fight over the mouth while a line is spoken.");
 		}
 		ig::TextWrapped("%s", LipSync::Status().c_str());
 #if !OSIS_LITE
