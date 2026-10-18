@@ -1,6 +1,8 @@
 # Changelog
 
-## 2.0 beta 3, in progress (plugin version 2.0.15)
+## 2.0 beta 3 (plugin version 2.0.15)
+
+The feature-complete 2.0. It stays a beta while it is tried out: what is left is bug reports, not features. Beta 2's code level and its three hotfixes, plus personalities that place themselves (from an NPC's bio, from a first time, by growing with experience), scene limits by personality, moans chosen and levelled by personality with a face that follows how they sound, Lip-Sync that works between Dynamic Dialogue Framework's lines, a recovery after each orgasm, gentler start faces for shy, timid and crazed actors, and a debug log that records what OSIS did and why.
 
 ### Changed
 - **Lip-Sync works between Dynamic Dialogue Framework's lines instead of standing down whenever DDF is installed.** The whole module was switched off for as long as DDF was in the load order, so every moan played with a still mouth, even
@@ -188,6 +190,18 @@
   - from the **first moment of the scene** for a female body the scene puts in a man's role (OStim's "futas use the male role"), instead of waiting for the act.
   The log says which (`Arousal: X has their mouth on a penis in this scene: their body morphs and blush are left alone for the rest of it`), and the debug snapshot's `arousal` line has `left alone=`. Still the best guess
   the data allows: if the lips still do not wrap, the `OSIS-Debug.log` (General > Debug logging) shows every `[arousal] ...morphs updated` line and when the blowjob node began.
+
+### Known issues
+- A one-frame blink of eyes, brows and mood can show when a scene moves to a new animation node. The source has not been identified.
+- PPA logs `Actor X isn't managed by havok?` and stops moving that penis for a few seconds now and then. Nothing in the OSIS or OStim logs lines up with it; the cause is not known.
+- Lip-sync reads uncompressed WAV moans only (16 and 32-bit PCM). A voice pack in `.fuz` or xWMA is not lip-synced (the log says how many files), and a Dynamic Dialogue Framework line has its own lip data and is left to it.
+- UBE: the blush textures are not shipped (convert Body Blushing's to the UBE UV and put them in the folder the UBE regions read), and the UBE slider values are a first estimate.
+- Scene limits read who is on top from OStim's scene data, and some scenes are read wrongly (about a quarter are decided by the action alone). Put your own lines in `Data/SKSE/Plugins/OSIS/scene_roles_user.txt`.
+- Much of what is new has had little play-testing: the scene limits, first times, bio personalities and growth, the moan rules by personality, the recovery after an orgasm, and Lip-Sync between DDF's lines. `OSIS.log` says what they did, and with General > Debug logging on, `OSIS-Debug.log` records it second by second.
+
+### Testing it
+- Install over a previous OSIS build or fresh; start a new save for testing. Send `Documents/My Games/Skyrim Special Edition/SKSE/OSIS.log` with a report. For a face problem press "Probe faces" on the Face page first and play for a minute: the log then says what OSIS wrote against what the game rendered, second by second. For anything you cannot explain, tick General > "Debug logging", repeat it, and send `OSIS-Debug.log` from the same folder too.
+- With PPA installed, add `AccuratePenetration.log` from the same session.
 
 ## 2.0 beta 2, hotfix 3 (plugin version 2.0.14)
 

@@ -389,9 +389,10 @@ def assemble(build_dir, data_dirs, edition, without):
             known = ("\n## Known issues in this beta\n\n"
                      "- A one-frame blink of eyes, brows and mood can show when a scene moves to a new animation node.\n"
                      "- PPA sometimes stops moving a penis for a few seconds and logs \"isn't managed by havok\" for the actor. Seen in testing; the cause is not known.\n"
-                     "- Lip-sync reads uncompressed WAV moans only: voice packs in .fuz or xWMA, and packs of spoken lines, are not lip-synced.\n"
+                     "- Lip-sync reads uncompressed WAV moans only: voice packs in .fuz or xWMA are not lip-synced, and a Dynamic Dialogue Framework line is left to its own lip data.\n"
                      "- UBE: the blush textures are not shipped (convert Body Blushing's to the UBE UV) and the UBE slider values are a first estimate.\n"
-                     "- The personalities, the own build-up faces and the shaped body response are new and have had little play-testing.\n")
+                     "- Scene limits read who is on top from OStim's scene data and some scenes are read wrongly; scene_roles_user.txt takes your own lines.\n"
+                     "- Scene limits, first times, bio personalities and growth, the moan rules by personality, the recovery after an orgasm and Lip-Sync between DDF's lines are new and have had little play-testing.\n")
         submissive = ''
         if edition:  # the personality is in the full edition only
             submissive = ("\n- **Submissive** (this edition only): turned on by rough scenes, and accepts any kind of scene, forced or not,"
