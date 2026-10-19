@@ -60,6 +60,9 @@ namespace Settings
 				{ "Audio", "bLevelMoans", &Audio::bLevelMoans },
 				{ "Audio", "fLevelStrength", &Audio::fLevelStrength },
 				{ "Audio", "bSelectMoans", &Audio::bSelectMoans },
+				{ "Audio", "bQuietDuringLines", &Audio::bQuietDuringLines },
+				{ "Audio", "fLineDuck", &Audio::fLineDuck },
+				{ "Audio", "fSpokenLineVolume", &Audio::fSpokenLineVolume },
 				{ "Audio", "fVolumeQuiet", &Audio::fVolumeQuiet },
 				{ "Audio", "fVolumeLoud", &Audio::fVolumeLoud },
 				{ "Audio", "fVolumeHigh", &Audio::fVolumeHigh },
@@ -315,6 +318,8 @@ namespace Settings
 			Face::fWildExcitementMult = std::clamp(Face::fWildExcitementMult, 0.5f, 2.0f);
 			General::fDebugSnapshotSeconds = std::clamp(General::fDebugSnapshotSeconds, 0.25f, 30.0f);
 			Audio::fMoanMaster = std::clamp(Audio::fMoanMaster, 0.1f, 1.0f);
+			Audio::fLineDuck = std::clamp(Audio::fLineDuck, 0.0f, 1.0f);
+			Audio::fSpokenLineVolume = std::clamp(Audio::fSpokenLineVolume, 0.1f, 1.0f);
 			Audio::fLevelStrength = std::clamp(Audio::fLevelStrength, 0.0f, 1.0f);
 			Audio::fVolumeQuiet = std::clamp(Audio::fVolumeQuiet, 0.1f, 1.0f);
 			Audio::fVolumeLoud = std::clamp(Audio::fVolumeLoud, 1.0f, 3.0f);

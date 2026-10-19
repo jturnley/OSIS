@@ -989,6 +989,17 @@ namespace LipSync
 		h.Stop();
 	}
 
+	bool SpokenLine(RE::Actor* a_actor)
+	{
+		if (!a_actor) return false;
+		if (auto* fg = a_actor->GetFaceGenAnimationData(); fg && fg->dialogueData) return true;
+		if (auto* mtm = RE::MenuTopicManager::GetSingleton()) {
+			const auto speaker = mtm->speaker.get();
+			if (speaker && speaker.get() == a_actor) return true;
+		}
+		return false;
+	}
+
 	float VoiceBusyUntil(RE::Actor* a_actor)
 	{
 		if (!a_actor) return 0.0f;

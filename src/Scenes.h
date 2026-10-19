@@ -45,6 +45,7 @@ namespace Scenes
 		// permit a second time, and since when they have been held at the edge.
 		bool stallActive = false;
 		bool recoveryDrop = false;      // their excitement is to be brought down a moment after their orgasm (fRepeatOrgasmGap)
+		int recoveryPrevRaw = -1;       // their excitement as last seen while recovering, to tell OStim setting it again from the build-up
 		float excitementUsual = 1.0f;  // the rate factor before the recovery after an orgasm, as last reported in the log
 		float stallIssuedAt = -100.0f;
 		float permitRepeatAt = 0.0f;

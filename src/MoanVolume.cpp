@@ -36,6 +36,9 @@ namespace MoanVolume
 			bool level = false;
 			float strength = 1.0f;
 			bool select = true;
+			bool lines = false;     // a moan gives way to a spoken line
+			float duck = 1.0f;      // the others' moans while a line is spoken in their scene
+			float lineVol = 1.0f;   // the spoken lines of a scene's actors
 			std::array<std::array<S::MoanRule, 3>, 9> rules{};
 		};
 
@@ -50,6 +53,9 @@ namespace MoanVolume
 			c.level = S::bLevelMoans;
 			c.strength = S::fLevelStrength;
 			c.select = S::bSelectMoans;
+			c.lines = S::bQuietDuringLines && Settings::General::bEnabled;
+			c.duck = S::fLineDuck;
+			c.lineVol = Settings::General::bEnabled ? S::fSpokenLineVolume : 1.0f;
 			c.rules = S::rules;
 			return c;
 		}
@@ -102,6 +108,8 @@ namespace MoanVolume
 			bool climaxing;
 			int phase;
 			int stage;
+			bool speaking = false;  // a line is being spoken on this actor: no moan of theirs
+			float duck = 1.0f;      // a line is being spoken by someone else in their scene: their moans are turned down by this
 		};
 		struct Applied
 		{
@@ -109,6 +117,7 @@ namespace MoanVolume
 			float at = 0.0f;       // scene time, for pruning
 			bool corrected = false;  // the one late correction has been made
 			RE::FormID actor = 0;
+			bool ducked = false;     // turned down for a line someone else is speaking
 		};
 
 		std::mutex g_lock;
@@ -122,6 +131,55 @@ namespace MoanVolume
 		std::atomic<std::uint32_t> g_late{ 0 };
 		std::atomic<std::uint32_t> g_muted{ 0 };
 		std::atomic<std::uint32_t> g_rejected{ 0 };
+		constexpr float kLineTail = 0.35f;                      // seconds a moan stays away after a spoken line's last frame
+		std::unordered_map<RE::FormID, float> g_lineUntil;      // main thread (Tick): scene time until which a line is counted as being spoken on this actor
+
+		// The lines the scene's actors speak (Audio::fSpokenLineVolume). A spoken line is a sound of the Voice category (AudioCategoryVOC, or its parent AudioCategoryVOCGeneral) that
+		// follows an actor of a scene; the start hook turns it down as it starts, and the sweep catches one the hook missed or whose volume was set again.
+		std::atomic<float> g_lineVol{ 1.0f };                      // the setting as of the last Tick
+		std::atomic<const RE::BSISoundCategory*> g_voiceCat[2]{};  // the two Voice categories, resolved on the main thread
+		struct LineSound
+		{
+			float volume = 0.0f;   // what we left it at
+			float at = 0.0f;       // scene time, for pruning
+			RE::FormID actor = 0;
+			bool fixed = false;    // the one late correction has been made
+		};
+		std::unordered_map<std::uint32_t, LineSound> g_lines;      // under g_lock: sound id -> what was done to a spoken line
+		std::atomic<std::uint32_t> g_linesScaled{ 0 };
+		std::unordered_set<std::uint32_t> g_unmatchedSeen;         // main thread (Tick): categories of other sounds on a scene's actors already named in the debug log
+
+		bool IsVoiceCategory(const RE::BSISoundCategory* a_cat)
+		{
+			if (!a_cat) return false;
+			for (const auto& v : g_voiceCat) {
+				const auto* p = v.load(std::memory_order_relaxed);
+				if (p && p == a_cat) return true;
+			}
+			return false;
+		}
+
+		void ResolveVoiceCategories()  // main thread
+		{
+			constexpr RE::FormID ids[2] = { 0x876BB, 0x876BD };
+			for (int i = 0; i < 2; ++i) {
+				if (g_voiceCat[i].load()) continue;
+				if (auto* f = RE::TESForm::LookupByID<RE::BGSSoundCategory>(ids[i])) {
+					g_voiceCat[i].store(static_cast<const RE::BSISoundCategory*>(f));
+					Debug::Log(Debug::Cat::Moan, "spoken lines: the Voice sound category {:08X} is resolved", ids[i]);
+				}
+			}
+		}
+
+		// The form id of a sound category, for the debug log only. SEH: the pointer is a sound's own and is not known to be a form.
+		std::uint32_t CategoryFormID(const RE::BSISoundCategory* a_cat) noexcept
+		{
+			__try {
+				return reinterpret_cast<const RE::BGSSoundCategory*>(reinterpret_cast<const std::byte*>(a_cat) - 0x30)->GetFormID();
+			} __except (EXCEPTION_EXECUTE_HANDLER) {
+				return 0;
+			}
+		}
 
 		// Bringing a file to a loudness: the gain that moves its measured level toward the target, a fraction of the way in dB, kept sensible.
 		float LevelGain(const LipSync::Level& a_level, float a_targetDb, float a_strength)
@@ -184,6 +242,7 @@ namespace MoanVolume
 			RE::NiAVObject* node;
 			float volume;
 			RE::BSResource::ID res;
+			const RE::BSISoundCategory* cat;
 		};
 
 		int CollectVoiced(RE::BSAudioManager* am, Voiced* out, int max) noexcept
@@ -201,6 +260,7 @@ namespace MoanVolume
 					out[n].soundID = soundID;
 					out[n].node = node;
 					out[n].volume = snd->volume;
+					out[n].cat = snd->category;
 					std::memcpy(&out[n].res, &snd->resourceID, sizeof(RE::BSResource::ID));
 					++n;
 				}
@@ -227,6 +287,7 @@ namespace MoanVolume
 			bool mute = false;
 			float gain = 1.0f;
 			int phase = 0;
+			bool line = false;   // muted for a line spoken on this actor
 		};
 
 		Decision Decide(const Target& a_target, bool a_climaxNow, const LipSync::Level& a_level, float a_before)
@@ -234,13 +295,19 @@ namespace MoanVolume
 			Decision d;
 			const Mode& m = a_climaxNow ? a_target.climax : a_target.now;
 			d.phase = a_climaxNow ? 2 : (a_target.stage >= 4 ? 1 : 0);
+			if (a_target.speaking) {
+				d.mute = true;
+				d.line = true;
+				d.volume = 0.0f;
+				return d;
+			}
 			if (m.mute) {
 				d.mute = true;
 				d.volume = 0.0f;
 				return d;
 			}
 			d.gain = LevelGain(a_level, m.targetDb, m.strength);
-			d.factor = m.volume * d.gain;
+			d.factor = m.volume * d.gain * a_target.duck;
 			if (std::abs(d.factor - 1.0f) < 0.01f) return d;
 			d.volume = std::clamp(a_before * d.factor, 0.0f, 1.0f);
 			return d;
@@ -254,6 +321,8 @@ namespace MoanVolume
 				if (a_sound && LipSync::IsMoanResource(a_sound->resourceID)) {
 					if (LipSync::PlayingOwn()) volume = StartOwn(a_sound);
 					else if (g_active.load(std::memory_order_relaxed)) volume = StartTheirs(a_sound);
+				} else if (a_sound && g_active.load(std::memory_order_relaxed) && g_lineVol.load(std::memory_order_relaxed) < 0.999f) {
+					volume = StartLine(a_sound);
 				}
 				func(a_sound);
 				if (volume >= 0.0f) {
@@ -315,16 +384,51 @@ namespace MoanVolume
 				a_sound->volume = d.mute ? 1.0e-5f : d.volume;
 				{
 					std::scoped_lock l(g_lock);
-					g_applied[id] = { d.volume, Scenes::Now(), false, target.id };
+					g_applied[id] = { d.volume, Scenes::Now(), false, target.id, target.duck < 1.0f };
 				}
 				if (d.mute) g_muted.fetch_add(1, std::memory_order_relaxed);
 				const std::string file = Debug::On() ? LipSync::PathOf(a_sound->resourceID) : std::string();
 				Debug::Log(Debug::Cat::Moan, "{:08X}: voice-set sound {} ({}, stage {}): {}{}{}", target.id, id, kPhaseNames[static_cast<std::size_t>(d.phase)], target.stage,
-					d.mute ? std::string("muted: the rule says no moans") : std::format("starts at {:.2f} x{:.2f} = {:.2f}", before, d.factor, d.volume),
+					d.mute ? std::string(d.line ? "muted: a line is being spoken on them" : "muted: the rule says no moans") : std::format("starts at {:.2f} x{:.2f} = {:.2f}", before, d.factor, d.volume),
 					level.known ? std::format(" | the file measures {:.1f} dBFS, {}{}", level.db, kClassNames[static_cast<std::size_t>(level.cls)], d.gain != 1.0f ? std::format(", leveling gain x{:.2f}", d.gain) : std::string())
 								: std::string(" | the file's loudness is not known"),
 								file.empty() ? std::string() : " | file " + file);
 				return d.volume;
+			}
+
+			// A line spoken by an actor of a scene (a Voice-category sound that follows them): started at the setting's share of its volume.
+			static float StartLine(RE::BSGameSound* a_sound)
+			{
+				if (!IsVoiceCategory(a_sound->category)) return -1.0f;
+				auto* am = RE::BSAudioManager::GetSingleton();
+				if (!am) return -1.0f;
+				RE::NiAVObject* chain[24];
+				std::uint32_t id = 0;
+				const int n = FollowChain(am, a_sound, chain, 24, &id);
+				if (n <= 0) return -1.0f;
+				RE::FormID actor = 0;
+				{
+					std::scoped_lock l(g_lock);
+					for (int i = 0; i < n && !actor; ++i) {
+						for (const auto& t : g_targets) {
+							if (t.node == chain[i]) {
+								actor = t.id;
+								break;
+							}
+						}
+					}
+					if (!actor) return -1.0f;
+				}
+				const float before = a_sound->volume;
+				const float volume = std::clamp(before * g_lineVol.load(std::memory_order_relaxed), 0.0f, 1.0f);
+				a_sound->volume = volume;
+				{
+					std::scoped_lock l(g_lock);
+					g_lines[id] = { volume, Scenes::Now(), actor, false };
+				}
+				g_linesScaled.fetch_add(1, std::memory_order_relaxed);
+				Debug::Log(Debug::Cat::Moan, "{:08X}: spoken line, sound {}: starts at {:.2f} x{:.2f} = {:.2f}", actor, id, before, g_lineVol.load(), volume);
+				return volume;
 			}
 
 			static inline REL::Relocation<decltype(thunk)> func;
@@ -397,8 +501,32 @@ namespace MoanVolume
 		const auto scale = LipSync::LevelScaleInfo();
 		std::vector<Target> targets;
 		std::unordered_map<RE::FormID, Target> byActor;
-		if (c.on) {
+		g_lineVol.store(c.lineVol, std::memory_order_relaxed);
+		if (c.lineVol < 0.999f) ResolveVoiceCategories();
+		if (c.on || c.lines || c.lineVol < 0.999f) {
 			std::scoped_lock sl(Scenes::Lock());
+			const float sceneNow = Scenes::Now();
+			// Who is speaking a line, with a short tail so a moan does not start on the line's last breath, and in which scenes.
+			std::unordered_set<int> talkingThreads;
+			if (c.lines) {
+				Scenes::ForEachActor([&](RE::Actor* a, const Scenes::Slot& s) {
+					if (!s.painted) return;
+					if (LipSync::SpokenLine(a)) {
+						auto& until = g_lineUntil[s.id];
+						if (until < sceneNow) Debug::Log(Debug::Cat::Moan, "{}: a spoken line starts: their moans are cut and the others' turned down while it lasts", Debug::Label(a));
+						until = sceneNow + kLineTail;
+					}
+				});
+				std::erase_if(g_lineUntil, [sceneNow](const auto& kv) { return kv.second < sceneNow; });
+				Scenes::ForEachActor([&](RE::Actor* a, const Scenes::Slot& s) {
+					const auto it = g_lineUntil.find(s.id);
+					if (it != g_lineUntil.end()) {
+						if (auto* t = Scenes::ThreadOf(a)) talkingThreads.insert(t->id);
+					}
+				});
+			} else {
+				g_lineUntil.clear();
+			}
 			Scenes::ForEachActor([&](RE::Actor* a, const Scenes::Slot& s) {
 				if (!s.painted) return;
 				auto* t = Scenes::ThreadOf(a);
@@ -408,8 +536,14 @@ namespace MoanVolume
 				const int phase = PhaseOf(stage, false);
 				// A broken woman makes no sound at all, at any stage and at the climax.
 				const S::MoanRule silent{ S::kMoanNone, S::kLevelNormal };
-				const bool broken = Virginity::IsBroken(a);
-				Target target{ nullptr, s.id, ModeOf(c, broken ? silent : c.rules[Index(pers)][static_cast<std::size_t>(phase)], scale), ModeOf(c, broken ? silent : c.rules[Index(pers)][2], scale), s.climaxing, phase, stage };
+				const bool broken = c.on && Virginity::IsBroken(a);
+				const Mode plain{};  // the personality rules are off: only the spoken-line rule shapes anything
+				Target target{ nullptr, s.id, c.on ? ModeOf(c, broken ? silent : c.rules[Index(pers)][static_cast<std::size_t>(phase)], scale) : plain,
+					c.on ? ModeOf(c, broken ? silent : c.rules[Index(pers)][2], scale) : plain, s.climaxing, phase, stage };
+				if (c.lines) {
+					target.speaking = g_lineUntil.contains(s.id);
+					target.duck = (!target.speaking && talkingThreads.contains(t->id)) ? c.duck : 1.0f;
+				}
 				byActor[s.id] = target;
 				for (auto* n : { a->Get3D(), a->Get3D1(false), a->Get3D1(true) }) {
 					if (n) {
@@ -431,6 +565,7 @@ namespace MoanVolume
 		if (!active) {
 			std::scoped_lock l(g_lock);
 			g_applied.clear();
+			g_lines.clear();
 			return;
 		}
 
@@ -446,11 +581,39 @@ namespace MoanVolume
 			float volume;
 			RE::FormID actor;
 			float factor;
+			int kind = 0;  // 0 corrected, 1 cut for a line spoken on them, 2 turned down for a line spoken by someone else, 3 a spoken line turned down
 		};
 		std::vector<Fix> fixes;
+		const float lineVol = c.lineVol;
 		for (int i = 0; i < n; ++i) {
 			const auto& v = voiced[static_cast<std::size_t>(i)];
-			if (!LipSync::IsMoanResource(v.res) || LipSync::IsOwnSound(v.soundID)) continue;
+			if (LipSync::IsOwnSound(v.soundID)) continue;
+			if (!LipSync::IsMoanResource(v.res)) {
+				// Not a voice-set sound: a spoken line, if it is of the Voice category and follows an actor of a scene.
+				if (lineVol >= 0.999f) continue;
+				auto* speaker = LipSync::ActorOf(v.node);
+				if (!speaker) continue;
+				std::scoped_lock l(g_lock);
+				if (!g_byActor.contains(speaker->GetFormID())) continue;
+				if (!IsVoiceCategory(v.cat)) {
+					const std::uint32_t cat = v.cat ? CategoryFormID(v.cat) : 0u;
+					if (Debug::On() && g_unmatchedSeen.size() < 24 && g_unmatchedSeen.insert(cat).second)
+						Debug::Log(Debug::Cat::Moan, "spoken lines: a sound of sound category {:08X} follows {} (not the Voice category, so left alone)", cat, Debug::Label(speaker));
+					continue;
+				}
+				const auto lit = g_lines.find(v.soundID);
+				if (lit == g_lines.end()) {
+					const float target = std::clamp(v.volume * lineVol, 0.0f, 1.0f);
+					g_lines[v.soundID] = { target, now, speaker->GetFormID(), false };
+					fixes.push_back({ v.soundID, target, speaker->GetFormID(), lineVol, 3 });
+				} else if (!lit->second.fixed && std::abs(v.volume - lit->second.volume) > 0.02f) {  // set again after we did it: once more
+					const float target = std::clamp(v.volume * lineVol, 0.0f, 1.0f);
+					lit->second.volume = target;
+					lit->second.fixed = true;
+					fixes.push_back({ v.soundID, target, speaker->GetFormID(), lineVol, 3 });
+				}
+				continue;
+			}
 			auto* owner = LipSync::ActorOf(v.node);
 			if (!owner) continue;
 			const auto level = LipSync::LevelOf(v.res);
@@ -461,24 +624,44 @@ namespace MoanVolume
 			const bool climaxNow = it->second.climaxing || (ua != g_climaxUntil.end() && now < ua->second);
 			const auto d = Decide(it->second, climaxNow, level, v.volume);
 			auto ap = g_applied.find(v.soundID);
+			if (d.line) {  // a line is being spoken on this actor and one of their moans is still sounding: cut it
+				if (ap == g_applied.end()) g_applied[v.soundID] = { 0.0f, now, true, owner->GetFormID() };
+				else ap->second.volume = 0.0f;
+				fixes.push_back({ v.soundID, 0.0f, owner->GetFormID(), 0.0f, 1 });
+				continue;
+			}
+			if (it->second.duck < 1.0f && ap != g_applied.end() && !ap->second.ducked) {  // a line began while this moan was sounding: turn it down, once
+				const float target = std::clamp(v.volume * it->second.duck, 0.0f, 1.0f);
+				ap->second.volume = target;
+				ap->second.ducked = true;
+				fixes.push_back({ v.soundID, target, owner->GetFormID(), it->second.duck, 2 });
+				continue;
+			}
 			if (ap == g_applied.end()) {
-				const float target = d.volume < 0.0f ? v.volume : d.volume;
-				g_applied[v.soundID] = { target, now, true, owner->GetFormID() };
+				const float target = d.volume < 0.0f ? v.volume : d.volume;  // Decide's volume already has the duck in it
+				g_applied[v.soundID] = { target, now, true, owner->GetFormID(), it->second.duck < 1.0f };
 				if (d.volume >= 0.0f && std::abs(target - v.volume) > 0.005f) fixes.push_back({ v.soundID, target, owner->GetFormID(), d.factor });
 			} else if (!ap->second.corrected && std::abs(v.volume - ap->second.volume) > 0.02f) {
 				const float target = d.volume < 0.0f ? v.volume : d.volume;  // someone set a volume after our hook did: shape that one
 				ap->second.volume = target;
 				ap->second.corrected = true;
+				ap->second.ducked = it->second.duck < 1.0f;
 				if (d.volume >= 0.0f) fixes.push_back({ v.soundID, target, owner->GetFormID(), d.factor });
 			}
 		}
 		for (const auto& f : fixes) {
 			SetSoundVolume(f.id, f.volume);
 			g_late.fetch_add(1, std::memory_order_relaxed);
-			Debug::Log(Debug::Cat::Moan, "{}: voice-set sound {} corrected to {:.2f} (x{:.2f}; it was not shaped when it started)", Debug::Label(f.actor), f.id, f.volume, f.factor);
+			if (f.kind == 3) {
+				g_linesScaled.fetch_add(1, std::memory_order_relaxed);
+				Debug::Log(Debug::Cat::Moan, "{}: spoken line, sound {}: turned to {:.2f} (x{:.2f}; the start hook did not shape it)", Debug::Label(f.actor), f.id, f.volume, f.factor);
+			} else if (f.kind == 1) Debug::Log(Debug::Cat::Moan, "{}: voice-set sound {} cut: a line is being spoken on them", Debug::Label(f.actor), f.id);
+			else if (f.kind == 2) Debug::Log(Debug::Cat::Moan, "{}: voice-set sound {} turned down to {:.2f} (x{:.2f}): a line is being spoken in their scene", Debug::Label(f.actor), f.id, f.volume, f.factor);
+			else Debug::Log(Debug::Cat::Moan, "{}: voice-set sound {} corrected to {:.2f} (x{:.2f}; it was not shaped when it started)", Debug::Label(f.actor), f.id, f.volume, f.factor);
 		}
 		std::scoped_lock l(g_lock);
 		std::erase_if(g_applied, [now](const auto& kv) { return now - kv.second.at > 20.0f; });
+		std::erase_if(g_lines, [now](const auto& kv) { return now - kv.second.at > 30.0f; });
 	}
 
 	std::string Describe(RE::Actor* a_actor)

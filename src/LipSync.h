@@ -85,6 +85,8 @@ namespace LipSync
 	// Scene time until which a voice-set sound that is not ours (a climax, a reaction) is expected to keep playing on this actor; 0 or in
 	// the past if none. Only tracked while Lip-Sync is running.
 	[[nodiscard]] float VoiceBusyUntil(RE::Actor* a_actor);
+	// A spoken line (Dynamic Dialogue Framework's, or the game's own) is playing on this actor right now: its face is playing dialogue lip data, or the game's topic manager has them as the speaker. Main thread.
+	[[nodiscard]] bool SpokenLine(RE::Actor* a_actor);
 	[[nodiscard]] bool PlayingOwn();                       // true while PlayMoanOn is inside Play() (the start hook runs on this thread)
 	[[nodiscard]] bool IsOwnSound(std::uint32_t a_soundID);  // a sound PlayMoanOn started recently
 }

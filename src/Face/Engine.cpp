@@ -147,6 +147,10 @@ namespace Face::Engine
 		constexpr float kRecoveryFloor = 0.10f;      // the rate right after the orgasm, as a share of the usual
 		constexpr int kRecoveryRaw = 10;            // the excitement (OStim's 0-100) they are brought down to
 		constexpr float kRecoveryDropDelay = 1.5f;  // seconds after the orgasm: OStim sets its own post-orgasm excitement first
+		// OStim sets the excitement a second time when its own climax ends, about nine or ten seconds in, to near half (48 in the logs), over the drop above. A rise this big in one
+		// look within the watch window is that, not the build-up (which at a tenth of the rate is a point or two a second): it is brought down again.
+		constexpr float kRecoveryWatch = 30.0f;     // seconds after the orgasm in which that is watched for
+		constexpr int kRecoveryJump = 12;           // the rise (OStim's 0-100) that counts as OStim setting it
 
 		bool Recovers(int a_pers) { return S::fRepeatOrgasmGap > 0.0f && a_pers != Pers::kWild && a_pers != Pers::kCrazed; }
 
@@ -184,11 +188,23 @@ namespace Face::Engine
 				const bool broken = Virginity::IsBroken(a);
 				if (!broken && s.lastOrgasmAt > 0.0f && Recovers(Archetype(a))) {
 					const float now = Scenes::Now();
-					if (s.recoveryDrop && now - s.lastOrgasmAt >= kRecoveryDropDelay) {
+					const float since = now - s.lastOrgasmAt;
+					if (s.recoveryDrop && since >= kRecoveryDropDelay) {
 						s.recoveryDrop = false;
-						if (const int raw = Raw(a); raw > kRecoveryRaw) {
+						const int raw = Raw(a);
+						if (raw > kRecoveryRaw) {
 							Papyrus::ModifyExcitement(a, -static_cast<float>(raw - kRecoveryRaw));
 							Debug::Log(Debug::Cat::Control, "{}: recovering from an orgasm: excitement brought down from {} to {}", Debug::Label(a), raw, kRecoveryRaw);
+						}
+						s.recoveryPrevRaw = std::min(raw, kRecoveryRaw);
+					} else if (since >= kRecoveryDropDelay && since < kRecoveryWatch && s.recoveryPrevRaw >= 0) {
+						const int raw = Raw(a);
+						if (raw - s.recoveryPrevRaw >= kRecoveryJump) {
+							Papyrus::ModifyExcitement(a, -static_cast<float>(raw - kRecoveryRaw));
+							Debug::Log(Debug::Cat::Control, "{}: OStim set the excitement to {} (it was {}) as its climax ended, {:.1f} s after the orgasm: brought down again to {}", Debug::Label(a), raw, s.recoveryPrevRaw, since, kRecoveryRaw);
+							s.recoveryPrevRaw = kRecoveryRaw;
+						} else {
+							s.recoveryPrevRaw = raw;
 						}
 					}
 					const float x = std::clamp((now - s.lastOrgasmAt) / S::fRepeatOrgasmGap, 0.0f, 1.0f);
@@ -1908,6 +1924,7 @@ namespace Face::Engine
 		s->rapidRun = again && s->orgasmGap < S::fRapidOrgasmSeconds ? s->rapidRun + 1 : 0;
 		s->lastOrgasmAt = now;
 		s->recoveryDrop = Recovers(Archetype(a));
+		s->recoveryPrevRaw = -1;
 		++s->orgasms;
 		s->climaxStart = now;
 		// This orgasm's climax clip: one of the fifteen faces, long or short, as a standard or a rapid orgasm.

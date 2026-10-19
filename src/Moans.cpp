@@ -53,6 +53,7 @@ namespace Moans
 			bool fromOStim = false;  // interval and volume are OStim's own
 			std::array<int, 9> stageShift{};  // per personality: how far along a staged voice set they play from where the scene's speed puts them
 			bool select = true;  // play only files of the loudness class the personality's rule asks for
+			bool lines = true;   // give way to a spoken line
 		};
 
 		// OStim's own moan settings are its MCM's: three global variables in OStim.esp (Moan interval min / max in milliseconds, Moan volume), the
@@ -98,6 +99,7 @@ namespace Moans
 			c.stageShift = { 0, Settings::Voice::iStageShiftStoic, Settings::Voice::iStageShiftVocal, Settings::Voice::iStageShiftShy, Settings::Voice::iStageShiftDominant, Settings::Voice::iStageShiftTimid,
 				Settings::Voice::iStageShiftSubmissive, Settings::Voice::iStageShiftWild, Settings::Voice::iStageShiftCrazed };
 				c.select = Settings::Audio::bSelectMoans;
+			c.lines = Settings::Audio::bQuietDuringLines;
 			if (Settings::Voice::bUseOStimMoanSettings) {
 				float lo = 0.0f, hi = 0.0f, vol = 1.0f;
 				if (ReadOStimSettings(lo, hi, vol)) {
@@ -213,6 +215,14 @@ namespace Moans
 			}
 
 			if (st.playing) {
+				// A line starts while ours is still sounding: cut it.
+				if (a_cfg.lines && LipSync::SpokenLine(a_actor) && LipSync::IsSoundPlaying(st.soundID)) {
+					LipSync::StopSound(st.soundID);
+					st.playing = false;
+					st.nextAt = a_now + 0.5f;
+					Debug::Log(Debug::Cat::Moan, "{}: their moan is cut: a line is being spoken on them", Debug::Label(a_actor));
+					return;
+				}
 				// Ours is still sounding, or ended a moment ago; a sound the engine lost is given up on after 15 s.
 				if (LipSync::IsSoundPlaying(st.soundID) && a_now - st.playedAt < 15.0f) return;
 				st.playing = false;
@@ -235,6 +245,8 @@ namespace Moans
 			if (a_now < a_slot.externalMouthUntil || a_slot.exprOverride) return defer(0.5f, a_slot.exprOverride ? "OStim's expression override holds the mouth" : "another mod holds the mouth");
 			// OStim's own rule: no moan while the actor is talking (the flag is not reliable on the player).
 			if (!a_actor->IsPlayerRef() && a_actor->GetActorRuntimeData().voiceTimer > 0.0f) return defer(0.5f, "they are speaking");
+			// A line is playing its own lip data on their face (Dynamic Dialogue Framework's, or the game's): not on top of the voice.
+			if (a_cfg.lines && LipSync::SpokenLine(a_actor)) return defer(0.4f, "a spoken line is playing on them");
 			// A climax or a reaction of OStim's is playing on them.
 			if (LipSync::VoiceBusyUntil(a_actor) > a_now) return defer(0.25f, "an OStim climax or reaction sound is playing on them");
 

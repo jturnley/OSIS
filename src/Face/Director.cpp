@@ -1188,10 +1188,11 @@ namespace Face::Engine::detail
 				// partner now and then (SetGaze looks at them for it). The blink channel is the only thing that closes the lids; squint narrows them.
 				if (!building && dom != kAfterglow) break;
 				if (building) SwapClashingMood(e, (1u << 0) | (1u << 6), 10, 0.5f);  // they enjoy it a lot: no anger or disgust
-				// How far the lids are held, at least (a build-up face that shuts the eyes harder keeps its own): a little at the start, more as it builds, nearly shut at the edge. It used to
-				// be 0.35 at the start, 0.60 to 0.90 in the build-up, 0.92 at the edge and 0.55 after, which kept the eyes shut almost all of the time.
-				float close = dom == kAnticipation ? 0.20f : 0.45f + 0.30f * ClampF((static_cast<float>(enj) - 20.0f) / 60.0f, 0.0f, 1.0f);
-				if (dom == kPlateau) close = 0.85f;
+				// How far the lids are held, at least (a build-up face that shuts the eyes harder keeps its own): shut firmly at the start, where the closeness is new, and easing open as the
+				// excitement builds, the least at the edge. It was the other way round (0.20 at the start, 0.45 to 0.75 in the build-up, 0.85 at the edge): closed most where she was
+				// enjoying it most.
+				float close = dom == kAnticipation ? 0.80f : 0.80f - 0.40f * ClampF((static_cast<float>(enj) - 20.0f) / 60.0f, 0.0f, 1.0f);
+				if (dom == kPlateau) close = 0.35f;
 				if (dom == kAfterglow) close = 0.45f;
 				Debug::Log(Debug::Cat::Face, "{}: timid rule: eyes {} (lids {:.2f}, enjoying it a lot: no anger or disgust)", Debug::Label(s.id), building && TimidPeeking(t, seed) ? "peeking at the partner" : "shut", close);
 				if (building && TimidPeeking(t, seed)) {

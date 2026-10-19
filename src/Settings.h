@@ -278,6 +278,10 @@ namespace Settings
 		inline bool bLevelMoans = true;          // OStim's own moans, whose file cannot be chosen: brought toward the typical loudness of the class the rule asks for
 		inline float fLevelStrength = 1.0f;      // 0 leaves each file as it is, 1 brings it all the way to the class's level (in dB, so it blends smoothly)
 		inline bool bSelectMoans = true;         // the Director takeover plays only files of the class the rule asks for (it tries again with another file)
+		// A spoken line (Dynamic Dialogue Framework's, or the game's own) and the moans: the speaker's moans are cut for as long as the line lasts, and the other actors' of that scene are turned down.
+		inline bool bQuietDuringLines = true;
+		inline float fSpokenLineVolume = 1.0f;   // times the volume of the lines the scene's actors speak (Dynamic Dialogue Framework's, or the game's own); a moan cannot be played louder than its file, so the balance is found here (1 leaves them)
+		inline float fLineDuck = 0.60f;          // times the other actors' moans while a line is spoken in their scene (1 leaves them as they are)
 
 		// What a personality's moans are in each phase of a scene: which moans (none at all, as they come, or the quiet, normal or loud third of the files) and how
 		// loud they are played (a volume tier).

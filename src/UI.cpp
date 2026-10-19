@@ -769,6 +769,15 @@ namespace
 #endif
 			Check("The mouth follows the volume", bMouthFollowsVolume,
 				"Lip-sync opens the mouth less for a quiet volume and more for a loud one, so a quiet moan looks quiet.");
+			Check("Moans give way to spoken lines", bQuietDuringLines,
+				"While a line is spoken in a scene (Dynamic Dialogue Framework's, or the game's own), the speaker's moans are cut and none start until it has ended, and the other actors' moans are turned down. "
+				"Off leaves the moans playing over the voice.");
+			if (bQuietDuringLines) SliderF("Other actors' moans during a line", fLineDuck, 0.0f, 1.0f, "%.2f",
+				"Times the moans of everyone but the speaker for as long as a line is spoken in their scene: 1 leaves them as they are, 0 silences them.");
+			SliderF("Spoken lines in a scene", fSpokenLineVolume, 0.1f, 1.0f, "%.2f",
+				"Times the volume of the lines the actors of a scene speak (Dynamic Dialogue Framework's, or the game's own). A moan cannot be played louder than its sound file, and a quiet voice set's "
+				"files are well below speech, so the balance is found on the voice side: lower this until the moans sit beside the voices. 1 leaves the lines as they are. It is the Voice category's "
+				"lines on the scene's actors only; nobody else's speech is touched.");
 			static const char* const kKinds[] = { "As they come", "None", "Quiet", "Normal", "Loud" };
 			static const char* const kLevels[] = { "Quiet", "Normal", "Loud", "High" };
 			static const char* const kRuleNames[] = { "Balanced", "Stoic", "Vocal", "Shy", "Dominant", "Timid", "Submissive", "Wild", "Crazed" };
