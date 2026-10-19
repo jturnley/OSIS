@@ -120,6 +120,7 @@ namespace Settings
 		inline float fAnimeStart = 85.0f;
 		inline float fAnimeEnd = 70.0f;
 
+		inline bool bRolePersonality = true;   // bards are never shy or timid unless OVirginity says they are virgins; the Companions are vocal, wild or crazed (an automatic personality only)
 		inline bool bSPIDPersonality = true;
 		inline bool bOBlushSync = true;
 		inline int iPlayerPersonality = 0;    // 0 balanced (the default: the rules used to pick one, and a timid player complained that their eyes were always shut), -1 auto, 1 stoic, 2 vocal, 3 shy, 4 dominant, 5 timid, 6 submissive (full edition only), 7 wild, 8 crazed
@@ -217,6 +218,7 @@ namespace Settings
 	namespace Virginity
 	{
 		inline bool bEnabled = true;  // needs OVirginity Reflowered: its data says which women are virgins
+		inline bool bOpeners = true;  // a virgin tells her partner so at the start of a consensual scene (the OSIS Virgin Openers voice pack must be installed)
 		// A virgin woman's first consensual scene: shy, timid, or (the rest) whatever the usual rules give her. A religious one is always shy; one who worships Dibella is balanced, vocal or wild.
 		inline int iShyChance = 40;
 		inline int iTimidChance = 40;
@@ -276,6 +278,7 @@ namespace Settings
 		// Every voice-set file was measured when it was decoded (LipSync::LevelOf) and all of them were sorted into thirds by their own loudness: the quietest third
 		// is quiet, the middle third normal, the loudest third loud.
 		inline bool bLevelMoans = true;          // OStim's own moans, whose file cannot be chosen: brought toward the typical loudness of the class the rule asks for
+		inline float fLevelMaxCut = 8.0f;        // leveling never turns a moan down by more than this many dB (a loud voice set held at the quiet class's level sat 15 dB under its own); a moan cannot be turned up past its file
 		inline float fLevelStrength = 1.0f;      // 0 leaves each file as it is, 1 brings it all the way to the class's level (in dB, so it blends smoothly)
 		inline bool bSelectMoans = true;         // the Director takeover plays only files of the class the rule asks for (it tries again with another file)
 		// A spoken line (Dynamic Dialogue Framework's, or the game's own) and the moans: the speaker's moans are cut for as long as the line lasts, and the other actors' of that scene are turned down.

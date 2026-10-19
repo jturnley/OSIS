@@ -5,9 +5,12 @@
 `assemble_mod.py` builds the two mod folders and zips (default and LoversLab edition) from the xmake builds. It is part of
 the project; see the comments at the top of the file.
 
+`sync_mo2.py` then brings the OSIS mod in a Mod Organizer 2 install up to date with what `assemble_mod.py` built (every changed file, not just the DLL, and the voice pack
+if `mods/OSIS Virgin Openers.zip` exists), so a reinstall from the zip is not needed after every build. It refuses to run while the game is open. The default path is the author's.
+
 ## Voice tools: unsupported, use at your own risk
 
-The five scripts below are side projects for people who make their own voice packs. **They are not part of OSIS, are not
+The seven scripts below are side projects for people who make their own voice packs. **They are not part of OSIS, are not
 in the mod you download, and are completely unsupported.** No help is offered with them, no issue about them will be
 answered, nothing is promised to keep working (a game, mod, library, ffmpeg or web-service update can break any of them
 without notice), and they come with no warranty of any kind (see the disclaimer in `LICENSE`).
@@ -32,7 +35,8 @@ If you use these tools on copyrighted or ethically questionable sources, or to m
 solely on you. The authors and contributors accept no liability for it, or for any loss or damage of any kind that comes
 from running the scripts. If you do not accept that, do not use them.
 
-Nothing extracted or generated is ever part of this repository: the output folders `voices_common/` and `voices_sample/`
+The author's own voice packs (the "OSIS Vanilla Voices and Virgin Openers" download and any other) are separate, closed-source audio under their own terms (`docs/VOICE_PACK_LICENSE.txt`),
+not part of this project and not GPL; these scripts are the project's, so anyone can make a pack of their own. Nothing extracted or generated is ever part of this repository: the output folders `voices_common/` and `voices_sample/`
 are git-ignored. Do not add audio to the repository, and do not put it in a mod you release unless you hold the rights.
 
 ### What each one does
@@ -46,6 +50,8 @@ Defaults for the game, mod and ffmpeg folders are the author's own paths; pass y
 | `voice_line_transcript.py` | Looks up the spoken text of those common lines in the game plugins' dialogue records and writes a transcript in the same order as the WAVs. | The above |
 | `extract_character_voice.py` | For a mod's custom voiced characters (voice types vanilla Skyrim lacks), takes about 15 minutes of lines spread evenly across each character's range and writes them back in their original order as WAV parts, each with a `.txt` of start times, lengths, file names and, where the plugin has it, the spoken text. | Python 3, `pip install lz4`, ffmpeg, and the two scripts above in the same folder |
 | `elevenlabs_voice_batch.py` | Sends a catalogue of 58 short non-verbal sound descriptions (breaths, moans in four speed stages, climax, reactions, muffled sounds) to the ElevenLabs text-to-speech API with a voice id you supply, and saves one MP3 per sound under a folder per category. Skips files that already exist, so an interrupted run can be restarted; `--dry-run` lists what it would send and the characters it would use. The key is read from the `ELEVENLABS_API_KEY` environment variable, never from the command line. | Python 3 (standard library), an ElevenLabs account and API key, which you pay for |
+| `make_openers_pack.py` | Turns the clips the library tool voiced for the virgins' opening lines (`<voice>/<personality>/opener/*.mp3`, one folder per base-game female voice type) into the OSIS Virgin Openers voice pack: `.fuz` files (lip data from the Skyrim Creation Kit's LipGenerator, xWMA audio at one loudness) in `Sound/OSIS/Openers/<voice type>/<personality>/`, optionally zipped to `mods/`. | Python 3, ffmpeg, the Skyrim Special Edition Creation Kit's Tools folder |
+| `make_vanilla_voices_zip.py` | Puts the OStim moan packs of the base game's female voice types (`OStim Female <name> Voice Pack` mod folders) and the OSIS Virgin Openers zip into one installable zip (with `--male`, the `OStim Male <name> Voice Pack` folders instead, no openers), with a README of what is in it and what is still missing. | Python 3 |
 | `fix_clip_tails.py` | Scans a folder of MP3 clips for a stray sound cut off at the end, or an abrupt loud end, and reports it. With `--apply` it fades the end out (or, with `--cut-gaps`, cuts at the gap), moving each original into an `_orig` folder beside it. | Python 3, ffmpeg |
 
 None of them touches the game, the plugin or a mod unless you point it at one: they read the files you name and write to the

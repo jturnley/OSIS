@@ -8,7 +8,9 @@
 #include "Debug.h"
 #include "Experience.h"
 #include "Face/Engine.h"
+#include "LipSync.h"
 #include "OStimData.h"
+#include "Openers.h"
 #include "Papyrus.h"
 #include "Settings.h"
 
@@ -41,6 +43,8 @@ namespace Virginity
 			bool fast = false;               // the speed went past the limit before she had an orgasm
 			int cycles = 0;                  // a broken woman's silent orgasms this session
 			bool negative = false;           // something rough, or not consensual, was seen this session
+			bool openerDone = false;         // her opening line has been said (or passed over)
+			float openerAt = 0.0f;           // scene time it is due, 0 until the scene has found her a virgin
 		};
 
 		std::mutex g_lock;
@@ -48,6 +52,8 @@ namespace Virginity
 		std::unordered_map<RE::FormID, Rt> g_rt;
 		std::unordered_map<RE::FormID, int> g_answers;  // what OVirginity's data said for each woman asked: 1, 0, or -1 not calculated yet
 		std::unordered_set<RE::FormID> g_calculating;   // asked OVirginity to work it out
+		std::unordered_map<RE::FormID, float> g_askedAt;  // scene time OVirginity's data was asked about them, for the debug trace
+		std::unordered_set<RE::FormID> g_pending;       // VirginAnswer has asked OVirginity's data about them and the answer is not back yet
 		std::unordered_set<std::string> g_alwaysVirgin;  // ovirginity_config.json's lists, by name
 		std::unordered_set<std::string> g_neverVirgin;
 		std::once_flag g_once;
@@ -180,14 +186,39 @@ namespace Virginity
 			return -1;
 		}
 
-		// OVirginity keeps a woman's answer in OStim's NPC data ("IsVirgin": 1, 0, or -1 for not worked out yet).
+		// Keep an answer from OVirginity (1 virgin, 0 not, -1 not worked out yet); the caller holds g_lock. Two things do not replace an answer in hand: a late "not worked out yet" (the
+		// lists, or OVirginity's own roll, may have settled it since the question was asked), and, while she is in a scene, a 0 for a 1: OVirginity ends a virginity itself when the
+		// penetration begins, and the question may be answered after that, but what this is for is what the scene found. (The answers are dropped at the scene's end.)
+		void Store(RE::FormID a_id, int a_answer, const char* a_via)
+		{
+			float ago = 0.0f;
+			if (const auto at = g_askedAt.find(a_id); at != g_askedAt.end()) ago = Scenes::Now() - at->second;
+			const auto it = g_answers.find(a_id);
+			bool kept = false;
+			if (it != g_answers.end()) {
+				if (a_answer == -1 && (it->second == 0 || it->second == 1)) kept = true;
+				else if (a_answer == 0 && it->second == 1 && g_rt.contains(a_id)) kept = true;
+			}
+			Debug::Log(Debug::Cat::Pers, "{}: first times: OVirginity says {} ({}, {:.1f} s after it was asked){}", Debug::Label(a_id), a_answer == 1 ? "virgin" : (a_answer == 0 ? "not a virgin" : "not worked out yet"), a_via, ago,
+				kept ? std::format(" - keeping {}", it->second) : std::string());
+			if (!kept) g_answers[a_id] = a_answer;
+		}
+
+		// OVirginity keeps a woman's answer in OStim's NPC data ("IsVirgin": 1, 0, or -1 for not worked out yet). The woman goes in as an Actor: both OUtils.GetNPCDataInt and
+		// OVirginityScript.isVirgin take one, and an ObjectReference-typed argument arrives as None (GetNPCDataInt then answers -1 for everyone and isVirgin(None) is false, so every
+		// woman read as not a virgin).
 		void Ask(RE::Actor* a_actor)
 		{
 			const RE::FormID id = a_actor->GetFormID();
-			Papyrus::CallStatic("OUtils", "GetNPCDataInt", RE::MakeFunctionArguments(static_cast<RE::TESObjectREFR*>(a_actor), RE::BSFixedString("IsVirgin")),
+			{
+				std::scoped_lock l(g_lock);
+				g_askedAt[id] = Scenes::Now();
+			}
+			Papyrus::CallStatic("OUtils", "GetNPCDataInt", RE::MakeFunctionArguments(std::move(a_actor), RE::BSFixedString("IsVirgin")),
 				[id](const RE::BSScript::Variable& v) {
 					std::scoped_lock l(g_lock);
-					g_answers[id] = AsInt(v);
+					g_pending.erase(id);
+					Store(id, AsInt(v), "its data");
 				});
 		}
 
@@ -198,18 +229,19 @@ namespace Virginity
 			const std::string name = Normalise(a_actor->GetActorBase() ? a_actor->GetActorBase()->GetName() : "");
 			std::scoped_lock l(g_lock);
 			if (g_alwaysVirgin.contains(name)) {
-				g_answers[id] = 1;
+				Store(id, 1, "ovirginity_config.json's always-virgin list");
 				return;
 			}
 			if (g_neverVirgin.contains(name)) {
-				g_answers[id] = 0;
+				Store(id, 0, "ovirginity_config.json's never-virgin list");
 				return;
 			}
 			if (!g_calculating.insert(id).second || !g_quest) return;
-			Papyrus::CallMethod(g_quest, "OVirginityScript", "isVirgin", RE::MakeFunctionArguments(static_cast<RE::TESObjectREFR*>(a_actor)),
+			g_askedAt[id] = Scenes::Now();
+			Papyrus::CallMethod(g_quest, "OVirginityScript", "isVirgin", RE::MakeFunctionArguments(std::move(a_actor)),
 				[id](const RE::BSScript::Variable& v) {
 					std::scoped_lock l2(g_lock);
-					g_answers[id] = AsInt(v) > 0 ? 1 : 0;
+					Store(id, AsInt(v) > 0 ? 1 : 0, "its roll");
 				});
 		}
 
@@ -353,11 +385,20 @@ namespace Virginity
 	{
 		if (!V::bEnabled) return;
 		EnsureLoaded();
-		std::scoped_lock l(g_lock);
-		for (auto& s : t.slots) {
-			if (!s.female) continue;
-			auto& rt = g_rt[s.id];
-			rt.orgasmsBase = s.orgasms;
+		std::vector<RE::Actor*> ask;
+		{
+			std::scoped_lock l(g_lock);
+			for (auto& s : t.slots) {
+				if (!s.female) continue;
+				auto& rt = g_rt[s.id];
+				rt.orgasmsBase = s.orgasms;
+				if (auto* a = s.Get(); a && !a->IsPlayerRef()) ask.push_back(a);
+			}
+		}
+		// Ask at once: the question waits in the script engine's queue behind everything OSIS and OStim send as a scene starts (seen: 6 to 9 s), and OVirginity ends a virginity itself
+		// at the penetration, so a scene that starts on the sex must be asked before that.
+		for (auto* a : ask) {
+			if (!Face::Engine::IsCompanion(a)) (void)VirginAnswer(a);
 		}
 	}
 
@@ -370,6 +411,11 @@ namespace Virginity
 		for (auto& s : t.slots) {
 			auto* a = s.Get();
 			if (!a || !s.female || a->IsPlayerRef()) continue;
+			if (Face::Engine::IsCompanion(a)) {  // a Companion's blood is feral, not sentimental: no first time marks her, and nothing an earlier save recorded (broken included) holds
+				std::scoped_lock l(g_lock);
+				g_records.erase(s.id);
+				continue;
+			}
 			// Broken (full edition): watch what the session does to her.
 			Rt* rt;
 			{
@@ -433,6 +479,29 @@ namespace Virginity
 				if (set) logger::info("First times: {} ({:08X}) is {}: {}", a->GetDisplayFullName(), a->GetFormID(), Face::Engine::PersonalityName(Face::Engine::EditionPersonality(pers)), why);
 			} else if (rec.state == 1 && raw == 1) {
 				rt->startedVirgin = true;
+			}
+
+			// Her opening line, once, in a consensual scene: a second after the scene found her a virgin (the face engine, which this runs from, starts several seconds into the scene,
+			// so a scene that opens on the sex itself is already penetrating by then; she says it anyway), waiting up to six seconds for a line already on her to end.
+			if (V::bOpeners && rt->startedVirgin && !rt->openerDone && t.consent) {
+				const float now = Scenes::Now();
+				if (rt->openerAt <= 0.0f) {
+					rt->openerAt = now + 1.0f;
+				} else if (now >= rt->openerAt) {
+					if (LipSync::SpokenLine(a) && now < rt->openerAt + 6.0f) {
+						// try again next tick
+					} else {
+						rt->openerDone = true;
+						Debug::Log(Debug::Cat::Pers, "{}: virgin opener due ({}{})", Debug::Label(a), rt->penetrated ? "the penetration has begun" : "before the penetration", LipSync::SpokenLine(a) ? ", but a line is still on her: skipped" : "");
+						if (!LipSync::SpokenLine(a)) {
+							if (auto* tasks = SKSE::GetTaskInterface()) {
+								tasks->AddTask([h = a->GetHandle()]() {
+									if (const auto p = h.get()) Openers::Say(p.get());
+								});
+							}
+						}
+					}
+				}
 			}
 
 			// The scene that ends it: watch the penetration.
@@ -510,6 +579,7 @@ namespace Virginity
 				g_rt.erase(it);
 				g_answers.erase(s.id);  // asked again next scene: a first time ends it
 				g_calculating.erase(s.id);
+				g_pending.erase(s.id);
 			}
 			if (a->IsPlayerRef()) continue;
 			if (rt.startedVirgin) Resolve(t, s, a, rt);
@@ -534,6 +604,32 @@ namespace Virginity
 			}
 #endif
 		}
+	}
+
+	int VirginAnswer(RE::Actor* a_actor)
+	{
+		if (!a_actor) return 0;
+		const auto* base = a_actor->GetActorBase();
+		if (!base || base->GetSex() != RE::SEX::kFemale) return 0;
+		EnsureLoaded();
+		if (!g_present) return 0;
+		const RE::FormID id = a_actor->GetFormID();
+		int raw = -2;
+		bool ask = false;
+		{
+			std::scoped_lock l(g_lock);
+			if (const auto it = g_answers.find(id); it != g_answers.end()) raw = it->second;
+			if (raw == -2) ask = g_pending.insert(id).second;
+		}
+		if (raw == 0 || raw == 1) return raw;
+		if (ask) {
+			Ask(a_actor);
+		} else if (raw == -1) {
+			Settle(a_actor);  // OVirginity has not worked it out: the config's lists decide at once, or it is asked to roll it
+			std::scoped_lock l(g_lock);
+			if (const auto it = g_answers.find(id); it != g_answers.end() && (it->second == 0 || it->second == 1)) return it->second;
+		}
+		return -1;
 	}
 
 	bool IsBroken(RE::Actor* a_actor)
@@ -611,5 +707,7 @@ namespace Virginity
 		g_rt.clear();
 		g_answers.clear();
 		g_calculating.clear();
+		g_pending.clear();
+		g_askedAt.clear();
 	}
 }

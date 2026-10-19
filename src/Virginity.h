@@ -16,7 +16,7 @@
 //  - in the full edition, a non-consensual first time leaves her broken (28%), stoic (28%), shy (24%), submissive (10%), dominant (5%) or, 5% of the time, crazed about the first partner to
 //    give her an orgasm. A broken woman is shut down during sex (Virginity::IsBroken: the face, the body, the voice and the arousal rate do not respond, whatever else is going on) until a
 //    session of ten silent "orgasms", with nothing rough in it, makes her stoic.
-// Men have no first time. Only a personality OSIS settled on by itself changes; one the player set stays. The state is kept in the save (Serialization, record VIRG).
+// Men have no first time, and the women of the Companions are left out of all of it (Face::Engine::IsCompanion: a feral nature is not sentimental about it). Only a personality OSIS settled on by itself changes; one the player set stays. The state is kept in the save (Serialization, record VIRG).
 namespace Virginity
 {
 	struct Record
@@ -38,6 +38,10 @@ namespace Virginity
 	// A broken woman (full edition; false in the default one): nothing shows or sounds, and her excitement builds at exactly BrokenRate, whatever else would change it.
 	[[nodiscard]] bool IsBroken(RE::Actor* a_actor);
 	[[nodiscard]] float BrokenRate(RE::Actor* a_actor);
+
+	// What OVirginity Reflowered says of this woman, for a rule that only holds for virgins: 1 a virgin; 0 not (also a man, who has no first time, and OVirginity not installed);
+	// -1 not worked out yet (it has been asked, so a later call has the answer). Any thread.
+	[[nodiscard]] int VirginAnswer(RE::Actor* a_actor);
 
 	[[nodiscard]] std::string Describe(RE::Actor* a_actor);
 	[[nodiscard]] std::string Status();

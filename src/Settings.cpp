@@ -59,6 +59,7 @@ namespace Settings
 				{ "Audio", "bMouthFollowsVolume", &Audio::bMouthFollowsVolume },
 				{ "Audio", "bLevelMoans", &Audio::bLevelMoans },
 				{ "Audio", "fLevelStrength", &Audio::fLevelStrength },
+				{ "Audio", "fLevelMaxCut", &Audio::fLevelMaxCut },
 				{ "Audio", "bSelectMoans", &Audio::bSelectMoans },
 				{ "Audio", "bQuietDuringLines", &Audio::bQuietDuringLines },
 				{ "Audio", "fLineDuck", &Audio::fLineDuck },
@@ -146,6 +147,7 @@ namespace Settings
 				{ "Face", "fAnimeStart", &Face::fAnimeStart },
 				{ "Face", "fAnimeEnd", &Face::fAnimeEnd },
 				{ "Face", "bSPIDPersonality", &Face::bSPIDPersonality },
+				{ "Face", "bRolePersonality", &Face::bRolePersonality },
 				{ "Face", "bOBlushSync", &Face::bOBlushSync },
 				{ "Face", "iPlayerPersonality", &Face::iPlayerPersonality },
 				{ "Face", "fNewPersonalityShare", &Face::fNewPersonalityShare },
@@ -210,6 +212,7 @@ namespace Settings
 				{ "LipSync", "fTongueMinOpen", &LipSync::fTongueMinOpen },
 				{ "LipSync", "bYieldToDDF", &LipSync::bYieldToDDF },
 				{ "Virginity", "bEnabled", &Virginity::bEnabled },
+				{ "Virginity", "bOpeners", &Virginity::bOpeners },
 				{ "Virginity", "iShyChance", &Virginity::iShyChance },
 				{ "Virginity", "iTimidChance", &Virginity::iTimidChance },
 				{ "Virginity", "iBalancedChance", &Virginity::iBalancedChance },
@@ -321,6 +324,7 @@ namespace Settings
 			Audio::fLineDuck = std::clamp(Audio::fLineDuck, 0.0f, 1.0f);
 			Audio::fSpokenLineVolume = std::clamp(Audio::fSpokenLineVolume, 0.1f, 1.0f);
 			Audio::fLevelStrength = std::clamp(Audio::fLevelStrength, 0.0f, 1.0f);
+			Audio::fLevelMaxCut = std::clamp(Audio::fLevelMaxCut, 0.0f, 30.0f);
 			Audio::fVolumeQuiet = std::clamp(Audio::fVolumeQuiet, 0.1f, 1.0f);
 			Audio::fVolumeLoud = std::clamp(Audio::fVolumeLoud, 1.0f, 3.0f);
 			Audio::fVolumeHigh = std::clamp(Audio::fVolumeHigh, Audio::fVolumeLoud, 4.0f);
@@ -586,7 +590,7 @@ namespace Settings
 					"; Late the fourth stage, Climax the orgasm. A stage is the voice set's own where it has stages, else the scene's speed in quarters.\n"
 					"; fMoanMaster is below 1 so that a louder volume has room above a normal one: with OStim's own moan volume at 1 and fMoanMaster 0.8, a normal moan plays at 0.8, a loud one (fVolumeLoud 1.3) at 1.\n"
 					"; Which moans: with the Director takeover (Voice > bDirectorOwnMoans) OSIS plays only files of the class asked for (bSelectMoans: it tries again with another file) and plays no moans where the rule says none. OStim's own\n"
-					"; moans cannot be chosen, so there they are muted where the rule says none and, with bLevelMoans, brought toward the typical loudness of the class (fLevelStrength 0 to 1 says how far, in dB).\n"
+					"; moans cannot be chosen, so there they are muted where the rule says none and, with bLevelMoans, brought toward the typical loudness of the class (fLevelStrength 0 to 1 says how far, in dB; fLevelMaxCut is the most, in dB, a moan is turned down to get there: a loud voice set taken all the way to a quiet class's level is 15 dB under its own).\n"
 					"; bMouthFollowsVolume: lip-sync opens the mouth less for a quiet volume and more for a loud one." },
 				{ "Face", "; Face engine. iMode: 0 Assist, 1 Enhanced, 2 Director (OSED owns the face). fStyle: 0 realistic, 1 cinematic, 2 anime." },
 				{ "Body", "; Toe curl / hand grip at climax. iCurlAxis: 0 X, 1 Y, 2 Z (bone-local)." },
@@ -603,6 +607,7 @@ namespace Settings
 				{ "Virginity",
 					"; First times, for women OVirginity Reflowered says are virgins (it must be installed; its ovirginity_config.json lists decide some by name). A virgin's first consensual scene gives her shy (iShyChance percent) or timid (iTimidChance), the rest whatever the usual rules give; a religious one is always shy, one who worships Dibella is balanced, vocal or wild.\n"
 					"; iBalancedChance: a scene with an orgasm that does not end her virginity may make her balanced. A bad first time (no orgasm before the penetration, a rough scene, or the speed past iSpeedLimit before she has an orgasm) makes her stoic with iNegativeStoicChance percent. An extraordinary one (iExtraordinaryOrgasms or more orgasms) makes her balanced, vocal or wild, iExtraordinaryChance percent each, moved by iExtraordinaryStep per orgasm above that number.\n"
+					"; bOpeners: a virgin says one of five lines for her personality at the start of a consensual scene (\"Please be gentle, it's my first time\"), in her voice type. The clips are the OSIS Virgin Openers voice pack (Data/Sound/OSIS/Openers); without it nothing is said. The women of the Companions are left out.\n"
 					"; Who is religious: the base game's temple and priest factions, and the names in Data/SKSE/Plugins/OSIS/npc_religion_user.txt (name|religious, name|dibella, or name|none to take one out)." },
 				{ "Evolution",
 					"; A personality OSIS settled on by itself grows with experience; one you set by hand, and the player's own, never does. A session is one scene; each rule is a number of sessions with at least that many orgasms by the actor in each (the counts are kept in the save).\n"
@@ -921,6 +926,7 @@ namespace Settings
 		bAnimeTongueFull = false;
 		bTongueLife = false;
 		bSPIDPersonality = true;
+		bRolePersonality = true;
 		bOBlushSync = true;
 		fNewPersonalityShare = 0.20f;
 		bPersonalityExcitement = true;

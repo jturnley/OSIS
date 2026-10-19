@@ -35,6 +35,7 @@ namespace MoanVolume
 			bool mouth = true;
 			bool level = false;
 			float strength = 1.0f;
+			float maxCut = 8.0f;    // dB
 			bool select = true;
 			bool lines = false;     // a moan gives way to a spoken line
 			float duck = 1.0f;      // the others' moans while a line is spoken in their scene
@@ -52,6 +53,7 @@ namespace MoanVolume
 			c.mouth = S::bMouthFollowsVolume;
 			c.level = S::bLevelMoans;
 			c.strength = S::fLevelStrength;
+			c.maxCut = S::fLevelMaxCut;
 			c.select = S::bSelectMoans;
 			c.lines = S::bQuietDuringLines && Settings::General::bEnabled;
 			c.duck = S::fLineDuck;
@@ -82,6 +84,7 @@ namespace MoanVolume
 			float targetDb = std::numeric_limits<float>::quiet_NaN();  // the loudness the sound is brought toward (NaN: left at its own)
 			bool mute = false;     // no moan at all
 			float strength = 1.0f;
+			float minGain = 0.2f;  // the most leveling turns a moan down, as a gain
 			float mouth = 1.0f;
 		};
 
@@ -92,6 +95,7 @@ namespace MoanVolume
 			m.volume = a_cfg.master * a_cfg.tier[static_cast<std::size_t>(level)];
 			m.mute = a_rule.kind == S::kMoanNone;
 			m.strength = a_cfg.strength;
+			m.minGain = std::clamp(std::pow(10.0f, -a_cfg.maxCut / 20.0f), 0.03f, 1.0f);
 			m.mouth = kMouth[static_cast<std::size_t>(level)];
 			const unsigned mask = MaskOf(a_rule.kind);
 			if (a_cfg.level && a_scale.ready && mask != 0u) m.targetDb = a_scale.median[mask == 1u ? 0 : (mask == 2u ? 1 : 2)];
@@ -148,6 +152,17 @@ namespace MoanVolume
 		std::unordered_map<std::uint32_t, LineSound> g_lines;      // under g_lock: sound id -> what was done to a spoken line
 		std::atomic<std::uint32_t> g_linesScaled{ 0 };
 		std::unordered_set<std::uint32_t> g_unmatchedSeen;         // main thread (Tick): categories of other sounds on a scene's actors already named in the debug log
+		// Dynamic Dialogue Framework's lines are not of the Voice categories (its sounds carry a category that is no form at all), so one is learned: the first new sound of a category
+		// that is no form, 0.3 to 20 s long, that appears while a spoken line is on a scene actor is taken for a line, and so is every sound of that category after it.
+		constexpr int kLearnedMax = 8;
+		std::atomic<const RE::BSISoundCategory*> g_learnedCat[kLearnedMax]{};  // categories learned as a mod's spoken lines
+		std::unordered_set<std::uint32_t> g_learnSeen;                          // main thread (Tick): sounds already considered for learning
+		struct LinePtr
+		{
+			float volume = 0.0f;
+			float at = 0.0f;
+		};
+		std::unordered_map<const void*, LinePtr> g_linePtr;        // under g_lock: a line the start hook shaped before the audio manager listed it, by the sound's address
 
 		bool IsVoiceCategory(const RE::BSISoundCategory* a_cat)
 		{
@@ -155,6 +170,15 @@ namespace MoanVolume
 			for (const auto& v : g_voiceCat) {
 				const auto* p = v.load(std::memory_order_relaxed);
 				if (p && p == a_cat) return true;
+			}
+			return false;
+		}
+
+		bool IsLearnedCategory(const RE::BSISoundCategory* a_cat)
+		{
+			if (!a_cat) return false;
+			for (const auto& v : g_learnedCat) {
+				if (v.load(std::memory_order_relaxed) == a_cat) return true;
 			}
 			return false;
 		}
@@ -181,11 +205,33 @@ namespace MoanVolume
 			}
 		}
 
+		// Whether a sound category is a real sound category form (the base game's and every mod's are), as opposed to whatever a mod's own player gives its sounds.
+		bool IsFormCategory(const RE::BSISoundCategory* a_cat)
+		{
+			const auto id = CategoryFormID(a_cat);
+			if (id == 0u) return false;
+			const auto* f = RE::TESForm::LookupByID<RE::BGSSoundCategory>(id);
+			return f && static_cast<const RE::BSISoundCategory*>(f) == a_cat;
+		}
+
+		void LearnLineCategory(const RE::BSISoundCategory* a_cat)  // main thread
+		{
+			for (auto& v : g_learnedCat) {
+				const auto* p = v.load();
+				if (p == a_cat) return;
+				if (!p) {
+					v.store(a_cat);
+					Debug::Log(Debug::Cat::Moan, "spoken lines: a sound of category {:08X}, no sound category form, started with a line: every sound of that category is a spoken line from now on", CategoryFormID(a_cat));
+					return;
+				}
+			}
+		}
+
 		// Bringing a file to a loudness: the gain that moves its measured level toward the target, a fraction of the way in dB, kept sensible.
-		float LevelGain(const LipSync::Level& a_level, float a_targetDb, float a_strength)
+		float LevelGain(const LipSync::Level& a_level, float a_targetDb, float a_strength, float a_minGain)
 		{
 			if (!a_level.known || std::isnan(a_targetDb) || a_strength <= 0.0f) return 1.0f;
-			return std::clamp(std::pow(10.0f, a_strength * (a_targetDb - a_level.db) / 20.0f), 0.2f, 4.0f);
+			return std::clamp(std::pow(10.0f, a_strength * (a_targetDb - a_level.db) / 20.0f), a_minGain, 4.0f);
 		}
 
 		// The stage from the scene alone: the speed, in quarters with the fastest the fourth stage; the excitement when the scene has one speed.
@@ -243,6 +289,8 @@ namespace MoanVolume
 			float volume;
 			RE::BSResource::ID res;
 			const RE::BSISoundCategory* cat;
+			const RE::BSGameSound* snd;
+			std::uint32_t durationMs;
 		};
 
 		int CollectVoiced(RE::BSAudioManager* am, Voiced* out, int max) noexcept
@@ -259,8 +307,42 @@ namespace MoanVolume
 					if (snd->volume <= 0.001f) continue;  // muted (a victim's, a rule's, or a try of the takeover that was the wrong class): nothing to scale
 					out[n].soundID = soundID;
 					out[n].node = node;
+					out[n].snd = snd;
+					out[n].durationMs = snd->durationMilliseconds;
 					out[n].volume = snd->volume;
 					out[n].cat = snd->category;
+					std::memcpy(&out[n].res, &snd->resourceID, sizeof(RE::BSResource::ID));
+					++n;
+				}
+			} __except (EXCEPTION_EXECUTE_HANDLER) {
+				return n;
+			}
+			return n;
+		}
+
+		// Every sound that is playing, for the debug trace of what a spoken line looks like to the audio manager (spoken lines: see Tick). SEH as above.
+		struct Candidate
+		{
+			std::uint32_t soundID;
+			float volume;
+			std::uint32_t durationMs;
+			const RE::BSISoundCategory* cat;
+			bool moving;
+			RE::BSResource::ID res;
+		};
+
+		int CollectCandidates(RE::BSAudioManager* am, Candidate* out, int max) noexcept
+		{
+			int n = 0;
+			__try {
+				for (auto& [soundID, snd] : am->activeSounds) {
+					if (n >= max) break;
+					if (!snd) continue;
+					out[n].soundID = soundID;
+					out[n].volume = snd->volume;
+					out[n].durationMs = snd->durationMilliseconds;
+					out[n].cat = snd->category;
+					out[n].moving = am->movingSounds.find(soundID) != am->movingSounds.end();
 					std::memcpy(&out[n].res, &snd->resourceID, sizeof(RE::BSResource::ID));
 					++n;
 				}
@@ -306,7 +388,7 @@ namespace MoanVolume
 				d.volume = 0.0f;
 				return d;
 			}
-			d.gain = LevelGain(a_level, m.targetDb, m.strength);
+			d.gain = LevelGain(a_level, m.targetDb, m.strength, m.minGain);
 			d.factor = m.volume * d.gain * a_target.duck;
 			if (std::abs(d.factor - 1.0f) < 0.01f) return d;
 			d.volume = std::clamp(a_before * d.factor, 0.0f, 1.0f);
@@ -396,18 +478,18 @@ namespace MoanVolume
 				return d.volume;
 			}
 
-			// A line spoken by an actor of a scene (a Voice-category sound that follows them): started at the setting's share of its volume.
+			// A line spoken in a scene: a Voice-category sound that follows one of its actors, or a sound of a category learned as a mod's lines. Started at the setting's share of its volume.
 			static float StartLine(RE::BSGameSound* a_sound)
 			{
-				if (!IsVoiceCategory(a_sound->category)) return -1.0f;
+				const bool voice = IsVoiceCategory(a_sound->category);
+				if (!voice && !IsLearnedCategory(a_sound->category)) return -1.0f;  // not the Voice category, nor one learned as a mod's lines
 				auto* am = RE::BSAudioManager::GetSingleton();
 				if (!am) return -1.0f;
 				RE::NiAVObject* chain[24];
 				std::uint32_t id = 0;
 				const int n = FollowChain(am, a_sound, chain, 24, &id);
-				if (n <= 0) return -1.0f;
 				RE::FormID actor = 0;
-				{
+				if (n > 0) {
 					std::scoped_lock l(g_lock);
 					for (int i = 0; i < n && !actor; ++i) {
 						for (const auto& t : g_targets) {
@@ -417,14 +499,24 @@ namespace MoanVolume
 							}
 						}
 					}
-					if (!actor) return -1.0f;
+				}
+				if (voice && !actor) return -1.0f;  // a Voice-category sound is a scene's line only when it follows one of its actors
+				{
+					// The audio manager can list a sound before Play() is called on it (SpeakSound builds it, then plays it ~0.15 s later): the sweep may have turned it down already, and
+					// scaling its volume again here would make it quieter than the setting says (seen: 0.70 x 0.70 = 0.49). Put back what the sweep set.
+					std::scoped_lock l(g_lock);
+					if (id != 0u) {
+						if (const auto it = g_lines.find(id); it != g_lines.end()) return it->second.volume;
+					}
+					if (const auto it = g_linePtr.find(a_sound); it != g_linePtr.end()) return it->second.volume;
 				}
 				const float before = a_sound->volume;
 				const float volume = std::clamp(before * g_lineVol.load(std::memory_order_relaxed), 0.0f, 1.0f);
 				a_sound->volume = volume;
 				{
 					std::scoped_lock l(g_lock);
-					g_lines[id] = { volume, Scenes::Now(), actor, false };
+					if (id != 0u) g_lines[id] = { volume, Scenes::Now(), actor, false };
+					else g_linePtr[a_sound] = { volume, Scenes::Now() };  // the audio manager does not list it yet: the sweep finds it by its address
 				}
 				g_linesScaled.fetch_add(1, std::memory_order_relaxed);
 				Debug::Log(Debug::Cat::Moan, "{:08X}: spoken line, sound {}: starts at {:.2f} x{:.2f} = {:.2f}", actor, id, before, g_lineVol.load(), volume);
@@ -508,12 +600,15 @@ namespace MoanVolume
 			const float sceneNow = Scenes::Now();
 			// Who is speaking a line, with a short tail so a moan does not start on the line's last breath, and in which scenes.
 			std::unordered_set<int> talkingThreads;
-			if (c.lines) {
+			if (c.lines || c.lineVol < 0.999f) {  // also for the spoken-lines slider alone: a line's start is what teaches the sweep a mod's line category
 				Scenes::ForEachActor([&](RE::Actor* a, const Scenes::Slot& s) {
 					if (!s.painted) return;
 					if (LipSync::SpokenLine(a)) {
 						auto& until = g_lineUntil[s.id];
-						if (until < sceneNow) Debug::Log(Debug::Cat::Moan, "{}: a spoken line starts: their moans are cut and the others' turned down while it lasts", Debug::Label(a));
+						if (until < sceneNow) {
+							if (c.lines) Debug::Log(Debug::Cat::Moan, "{}: a spoken line starts: their moans are cut and the others' turned down while it lasts", Debug::Label(a));
+							else Debug::Log(Debug::Cat::Moan, "{}: a spoken line starts", Debug::Label(a));
+						}
 						until = sceneNow + kLineTail;
 					}
 				});
@@ -566,13 +661,14 @@ namespace MoanVolume
 			std::scoped_lock l(g_lock);
 			g_applied.clear();
 			g_lines.clear();
+			g_linePtr.clear();
 			return;
 		}
 
 		// A voice-set sound the hook did not shape, or one whose volume was set again after Play, is corrected once.
 		auto* am = RE::BSAudioManager::GetSingleton();
 		if (!am || RE::UI::GetSingleton()->GameIsPaused()) return;
-		std::array<Voiced, 64> voiced{};
+		std::array<Voiced, 128> voiced{};
 		const int n = CollectVoiced(am, voiced.data(), static_cast<int>(voiced.size()));
 		const float now = Scenes::Now();
 		struct Fix
@@ -589,28 +685,50 @@ namespace MoanVolume
 			const auto& v = voiced[static_cast<std::size_t>(i)];
 			if (LipSync::IsOwnSound(v.soundID)) continue;
 			if (!LipSync::IsMoanResource(v.res)) {
-				// Not a voice-set sound: a spoken line, if it is of the Voice category and follows an actor of a scene.
+				// Not a voice-set sound: a spoken line, if it is of the Voice category and follows an actor of a scene, or of a category learned as a mod's lines.
 				if (lineVol >= 0.999f) continue;
 				auto* speaker = LipSync::ActorOf(v.node);
-				if (!speaker) continue;
-				std::scoped_lock l(g_lock);
-				if (!g_byActor.contains(speaker->GetFormID())) continue;
-				if (!IsVoiceCategory(v.cat)) {
-					const std::uint32_t cat = v.cat ? CategoryFormID(v.cat) : 0u;
-					if (Debug::On() && g_unmatchedSeen.size() < 24 && g_unmatchedSeen.insert(cat).second)
-						Debug::Log(Debug::Cat::Moan, "spoken lines: a sound of sound category {:08X} follows {} (not the Voice category, so left alone)", cat, Debug::Label(speaker));
-					continue;
+				const RE::FormID speakerId = speaker ? speaker->GetFormID() : 0u;
+				const bool voice = IsVoiceCategory(v.cat);
+				bool learned = !voice && IsLearnedCategory(v.cat);
+				if (!voice && !learned) {
+					// A new sound of a category that is no form, a line's length, while a line is on a scene actor: it is that mod's line, and so is the category from now on.
+					if (g_learnSeen.size() > 4000) g_learnSeen.clear();
+					if (!g_lineUntil.empty() && v.cat && v.durationMs >= 300u && v.durationMs <= 20000u && g_learnSeen.insert(v.soundID).second && !IsFormCategory(v.cat)) {
+						LearnLineCategory(v.cat);
+						learned = IsLearnedCategory(v.cat);
+					}
+					if (!learned) {
+						bool owned = false;
+						if (speakerId != 0u) {
+							std::scoped_lock l(g_lock);
+							owned = g_byActor.contains(speakerId);
+						}
+						if (owned && Debug::On()) {
+							const std::uint32_t cat = v.cat ? CategoryFormID(v.cat) : 0u;
+							if (g_unmatchedSeen.size() < 24 && g_unmatchedSeen.insert(cat).second)
+								Debug::Log(Debug::Cat::Moan, "spoken lines: a sound of sound category {:08X} follows {} (not a line category, so left alone)", cat, Debug::Label(speaker));
+						}
+						continue;
+					}
 				}
+				std::scoped_lock l(g_lock);
+				if (voice && !(speakerId != 0u && g_byActor.contains(speakerId))) continue;  // a Voice-category sound is a scene's line only when it follows one of its actors
 				const auto lit = g_lines.find(v.soundID);
 				if (lit == g_lines.end()) {
+					if (const auto pit = g_linePtr.find(v.snd); pit != g_linePtr.end()) {  // the start hook shaped it before the audio manager listed it
+						g_lines[v.soundID] = { pit->second.volume, now, speakerId, false };
+						g_linePtr.erase(pit);
+						continue;
+					}
 					const float target = std::clamp(v.volume * lineVol, 0.0f, 1.0f);
-					g_lines[v.soundID] = { target, now, speaker->GetFormID(), false };
-					fixes.push_back({ v.soundID, target, speaker->GetFormID(), lineVol, 3 });
+					g_lines[v.soundID] = { target, now, speakerId, false };
+					fixes.push_back({ v.soundID, target, speakerId, lineVol, 3 });
 				} else if (!lit->second.fixed && std::abs(v.volume - lit->second.volume) > 0.02f) {  // set again after we did it: once more
 					const float target = std::clamp(v.volume * lineVol, 0.0f, 1.0f);
 					lit->second.volume = target;
 					lit->second.fixed = true;
-					fixes.push_back({ v.soundID, target, speaker->GetFormID(), lineVol, 3 });
+					fixes.push_back({ v.soundID, target, speakerId, lineVol, 3 });
 				}
 				continue;
 			}
@@ -659,9 +777,28 @@ namespace MoanVolume
 			else if (f.kind == 2) Debug::Log(Debug::Cat::Moan, "{}: voice-set sound {} turned down to {:.2f} (x{:.2f}): a line is being spoken in their scene", Debug::Label(f.actor), f.id, f.volume, f.factor);
 			else Debug::Log(Debug::Cat::Moan, "{}: voice-set sound {} corrected to {:.2f} (x{:.2f}; it was not shaped when it started)", Debug::Label(f.actor), f.id, f.volume, f.factor);
 		}
+		// The debug trace of what a spoken line looks like to the audio manager: every new sound of a second or more that is not a voice-set moan, while a scene is on and the
+		// spoken-line rules are, with its category, whether it follows a node and how long it is. Named once each, 150 at most a session.
+		if (Debug::On() && (c.lines || lineVol < 0.999f)) {
+			static std::unordered_set<std::uint32_t> named;
+			static int namedCount = 0;
+			if (namedCount < 150) {
+				std::array<Candidate, 256> cands{};
+				const int cn = CollectCandidates(am, cands.data(), static_cast<int>(cands.size()));
+				if (named.size() > 4000) named.clear();
+				for (int i = 0; i < cn && namedCount < 150; ++i) {
+					const auto& k = cands[static_cast<std::size_t>(i)];
+					if (k.durationMs < 1000 || k.volume <= 0.001f || LipSync::IsMoanResource(k.res) || !named.insert(k.soundID).second) continue;
+					++namedCount;
+					Debug::Log(Debug::Cat::Moan, "spoken lines: sound {} is playing: category {:08X}{}, volume {:.2f}, {} ms, {}{}", k.soundID, k.cat ? CategoryFormID(k.cat) : 0u, IsVoiceCategory(k.cat) ? " (Voice)" : (IsLearnedCategory(k.cat) ? " (learned line category)" : (IsFormCategory(k.cat) ? "" : " (no form)")),
+						k.volume, k.durationMs, k.moving ? "follows a node" : "does not follow a node", g_lineUntil.empty() ? "" : " | a line is being spoken on a scene actor");
+				}
+			}
+		}
 		std::scoped_lock l(g_lock);
 		std::erase_if(g_applied, [now](const auto& kv) { return now - kv.second.at > 20.0f; });
 		std::erase_if(g_lines, [now](const auto& kv) { return now - kv.second.at > 30.0f; });
+		std::erase_if(g_linePtr, [now](const auto& kv) { return now - kv.second.at > 3.0f; });
 	}
 
 	std::string Describe(RE::Actor* a_actor)

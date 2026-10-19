@@ -1389,6 +1389,64 @@ namespace Face::Engine
 			return EditionPersonality(pick < 30 ? Pers::kTimid : (pick < 60 ? Pers::kSubmissive : (pick < 85 ? Pers::kWild : Pers::kCrazed)));
 		}
 
+		// ---- roles that bound an automatic personality
+		// A bard is in the job faction (JobBardFaction), sings (BardSingerFaction), is at the Bards College (SolitudeBardsCollegeFaction) or has the Bard class. A Companion is in
+		// CompanionsFaction, which the game also gives to Brill and Vignar, who are not (the game's own CompanionsFactionMinusBrillAndVignar is the list without them).
+		struct Role
+		{
+			bool bard = false;
+			bool companion = false;
+		};
+
+		bool InFaction(RE::Actor* a, RE::FormID a_id)
+		{
+			const auto* f = RE::TESForm::LookupByID<RE::TESFaction>(a_id);
+			return f && a->IsInFaction(f);
+		}
+
+		Role RoleOf(RE::Actor* a)  // the caller holds Settings::lock
+		{
+			static std::unordered_map<RE::FormID, Role> cache;
+			const RE::FormID id = a->GetFormID();
+			if (const auto it = cache.find(id); it != cache.end()) return it->second;
+			Role r;
+			if (const auto* b = a->GetActorBase()) {
+				r.bard = InFaction(a, 0x053514) || InFaction(a, 0x0CF8F9) || InFaction(a, 0x0C13C7) || (b->npcClass && b->npcClass->GetFormID() == 0x01325D);
+				const RE::FormID bid = b->GetFormID();
+				r.companion = InFaction(a, 0x103AFE) || (InFaction(a, 0x048362) && bid != 0x01A6A2 && bid != 0x013BB5);
+			}
+			if (cache.size() < 4096) cache[id] = r;
+			return r;
+		}
+
+		// The personality an automatic one becomes for the actor's role; a_why says what happened, empty when nothing did. A bard who is shy or timid and is a virgin (or whom
+		// OVirginity has not answered about yet: it has been asked) stays as she is; a bard becomes vocal, balanced or wild. The men of the Companions may be dominant too.
+		// The same actor always lands on the same one.
+		int ApplyRole(RE::Actor* a, int a_arch, std::string& a_why)
+		{
+			if (!S::bRolePersonality || !a || a->IsPlayerRef() || a_arch < 0) return a_arch;
+			const Role r = RoleOf(a);
+			if (r.companion) {
+				const auto* base = a->GetActorBase();
+				const bool man = base && base->GetSex() == RE::SEX::kMale;  // the men of the Companions may also be dominant
+				if (a_arch == Pers::kVocal || a_arch == Pers::kWild || a_arch == Pers::kCrazed || (man && a_arch == Pers::kDominant)) return a_arch;
+				const int roll = Percent(a, 0xC04Du);
+				int pick;
+				if (man) pick = roll < 30 ? Pers::kVocal : (roll < 60 ? Pers::kWild : (roll < 90 ? Pers::kDominant : Pers::kCrazed));
+				else pick = roll < 40 ? Pers::kVocal : (roll < 80 ? Pers::kWild : Pers::kCrazed);
+				if (!PersonalityAvailable(pick)) pick = Pers::kVocal;
+				a_why = std::format("a Companion is {}, not {}", man ? "vocal, wild, dominant or crazed" : "vocal, wild or crazed", PersonalityName(a_arch));
+				return pick;
+			}
+			if (r.bard && (a_arch == Pers::kShy || a_arch == Pers::kTimid)) {
+				if (Virginity::VirginAnswer(a) != 0) return a_arch;
+				a_why = std::format("a bard who is not a virgin is not {}", PersonalityName(a_arch));
+				const int roll = Percent(a, 0xBA2Du);
+				return roll < 40 ? Pers::kVocal : (roll < 70 ? Pers::kBalanced : Pers::kWild);
+			}
+			return a_arch;
+		}
+
 		// What the rules alone give for this actor, with nothing pinned. The caller holds Settings::lock.
 		int ResolvePersonality(RE::Actor* a, std::string& source)
 		{
@@ -1441,8 +1499,9 @@ namespace Face::Engine
 #else
 			const std::string bio = "not in this build";
 #endif
-			return std::format("SPID {} | keywords stoic={} vocal={} shy={} dominant={} | bio {} | voice set '{}' -> {} | vanilla AI aggression {:.0f} confidence {:.0f} -> {} | new-type roll {:.3f} vs share {:.2f} -> {} | weighted fallback -> {}",
-				name(SPIDArchetype(a)), has(g_kStoic), has(g_kVocal), has(g_kShy), has(g_kDominant), bio, VoiceName(a), name(S::bVoiceArchetype ? VoiceArchetype(a) : -1),
+			const Role role = RoleOf(a);
+			return std::format("role {} | SPID {} | keywords stoic={} vocal={} shy={} dominant={} | bio {} | voice set '{}' -> {} | vanilla AI aggression {:.0f} confidence {:.0f} -> {} | new-type roll {:.3f} vs share {:.2f} -> {} | weighted fallback -> {}",
+				role.companion ? "Companion" : (role.bard ? "bard" : "none"), name(SPIDArchetype(a)), has(g_kStoic), has(g_kVocal), has(g_kShy), has(g_kDominant), bio, VoiceName(a), name(S::bVoiceArchetype ? VoiceArchetype(a) : -1),
 				avo->GetActorValue(RE::ActorValue::kAggression), avo->GetActorValue(RE::ActorValue::kConfidence), name(VanillaAIPersonality(a)),
 				static_cast<float>(h % 1000u) / 1000.0f, S::fNewPersonalityShare, roll >= 0 ? PersonalityName(roll) : "not rolled", PersonalityName(FallbackPersonality(a)));
 		}
@@ -1485,11 +1544,25 @@ namespace Face::Engine
 		}
 		if (const int stored = StoredPersonality(a); stored >= 0) {
 			src((stored & kPinnedFlag) ? "Pinned" : (a->IsPlayerRef() ? "Player set" : "Player set (NPC)"));
-			const int arch = EditionPersonality(stored & 0xFF);  // a save from the full edition can hold a submissive, which the lite edition plays as a timid
-			return PersonalityAvailable(arch) ? arch : 0;
+			int arch = EditionPersonality(stored & 0xFF);  // a save from the full edition can hold a submissive, which the lite edition plays as a timid
+			if (!PersonalityAvailable(arch)) arch = 0;
+			if (stored & kPinnedFlag) {  // an automatic one (one the player set by hand is left alone): a bard or a Companion keeps to their role
+				std::string roleWhy;
+				const int adjusted = ApplyRole(a, arch, roleWhy);
+				if (adjusted != arch) {
+					src("Pinned, but " + roleWhy);
+					return adjusted;
+				}
+			}
+			return arch;
 		}
 		std::string why;
-		const int arch = ResolvePersonality(a, why);
+		int arch = ResolvePersonality(a, why);
+		std::string roleWhy;
+		if (const int adjusted = ApplyRole(a, arch, roleWhy); adjusted != arch) {
+			why += ", but " + roleWhy;
+			arch = adjusted;
+		}
 		PinPersonality(a, arch, why);
 		src(why);
 		return arch;
@@ -1573,6 +1646,13 @@ namespace Face::Engine
 		const int arch = ResolvePersonality(a, source);
 		if (a_why) *a_why = source;
 		return EditionPersonality(arch);
+	}
+
+	bool IsCompanion(RE::Actor* a)
+	{
+		if (!a || a->IsPlayerRef()) return false;
+		std::scoped_lock l(Settings::lock);
+		return S::bRolePersonality && RoleOf(a).companion;
 	}
 
 	bool SetAutomaticPersonality(RE::Actor* a, int a_arch, std::string_view a_why)

@@ -89,6 +89,8 @@ namespace Face::Engine
 	// The second does nothing, and says so, for one the player set, the player, a child or a creature.
 	[[nodiscard]] int RollPersonality(RE::Actor* a, std::string* a_why = nullptr);
 	bool SetAutomaticPersonality(RE::Actor* a, int a_arch, std::string_view a_why);
+	// A member of the Companions (the guild) while Face::bRolePersonality is on. The first-time model leaves their women out: the werewolves' blood is not sentimental about it.
+	[[nodiscard]] bool IsCompanion(RE::Actor* a);
 	[[nodiscard]] std::unordered_map<RE::FormID, int> NpcPersonalities();
 	void SetNpcPersonalities(std::unordered_map<RE::FormID, int> a_map);
 

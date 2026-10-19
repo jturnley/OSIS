@@ -7,6 +7,7 @@
 
 #include "Arousal.h"
 #include "Experience.h"
+#include "Openers.h"
 #include "Body.h"
 #include "Compat.h"
 #include "Debug.h"
@@ -689,6 +690,9 @@ namespace
 				"(Data/SKSE/Plugins/OSIS/npc_personalities.txt; your own lines go in npc_personalities_user.txt beside it, in the same format, and win). Below an SPID or OSIS keyword, above the voice set. "
 				"Everyone else gets one as before. It only matters when an actor's personality is first settled.");
 #endif
+			Check("Bards and Companions keep to their roles", bRolePersonality,
+				"A bard (the Bards College, or anyone with the job faction or class of one) is never shy or timid unless OVirginity says she is a virgin, and a member of the Companions is vocal, wild or crazed (a man of the Companions may be dominant as well), with no first-time rules for the women. "
+				"It applies to a personality OSIS settled on by itself, whatever rule gave it (a saved one included); one you set by hand stays.");
 			Check("Voice set shapes personality", bVoiceArchetype,
 				"An actor's voice type suggests a personality when nothing else has set one.");
 			Check("OBlush-aware shyness", bOBlushSync, "While OBlush has an actor blushing, the grammar treats them as shy.");
@@ -762,6 +766,7 @@ namespace
 				"OStim picks its own moan file, and the engine picks among a voice set's many files at random, so OSIS cannot choose one. With this on, each moan is instead brought toward the typical "
 				"loudness of the class the rule asks for (quiet, normal or loud), whichever file was picked.");
 			if (bLevelMoans) SliderF("Leveling strength", fLevelStrength, 0.0f, 1.0f, "%.2f", "How far each moan is brought to its class's loudness, in decibels: 0 leaves every file as it is, 1 brings it all the way.");
+			if (bLevelMoans) SliderF("Leveling: most a moan is turned down (dB)", fLevelMaxCut, 0.0f, 30.0f, "%.0f", "Leveling brings a loud voice set's moans down to the class's level, which for a quiet class can be 15 dB under their own and far under the voices. This limits the cut: 0 never turns a moan down (a quiet class then only lifts what it can), 8 is the default, 30 levels everything. A moan can never be turned up past its file.");
 #if !OSIS_LITE
 			Check("The takeover plays only the class asked for", bSelectMoans,
 				"With the Director takeover (Voice page) OSIS plays the moans itself and can choose: where the rule asks for quiet, normal or loud moans it plays only files of that third, trying "
@@ -776,8 +781,9 @@ namespace
 				"Times the moans of everyone but the speaker for as long as a line is spoken in their scene: 1 leaves them as they are, 0 silences them.");
 			SliderF("Spoken lines in a scene", fSpokenLineVolume, 0.1f, 1.0f, "%.2f",
 				"Times the volume of the lines the actors of a scene speak (Dynamic Dialogue Framework's, or the game's own). A moan cannot be played louder than its sound file, and a quiet voice set's "
-				"files are well below speech, so the balance is found on the voice side: lower this until the moans sit beside the voices. 1 leaves the lines as they are. It is the Voice category's "
-				"lines on the scene's actors only; nobody else's speech is touched.");
+				"files are well below speech, so the balance is found on the voice side: lower this until the moans sit beside the voices. 1 leaves the lines as they are. It covers the Voice category's "
+				"lines on the scene's actors, and the lines of a mod that plays its own (Dynamic Dialogue Framework's are found while a scene is on: the first one of a scene may start at full "
+				"volume for a moment); nobody else's speech is touched.");
 			static const char* const kKinds[] = { "As they come", "None", "Quiet", "Normal", "Loud" };
 			static const char* const kLevels[] = { "Quiet", "Normal", "Loud", "High" };
 			static const char* const kRuleNames[] = { "Balanced", "Stoic", "Vocal", "Shy", "Dominant", "Timid", "Submissive", "Wild", "Crazed" };
@@ -856,6 +862,16 @@ namespace
 					"(shy, timid, or what the usual rules give; a religious woman is always shy, one who worships Dibella balanced, vocal or wild), a scene with an orgasm that does not end it may make them "
 					"balanced, and the scene that does end it can leave them stoic (a bad first time) or balanced, vocal or wild (an extraordinary one). Only a personality OSIS settled on by itself changes.");
 				if (bEnabled) {
+					Check("A virgin tells her partner so", bOpeners,
+						"At the start of a consensual scene, a woman who is a virgin says one of five lines for her personality (\"Please be gentle with me. I've never done this before.\") in her voice type, a second after "
+						"the scene finds out. They are the clips of the OSIS Virgin Openers voice pack (Data/Sound/OSIS/Openers); without the pack nothing is said. The women of the Companions are left out.");
+					ig::TextDisabled("%s", Openers::Status().c_str());
+					if (ig::Button("Say a virgin opener now")) OnGame([]() {
+						auto* a = TestTarget();
+						if (!a) return Papyrus::Notify("OSIS: aim at a woman, select one in the console, or start a scene");
+						Papyrus::Notify("OSIS: " + Openers::Say(a));
+					});
+					if (ig::IsItemHovered()) ig::SetTooltip("A test: the woman under the crosshair (or your partner in a scene) says one of her opening lines now, virgin or not, so you can hear the pack and watch the mouth.");
 					SliderI("First scene: shy (%)", iShyChance, 0, 100, "The chance a virgin's first consensual scene gives her the shy personality. A religious woman is always shy.");
 					SliderI("First scene: timid (%)", iTimidChance, 0, 100, "The chance it gives her timid. The rest follow the usual rules (voice, AI values, a seeded roll).");
 					SliderI("An orgasm, still a virgin: balanced (%)", iBalancedChance, 0, 100, "The chance a scene with an orgasm that leaves her a virgin makes her balanced. It is rolled every such scene until she loses it.");

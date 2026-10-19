@@ -1,0 +1,13 @@
+OSIS voice packs - terms for the audio files
+
+The audio in this download (the sound files, and the plugins and voice-set files that go with them) was made by jturnley with a text-to-speech service, under a
+subscription that allows the author to distribute it.
+
+It is NOT part of the source code of OStim Standalone Immersive Sex and is NOT licensed under the GNU General Public License. It is closed source, and all rights are
+reserved:
+
+  - You may install and use it with your own copy of the game.
+  - You may not redistribute it, re-upload it, or include it in another mod, pack or project, modified or not, without the author's written permission.
+
+The scripts that made it are free software in the OSIS repository (GPL-3.0-or-later), so anyone can make a pack of their own, with their own voices, under their own
+account and terms.
