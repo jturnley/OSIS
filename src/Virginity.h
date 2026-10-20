@@ -39,8 +39,8 @@ namespace Virginity
 	[[nodiscard]] bool IsBroken(RE::Actor* a_actor);
 	[[nodiscard]] float BrokenRate(RE::Actor* a_actor);
 
-	// What OVirginity Reflowered says of this woman, for a rule that only holds for virgins: 1 a virgin; 0 not (also a man, who has no first time, and OVirginity not installed);
-	// -1 not worked out yet (it has been asked, so a later call has the answer). Any thread.
+	// What OVirginity Reflowered says of this actor, for a rule that only holds for virgins: 1 a virgin; 0 not (also OVirginity not installed); -1 not worked out yet (it has been
+	// asked, so a later call has the answer). A man has an answer too (OVirginity rolls it the first time it is asked, and ends it when he takes someone's), though he has no first time here; his answer is dropped at the scene's end like hers. Any thread.
 	[[nodiscard]] int VirginAnswer(RE::Actor* a_actor);
 
 	[[nodiscard]] std::string Describe(RE::Actor* a_actor);

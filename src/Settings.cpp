@@ -213,6 +213,8 @@ namespace Settings
 				{ "LipSync", "bYieldToDDF", &LipSync::bYieldToDDF },
 				{ "Virginity", "bEnabled", &Virginity::bEnabled },
 				{ "Virginity", "bOpeners", &Virginity::bOpeners },
+				{ "Virginity", "bMaleVirginRate", &Virginity::bMaleVirginRate },
+				{ "Virginity", "fMaleVirginRateMult", &Virginity::fMaleVirginRateMult },
 				{ "Virginity", "iShyChance", &Virginity::iShyChance },
 				{ "Virginity", "iTimidChance", &Virginity::iTimidChance },
 				{ "Virginity", "iBalancedChance", &Virginity::iBalancedChance },
@@ -369,6 +371,7 @@ namespace Settings
 			LipSync::fBrows = std::clamp(LipSync::fBrows, 0.0f, 1.0f);
 			for (int* v : { &Virginity::iShyChance, &Virginity::iTimidChance, &Virginity::iBalancedChance, &Virginity::iNegativeStoicChance, &Virginity::iExtraordinaryChance, &Virginity::iExtraordinaryStep }) *v = std::clamp(*v, 0, 100);
 			Virginity::iSpeedLimit = std::clamp(Virginity::iSpeedLimit, 0, 10);
+			Virginity::fMaleVirginRateMult = std::clamp(Virginity::fMaleVirginRateMult, 1.0f, 20.0f);
 			Virginity::iExtraordinaryOrgasms = std::clamp(Virginity::iExtraordinaryOrgasms, 1, 50);
 			if (Virginity::iShyChance + Virginity::iTimidChance > 100) Virginity::iTimidChance = 100 - Virginity::iShyChance;
 			for (int* v : { &Evolution::iStoicSessions, &Evolution::iShySessions, &Evolution::iTimidSessions, &Evolution::iVocalSessions, &Evolution::iCrazedSessions }) *v = std::clamp(*v, 1, 200);
@@ -608,6 +611,7 @@ namespace Settings
 					"; First times, for women OVirginity Reflowered says are virgins (it must be installed; its ovirginity_config.json lists decide some by name). A virgin's first consensual scene gives her shy (iShyChance percent) or timid (iTimidChance), the rest whatever the usual rules give; a religious one is always shy, one who worships Dibella is balanced, vocal or wild.\n"
 					"; iBalancedChance: a scene with an orgasm that does not end her virginity may make her balanced. A bad first time (no orgasm before the penetration, a rough scene, or the speed past iSpeedLimit before she has an orgasm) makes her stoic with iNegativeStoicChance percent. An extraordinary one (iExtraordinaryOrgasms or more orgasms) makes her balanced, vocal or wild, iExtraordinaryChance percent each, moved by iExtraordinaryStep per orgasm above that number.\n"
 					"; bOpeners: a virgin says one of five lines for her personality at the start of a consensual scene (\"Please be gentle, it's my first time\"), in her voice type. The clips are the OSIS Virgin Openers voice pack (Data/Sound/OSIS/Openers); without it nothing is said. The women of the Companions are left out.\n"
+					"; bMaleVirginRate: a man OVirginity Reflowered says is a virgin (the player too; its ovirginity_config.json lists decide some by name, OVirginity rolls the rest the first time it is asked) builds excitement fMaleVirginRateMult times as fast as usual in a consensual scene. OVirginity ends his when he takes someone's, and each scene reads it again.\n"
 					"; Who is religious: the base game's temple and priest factions, and the names in Data/SKSE/Plugins/OSIS/npc_religion_user.txt (name|religious, name|dibella, or name|none to take one out)." },
 				{ "Evolution",
 					"; A personality OSIS settled on by itself grows with experience; one you set by hand, and the player's own, never does. A session is one scene; each rule is a number of sessions with at least that many orgasms by the actor in each (the counts are kept in the save).\n"

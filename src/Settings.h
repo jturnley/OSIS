@@ -218,6 +218,8 @@ namespace Settings
 	namespace Virginity
 	{
 		inline bool bEnabled = true;  // needs OVirginity Reflowered: its data says which women are virgins
+		inline bool bMaleVirginRate = true;     // a man OVirginity Reflowered says is a virgin (the player too) builds excitement fMaleVirginRateMult times as fast
+		inline float fMaleVirginRateMult = 10.0f;
 		inline bool bOpeners = true;  // a virgin tells her partner so at the start of a consensual scene (the OSIS Virgin Openers voice pack must be installed)
 		// A virgin woman's first consensual scene: shy, timid, or (the rest) whatever the usual rules give her. A religious one is always shy; one who worships Dibella is balanced, vocal or wild.
 		inline int iShyChance = 40;

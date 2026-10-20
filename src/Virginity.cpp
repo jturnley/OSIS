@@ -383,16 +383,21 @@ namespace Virginity
 
 	void OnThreadReady(Scenes::Thread& t)
 	{
-		if (!V::bEnabled) return;
+		if (!V::bEnabled && !V::bMaleVirginRate) return;
 		EnsureLoaded();
 		std::vector<RE::Actor*> ask;
 		{
 			std::scoped_lock l(g_lock);
 			for (auto& s : t.slots) {
-				if (!s.female) continue;
+				auto* a = s.Get();
+				if (!s.female) {  // a man: only his rate depends on it (the player's too)
+					if (V::bMaleVirginRate && a) ask.push_back(a);
+					continue;
+				}
+				if (!V::bEnabled) continue;
 				auto& rt = g_rt[s.id];
 				rt.orgasmsBase = s.orgasms;
-				if (auto* a = s.Get(); a && !a->IsPlayerRef()) ask.push_back(a);
+				if (a && !a->IsPlayerRef()) ask.push_back(a);
 			}
 		}
 		// Ask at once: the question waits in the script engine's queue behind everything OSIS and OStim send as a scene starts (seen: 6 to 9 s), and OVirginity ends a virginity itself
@@ -566,10 +571,17 @@ namespace Virginity
 
 	void OnSceneEnd(Scenes::Thread& t)
 	{
-		if (!V::bEnabled) return;
+		if (!V::bEnabled && !V::bMaleVirginRate) return;
 		for (auto& s : t.slots) {
 			auto* a = s.Get();
-			if (!a || !s.female) continue;
+			if (!a) continue;
+			if (!s.female || !V::bEnabled) {  // a man (his rate): what OVirginity says of him is read again next scene, since it ends his virginity too when he takes someone's
+				std::scoped_lock l(g_lock);
+				g_answers.erase(s.id);
+				g_calculating.erase(s.id);
+				g_pending.erase(s.id);
+				continue;
+			}
 			Rt rt;
 			{
 				std::scoped_lock l(g_lock);
@@ -609,8 +621,6 @@ namespace Virginity
 	int VirginAnswer(RE::Actor* a_actor)
 	{
 		if (!a_actor) return 0;
-		const auto* base = a_actor->GetActorBase();
-		if (!base || base->GetSex() != RE::SEX::kFemale) return 0;
 		EnsureLoaded();
 		if (!g_present) return 0;
 		const RE::FormID id = a_actor->GetFormID();

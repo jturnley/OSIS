@@ -861,6 +861,10 @@ namespace
 					"For women OVirginity Reflowered says are virgins (it must be installed; its ovirginity_config.json lists decide some by name): their first consensual scene gives them a personality "
 					"(shy, timid, or what the usual rules give; a religious woman is always shy, one who worships Dibella balanced, vocal or wild), a scene with an orgasm that does not end it may make them "
 					"balanced, and the scene that does end it can leave them stoic (a bad first time) or balanced, vocal or wild (an extraordinary one). Only a personality OSIS settled on by itself changes.");
+				Check("A male virgin builds excitement faster", bMaleVirginRate,
+					"A man OVirginity Reflowered says is a virgin (the player too; its ovirginity_config.json lists decide some by name, and OVirginity rolls the rest, and keeps the result, the first time it is "
+					"asked) builds excitement this many times as fast as usual in a consensual scene. OVirginity ends his virginity when he takes someone's, and the next scene reads it again.");
+				if (bMaleVirginRate) SliderF("Male virgin: excitement rate (x)", fMaleVirginRateMult, 1.0f, 20.0f, "%.1f", "How many times OStim's own rate a male virgin builds excitement at (10 by default).");
 				if (bEnabled) {
 					Check("A virgin tells her partner so", bOpeners,
 						"At the start of a consensual scene, a woman who is a virgin says one of five lines for her personality (\"Please be gentle with me. I've never done this before.\") in her voice type, a second after "

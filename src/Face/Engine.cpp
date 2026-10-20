@@ -184,6 +184,12 @@ namespace Face::Engine
 					if (pers == Pers::kDominant && others) want *= S::fDominantExcitementMult;
 					else if (crazedOther && pers != Pers::kCrazed && pers != Pers::kDominant) want *= S::fCrazedDriveMult;
 				}
+				// A man OVirginity says is a virgin (the player too) builds fMaleVirginRateMult times as fast. The answer is read at the scene's start and kept for the scene; OVirginity ends his virginity when he takes someone's, and the next scene reads it again.
+				bool maleVirgin = false;
+				if (Settings::Virginity::bMaleVirginRate && t.consent && !s.female && Virginity::VirginAnswer(a) == 1) {
+					maleVirgin = true;
+					want *= Settings::Virginity::fMaleVirginRateMult;
+				}
 				const float usual = want;  // before the recovery below: what the log reports as the actor's rate
 				const bool broken = Virginity::IsBroken(a);
 				if (!broken && s.lastOrgasmAt > 0.0f && Recovers(Archetype(a))) {
@@ -212,7 +218,7 @@ namespace Face::Engine
 				}
 				// A broken woman's rate is exactly hers (Virginity), whatever else would change it.
 				if (broken) want = Virginity::BrokenRate(a);
-				want = broken ? ClampF(want, 0.01f, 1.0f) : ClampF(want, 0.05f, 4.0f);  // OStim divides by the rate to time the climax: never zero
+				want = broken ? ClampF(want, 0.01f, 1.0f) : ClampF(want, 0.05f, maleVirgin ? std::max(4.0f, 4.0f * Settings::Virginity::fMaleVirginRateMult) : 4.0f);  // OStim divides by the rate to time the climax: never zero
 				if (std::abs(want - s.excitementFactor) < 0.001f) continue;
 				const RE::FormID id = a->GetFormID();
 				std::optional<float> base;
@@ -231,9 +237,9 @@ namespace Face::Engine
 				Papyrus::SetExcitementMultiplier(a, *base * want);
 				if (std::abs(usual - s.excitementUsual) >= 0.001f) logger::info("Consent: {:08X} {} excitement rate x{:.2f} of OStim's {:.2f}", id, a->GetDisplayFullName(), usual, *base);
 				s.excitementUsual = usual;
-				Debug::Log(Debug::Cat::Control, "{}: excitement rate x{:.2f} of OStim's {:.2f} = {:.3f} | personality {} | consent={} victimKnown={} | settings: wild x{:.2f} stoic x{:.2f} dominant x{:.2f} crazed drive x{:.2f} victim x{:.2f} aggressor x{:.2f}",
+				Debug::Log(Debug::Cat::Control, "{}: excitement rate x{:.2f} of OStim's {:.2f} = {:.3f} | personality {} | consent={} victimKnown={} | settings: wild x{:.2f} stoic x{:.2f} dominant x{:.2f} crazed drive x{:.2f} victim x{:.2f} aggressor x{:.2f} | male virgin {}",
 					Debug::Label(a), want, *base, *base * want, PersonalityName(Archetype(a)), t.consent, t.victimKnown, S::fWildExcitementMult, S::fStoicExcitementMult, S::fDominantExcitementMult,
-					S::fCrazedDriveMult, S::fVictimExcitementMult, S::fAggressorExcitementMult);
+					S::fCrazedDriveMult, S::fVictimExcitementMult, S::fAggressorExcitementMult, maleVirgin ? std::format("x{:.1f}", Settings::Virginity::fMaleVirginRateMult) : std::string("no"));
 				s.excitementFactor = want;
 			}
 		}
