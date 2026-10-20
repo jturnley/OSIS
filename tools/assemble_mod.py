@@ -252,6 +252,9 @@ creates them the first time the game runs with it, and adds to the INI any setti
 introduces. Updating the mod therefore keeps what you chose; delete a file to go back to its defaults.
 Who is religious, for the first-time model (OVirginity Reflowered must be installed for that: it says who is a virgin), comes from the base game's temple and priest factions;
 put names of your own in `SKSE/Plugins/OSIS/npc_religion_user.txt` (`name|religious`, `name|dibella` or `name|none`).
+First times (OVirginity Reflowered again): a virgin woman can tell her partner so at the start of a scene, in her own voice type, when the optional OSIS Virgin Openers voice pack is installed
+(a separate download; the audio in it is not GPL), and a man who is a virgin builds excitement ten times as fast (Personality page > First times; both can be switched off).
+Bards never come out shy or timid unless they are virgins, and the Companions come out vocal, wild or crazed (Personality > "Bards and Companions keep to their roles").
 Scene limits (shy, timid and submissive actors avoid scenes that put them on top, dominant and crazed ones avoid scenes that put them underneath, until their own first orgasm) read who is on top from
 OStim's scene data; correct a scene it gets wrong in `SKSE/Plugins/OSIS/scene_roles_user.txt` (`scene|<scene id>|a,p`, or `tag|<tag>|p,a`; `a` active, `p` passive, `n` neutral, one per actor).
 
@@ -327,8 +330,8 @@ the DLL still tracks scenes and runs body, skin, lip-sync and arousal, and only 
 
 Every module can also be switched off on its own (General page, "Modules"), for when another mod
 already does that job. The Faces module switches itself off while Ahegao Expressions is installed, since it drives
-faces too (the Faces page can override that), and Lip-Sync stands down while Dynamic Dialogue Framework is installed,
-since both drive the mouth (the Lip-Sync page can override that).
+faces too (the Faces page can override that), and Lip-Sync leaves an actor's mouth to Dynamic Dialogue Framework only while one of its lines is playing on them
+(the Lip-Sync page can override that).
 
 ## Source and licence
 
@@ -390,7 +393,8 @@ def assemble(build_dir, data_dirs, edition, without):
                      "- Lip-sync reads uncompressed WAV moans only: voice packs in .fuz or xWMA are not lip-synced, and a Dynamic Dialogue Framework line is left to its own lip data.\n"
                      "- UBE: the blush textures are not shipped (convert Body Blushing's to the UBE UV) and the UBE slider values are a first estimate.\n"
                      "- Scene limits read who is on top from OStim's scene data and some scenes are read wrongly; scene_roles_user.txt takes your own lines.\n"
-                     "- Scene limits, first times, personality growth, the moan rules by personality, the recovery after an orgasm and Lip-Sync between DDF's lines are new and have had little play-testing.\n")
+                     "- Scene limits, first times, personality growth, the moan rules by personality, the recovery after an orgasm and Lip-Sync between DDF's lines are new and have had little play-testing.\n"
+                     "- The male virgin rate has not been run in game. OVirginity Reflowered 3.0.0.0 may not end a man's virginity when he penetrates; if he stays a virgin he keeps the faster rate, and Personality > First times switches it off.\n")
         submissive = ''
         if edition:  # the personality is in the full edition only
             submissive = ("\n- **Submissive** (this edition only): turned on by rough scenes, and accepts any kind of scene, forced or not,"
