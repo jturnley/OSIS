@@ -38,6 +38,7 @@ namespace Settings
 		inline float fGlobalStrength = 0.85f;
 		// Director only: how far the pleasure phase is brought up toward OStim's own face amplitude.
 		// 0 leaves the presets as authored, 1 matches OStim at the same excitement, 2 goes well beyond.
+		inline float fOpenness = 0.5f;  // how much of the effort is taken out of the faces: 0 the old look (lids narrowed with excitement, brows knitted, lips pressed, a small mouth), 1 open (eyes wider, brows soft, the mouth bigger)
 		inline float fDirectorGain = 1.0f;
 		// Director only: in the pleasure and anticipation phases, play OStim's own expression pool for what the
 		// actor is doing (the same files OStim reads) instead of the built-in templates.
@@ -212,6 +213,13 @@ namespace Settings
 		inline int iTongueMode = kTongueStop;
 		inline float fTongueMinOpen = 0.45f;  // how far the jaw is held open while a tongue is out
 		inline bool bYieldToDDF = true;       // leave an actor's mouth to a line Dynamic Dialogue Framework is speaking (both drive the mouth); the moans between lines are synced
+	}
+
+	// ---------------------------------------------------------------- actors left alone (Exclusions.h)
+	namespace Exclude
+	{
+		inline bool bSkipUniqueVoice = false;  // an NPC whose voice type is a unique one of the base game (Delphine, Maven...) is left alone
+		inline bool bSkipModVoice = false;     // an NPC whose voice type comes from another mod is left alone
 	}
 
 	// ---------------------------------------------------------------- first times (Virginity.h)

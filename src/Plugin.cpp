@@ -7,6 +7,7 @@
 #include "Body.h"
 #include "Compat.h"
 #include "Debug.h"
+#include "Exclusions.h"
 #include "Face/Engine.h"
 #include "Face/Library.h"
 #include "Face/Output.h"
@@ -140,6 +141,7 @@ namespace
 			Guarded("Expression library", Face::Library::Load);
 			Guarded("Face engine", Face::Engine::OnDataLoaded);
 			Guarded("Compatibility check", Compat::Detect);
+			Guarded("Actors left alone", Exclusions::Load);
 			Guarded("Living Skin", Skin::OnDataLoaded);
 			Guarded("Arousal", Arousal::Init);
 			Guarded("Lip-sync", LipSync::OnDataLoaded);

@@ -252,6 +252,7 @@ creates them the first time the game runs with it, and adds to the INI any setti
 introduces. Updating the mod therefore keeps what you chose; delete a file to go back to its defaults.
 Who is religious, for the first-time model (OVirginity Reflowered must be installed for that: it says who is a virgin), comes from the base game's temple and priest factions;
 put names of your own in `SKSE/Plugins/OSIS/npc_religion_user.txt` (`name|religious`, `name|dibella` or `name|none`).
+Actors OSIS leaves alone (an NPC another mod gave a voice or a face of its own, whom OSIS would otherwise treat like anyone else): the menu's General page keeps `SKSE/Plugins/OSIS/excluded_actors.txt`; a line is a name or `Plugin.esp|FormID`.
 First times (OVirginity Reflowered again): a virgin woman can tell her partner so at the start of a scene, in her own voice type, when the optional OSIS Virgin Openers voice pack is installed
 (a separate download; the audio in it is not GPL), and a man who is a virgin builds excitement ten times as fast (Personality page > First times; both can be switched off).
 Bards never come out shy or timid unless they are virgins, and the Companions come out vocal, wild or crazed (Personality > "Bards and Companions keep to their roles").

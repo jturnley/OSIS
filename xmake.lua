@@ -30,7 +30,7 @@ option_end()
 local projectRoot = os.projectdir():gsub("/", "\\") .. "\\"
 
 set_project("OSIS")
-set_version("2.0.15")
+set_version("2.0.16")
 set_languages("c++23")
 set_warnings("allextra")
 

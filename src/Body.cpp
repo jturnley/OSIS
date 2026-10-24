@@ -5,6 +5,7 @@
 
 #include "Body.h"
 #include "Debug.h"
+#include "Exclusions.h"
 
 #include "Compat.h"
 #include "Scheduler.h"
@@ -134,7 +135,7 @@ namespace Body
 
 		bool Animatable(RE::Actor* a)
 		{
-			return a && !a->IsDead() && !a->IsChild() && a->Is3DLoaded();
+			return a && !a->IsDead() && !a->IsChild() && a->Is3DLoaded() && !Exclusions::IsExcluded(a);
 		}
 
 		RE::NiMatrix3 AxisRotation(int axis, float degrees)

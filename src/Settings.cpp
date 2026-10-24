@@ -72,6 +72,7 @@ namespace Settings
 				{ "Face", "iMode", &Face::iMode },
 				{ "Face", "fGlobalStrength", &Face::fGlobalStrength },
 				{ "Face", "fDirectorGain", &Face::fDirectorGain },
+				{ "Face", "fOpenness", &Face::fOpenness },
 				{ "Face", "bDirectorLibrary", &Face::bDirectorLibrary },
 				{ "Face", "fClimaxSeconds", &Face::fClimaxSeconds },
 				{ "Face", "fRapidOrgasmSeconds", &Face::fRapidOrgasmSeconds },
@@ -211,6 +212,8 @@ namespace Settings
 				{ "LipSync", "iTongueMode", &LipSync::iTongueMode },
 				{ "LipSync", "fTongueMinOpen", &LipSync::fTongueMinOpen },
 				{ "LipSync", "bYieldToDDF", &LipSync::bYieldToDDF },
+				{ "Exclude", "bSkipUniqueVoice", &Exclude::bSkipUniqueVoice },
+				{ "Exclude", "bSkipModVoice", &Exclude::bSkipModVoice },
 				{ "Virginity", "bEnabled", &Virginity::bEnabled },
 				{ "Virginity", "bOpeners", &Virginity::bOpeners },
 				{ "Virginity", "bMaleVirginRate", &Virginity::bMaleVirginRate },
@@ -309,6 +312,7 @@ namespace Settings
 			Face::iMode = std::clamp(Face::iMode, 0, 2);
 			Face::fGlobalStrength = std::clamp(Face::fGlobalStrength, 0.0f, 2.0f);
 			Face::fDirectorGain = std::clamp(Face::fDirectorGain, 0.0f, 2.0f);
+			Face::fOpenness = std::clamp(Face::fOpenness, 0.0f, 1.0f);
 			Face::fClimaxSeconds = std::clamp(Face::fClimaxSeconds, 4.0f, 30.0f);
 			Face::fRapidOrgasmSeconds = std::clamp(Face::fRapidOrgasmSeconds, 10.0f, 120.0f);
 			Face::fBuildupShare = std::clamp(Face::fBuildupShare, 0.0f, 1.0f);
@@ -611,8 +615,11 @@ namespace Settings
 					"; First times, for women OVirginity Reflowered says are virgins (it must be installed; its ovirginity_config.json lists decide some by name). A virgin's first consensual scene gives her shy (iShyChance percent) or timid (iTimidChance), the rest whatever the usual rules give; a religious one is always shy, one who worships Dibella is balanced, vocal or wild.\n"
 					"; iBalancedChance: a scene with an orgasm that does not end her virginity may make her balanced. A bad first time (no orgasm before the penetration, a rough scene, or the speed past iSpeedLimit before she has an orgasm) makes her stoic with iNegativeStoicChance percent. An extraordinary one (iExtraordinaryOrgasms or more orgasms) makes her balanced, vocal or wild, iExtraordinaryChance percent each, moved by iExtraordinaryStep per orgasm above that number.\n"
 					"; bOpeners: a virgin says one of five lines for her personality at the start of a consensual scene (\"Please be gentle, it's my first time\"), in her voice type. The clips are the OSIS Virgin Openers voice pack (Data/Sound/OSIS/Openers); without it nothing is said. The women of the Companions are left out.\n"
-					"; bMaleVirginRate: a man OVirginity Reflowered says is a virgin (the player too; its ovirginity_config.json lists decide some by name, OVirginity rolls the rest the first time it is asked) builds excitement fMaleVirginRateMult times as fast as usual in a consensual scene. OVirginity ends his when he takes someone's, and each scene reads it again.\n"
+					"; bMaleVirginRate: a man OVirginity Reflowered says is a virgin (the player too; its ovirginity_config.json lists decide some by name, OVirginity rolls the rest the first time it is asked) builds excitement fMaleVirginRateMult times as fast as usual in a consensual scene. OVirginity's own scene handler ends only the virginity of the one a vaginal act is done to, so OSIS tells it when a man does one; his rate for that scene stands, and the next scene reads him as not a virgin.\n"
 					"; Who is religious: the base game's temple and priest factions, and the names in Data/SKSE/Plugins/OSIS/npc_religion_user.txt (name|religious, name|dibella, or name|none to take one out)." },
+				{ "Exclude",
+					"; Actors OSIS leaves alone: nothing of OSIS's is done to them (no face, lip-sync, personality, moan rules, body or blush effects), so what another mod made for them is not shut out. The list is Data/SKSE/Plugins/OSIS/excluded_actors.txt (the menu, General > Actors OSIS leaves alone, keeps it; names or plugin|FormID lines). A change takes effect from the next scene.\n"
+					"; bSkipUniqueVoice: every NPC whose voice type is a unique one of the base game (Delphine, Maven, Astrid, Brynjolf...) too. bSkipModVoice: every NPC whose voice type comes from another mod." },
 				{ "Evolution",
 					"; A personality OSIS settled on by itself grows with experience; one you set by hand, and the player's own, never does. A session is one scene; each rule is a number of sessions with at least that many orgasms by the actor in each (the counts are kept in the save).\n"
 					"; Stoic to balanced, shy to timid, timid to balanced, vocal to wild. iCrazedSessions / iCrazedOrgasms: sessions of that many orgasms with the same partner make the actor crazed about that one partner, in every scene they are in together, and nobody else; their own personality is untouched." },
@@ -872,6 +879,8 @@ namespace Settings
 		General::fNPCSceneRadius = 4000.0f;
 		General::bPulseBus = true;
 		General::bDebug = false;
+		Exclude::bSkipUniqueVoice = false;
+		Exclude::bSkipModVoice = false;
 		ApplyPreset(0);
 	}
 
@@ -919,6 +928,7 @@ namespace Settings
 		fEyeStrength = 0.45f;
 		iMode = kDirector;
 		fDirectorGain = 1.0f;
+		fOpenness = 0.5f;
 		bDirectorLibrary = true;
 		fClimaxSeconds = 14.0f;
 		fRapidOrgasmSeconds = 40.0f;

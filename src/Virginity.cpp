@@ -6,6 +6,7 @@
 #include "Virginity.h"
 
 #include "Debug.h"
+#include "Exclusions.h"
 #include "Experience.h"
 #include "Face/Engine.h"
 #include "LipSync.h"
@@ -53,6 +54,7 @@ namespace Virginity
 		std::unordered_map<RE::FormID, int> g_answers;  // what OVirginity's data said for each woman asked: 1, 0, or -1 not calculated yet
 		std::unordered_set<RE::FormID> g_calculating;   // asked OVirginity to work it out
 		std::unordered_map<RE::FormID, float> g_askedAt;  // scene time OVirginity's data was asked about them, for the debug trace
+		std::unordered_set<RE::FormID> g_maleEnded;     // men OVirginity has been told this scene have done a vaginal act, so their own virginity is gone
 		std::unordered_set<RE::FormID> g_pending;       // VirginAnswer has asked OVirginity's data about them and the answer is not back yet
 		std::unordered_set<std::string> g_alwaysVirgin;  // ovirginity_config.json's lists, by name
 		std::unordered_set<std::string> g_neverVirgin;
@@ -251,6 +253,29 @@ namespace Virginity
 			return list;
 		}
 
+		// OVirginity's scene handler (OStimSceneChanged) ends only the virginity of the one a vaginal act is done TO, so a man it says is a virgin stays one for ever (the player too,
+		// since its default config starts the player as a virgin: "playervirginityvalue": 1), and with the male rate he would build at ten times as fast in every scene. The one who
+		// does a vaginal act has lost his own, whoever's he took: OVirginity is told, for the next scene to read. This scene keeps the rate it started with (the cached answer stays).
+		void EndMalePenetrators(Scenes::Thread& t)
+		{
+			if (!V::bMaleVirginRate || !t.meta) return;
+			EnsureLoaded();
+			if (!g_present || !g_quest) return;
+			for (auto& s : t.slots) {
+				auto* a = s.Get();
+				if (!a || s.female || s.excluded || s.pos < 0) continue;
+				if (OStimData::FindAnyActionForActor(*t.meta, s.pos, VaginalSex()) < 0) continue;
+				{
+					std::scoped_lock l(g_lock);
+					const auto it = g_answers.find(s.id);
+					if (it == g_answers.end() || it->second != 1 || !g_maleEnded.insert(s.id).second) continue;  // not known to be a virgin, or already told
+				}
+				logger::info("First times: {} ({:08X}) is doing a vaginal act: OVirginity is told his virginity is gone (its own handler only ends the one it is done to)", a->GetDisplayFullName(), s.id);
+				Debug::Log(Debug::Cat::Pers, "{}: first times: a vaginal act as the one doing it: OVirginity.setVirginity(false) for him, read again next scene", Debug::Label(a));
+				Papyrus::CallMethod(g_quest, "OVirginityScript", "setVirginity", RE::MakeFunctionArguments(std::move(a), false, false));
+			}
+		}
+
 		// The first scene of a virgin woman who gave consent: her personality.
 		int ChooseFirst(RE::Actor* a_actor, std::string& a_why)
 		{
@@ -390,6 +415,7 @@ namespace Virginity
 			std::scoped_lock l(g_lock);
 			for (auto& s : t.slots) {
 				auto* a = s.Get();
+				if (s.excluded) continue;  // left alone (Exclusions): not asked about, no rate, no opener
 				if (!s.female) {  // a man: only his rate depends on it (the player's too)
 					if (V::bMaleVirginRate && a) ask.push_back(a);
 					continue;
@@ -411,12 +437,13 @@ namespace Virginity
 
 	void OnTick(Scenes::Thread& t)
 	{
+		EndMalePenetrators(t);
 		if (!V::bEnabled) return;
 		EnsureLoaded();
 		for (auto& s : t.slots) {
 			auto* a = s.Get();
 			if (!a || !s.female || a->IsPlayerRef()) continue;
-			if (Face::Engine::IsCompanion(a)) {  // a Companion's blood is feral, not sentimental: no first time marks her, and nothing an earlier save recorded (broken included) holds
+			if (s.excluded || Face::Engine::IsCompanion(a)) {  // left alone, or a Companion's blood is feral, not sentimental: no first time marks her, and nothing an earlier save recorded (broken included) holds
 				std::scoped_lock l(g_lock);
 				g_records.erase(s.id);
 				continue;
@@ -575,11 +602,12 @@ namespace Virginity
 		for (auto& s : t.slots) {
 			auto* a = s.Get();
 			if (!a) continue;
-			if (!s.female || !V::bEnabled) {  // a man (his rate): what OVirginity says of him is read again next scene, since it ends his virginity too when he takes someone's
+			if (!s.female || !V::bEnabled) {  // a man (his rate): what OVirginity says of him is read again next scene, since OSIS ends his virginity in OVirginity when he does a vaginal act (OVirginity's own handler never does)
 				std::scoped_lock l(g_lock);
 				g_answers.erase(s.id);
 				g_calculating.erase(s.id);
 				g_pending.erase(s.id);
+				g_maleEnded.erase(s.id);
 				continue;
 			}
 			Rt rt;

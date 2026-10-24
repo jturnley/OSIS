@@ -8,6 +8,7 @@
 #include "BioPersonality.h"
 #endif
 #include "Debug.h"
+#include "Exclusions.h"
 #include "Experience.h"
 #include "SceneLimits.h"
 #include "Virginity.h"
@@ -159,7 +160,7 @@ namespace Face::Engine
 			const bool anyVictim = t.victimKnown;
 			for (auto& s : t.slots) {
 				auto* a = s.Get();
-				if (!a) continue;
+				if (!a || s.excluded) continue;  // an actor left alone keeps OStim's own rate
 				float want = 1.0f;
 				if (S::bConsentExcitement && !t.consent && anyVictim) want = IsSubmissive(t, s) ? S::fVictimExcitementMult : S::fAggressorExcitementMult;
 				// Wild people really enjoy it: they build faster; a stoic is not into it and builds slowly. A submissive builds faster in a rough scene, or in one they have accepted.
@@ -184,7 +185,7 @@ namespace Face::Engine
 					if (pers == Pers::kDominant && others) want *= S::fDominantExcitementMult;
 					else if (crazedOther && pers != Pers::kCrazed && pers != Pers::kDominant) want *= S::fCrazedDriveMult;
 				}
-				// A man OVirginity says is a virgin (the player too) builds fMaleVirginRateMult times as fast. The answer is read at the scene's start and kept for the scene; OVirginity ends his virginity when he takes someone's, and the next scene reads it again.
+				// A man OVirginity says is a virgin (the player too) builds fMaleVirginRateMult times as fast. The answer is read at the scene's start and kept for the scene; OSIS tells OVirginity when he does a vaginal act (its own handler ends only the one it is done to; Virginity::EndMalePenetrators), and the next scene reads him as not a virgin.
 				bool maleVirgin = false;
 				if (Settings::Virginity::bMaleVirginRate && t.consent && !s.female && Virginity::VirginAnswer(a) == 1) {
 					maleVirgin = true;
@@ -282,10 +283,10 @@ namespace Face::Engine
 				if (!a) continue;
 				bool want = false;
 				const char* why = !S::bPersonalityControl ? "personality control is off" : (!t.consent ? "the scene is not consensual" : (t.slots.size() < 2 ? "fewer than two actors" : "no dominant or crazed actor decides this one"));
-				if (on) {
+				if (on && !s.excluded) {
 					bool dominantOther = false, dominantClimaxing = false, partnerOther = false, partnerClimaxing = false;
 					for (std::size_t j = 0; j < t.slots.size(); ++j) {
-						if (j == i || !t.slots[j].Get()) continue;
+						if (j == i || !t.slots[j].Get() || t.slots[j].excluded) continue;
 						if (pers[j] == Pers::kDominant && engaged[j]) {
 							dominantOther = true;
 							dominantClimaxing = dominantClimaxing || t.slots[j].climaxing;
@@ -1536,6 +1537,11 @@ namespace Face::Engine
 		};
 		if (!a) {
 			src("Unavailable");
+			return 0;
+		}
+		// Left alone (Exclusions): no personality at all, so nothing that follows from one (a rate, a limit, a hold on their climax, growth) is theirs.
+		if (Exclusions::IsExcluded(a)) {
+			src("Left alone");
 			return 0;
 		}
 		std::scoped_lock l(Settings::lock);

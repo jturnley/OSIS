@@ -4,6 +4,7 @@
 // repository. Distributed WITHOUT ANY WARRANTY. <https://www.gnu.org/licenses/>
 
 #include "Face/Buildup.h"
+#include "Settings.h"
 
 #include "Face/Engine.h"
 #include "Face/Internal.h"
@@ -311,6 +312,33 @@ namespace Face::Buildup
 
 		float Clamp01(float x) { return std::clamp(x, 0.0f, 1.0f); }
 
+		// The faces of effort read as "pinched" (a common comment): lids squeezed, brows knitted or furrowed, lips pressed. Face > Openness takes their weight down and
+		// gives it to the open ones: eyes wide and level, brows soft or raised, lips parted. At 0 nothing changes.
+		float OpennessWeight(const Option& o)
+		{
+			const float k = std::clamp(Settings::Face::fOpenness, 0.0f, 1.0f);
+			if (k <= 0.0f) return 1.0f;
+			float w = 1.0f;
+			switch (o.eyes) {
+			case EyesSqueezeLight: case EyesSqueezeHard: w *= 1.0f - 0.75f * k; break;
+			case EyesHeavyLidDown: w *= 1.0f - 0.35f * k; break;
+			case EyesOpenSoft: case EyesEyeContact: case EyesWideAttentive: w *= 1.0f + 0.6f * k; break;
+			default: break;
+			}
+			switch (o.brows) {
+			case BrowsKnitLight: case BrowsLowered: case BrowsFurrow: w *= 1.0f - 0.6f * k; break;
+			case BrowsWorried: w *= 1.0f - 0.3f * k; break;
+			case BrowsSoftRaise: case BrowsHighRaise: w *= 1.0f + 0.3f * k; break;
+			default: break;
+			}
+			switch (o.mouth) {
+			case MouthPressed: w *= 1.0f - 0.7f * k; break;
+			case MouthLipsParted: case MouthOpen: case MouthSmileOpen: case MouthPartedWide: w *= 1.0f + 0.5f * k; break;
+			default: break;
+			}
+			return w;
+		}
+
 		// How well an option's parts suit one of the newer personalities, as a weight on the whole option. The affinities in the tables above are
 		// for the original five; a newer type takes those of the one it is built on (Engine::BasePersonality) and this on top.
 		float ExtraWeight(int pers, const Option& o)
@@ -459,7 +487,7 @@ namespace Face::Buildup
 				if (pass == 0 && std::find(recent, recent + recentCount, i) != recent + recentCount) continue;
 				// How well the parts suit the personality, tempered: four parts multiply, and one very unlikely part
 				// should lower an option, not remove it.
-				const float w = std::sqrt(kEyes[o.eyes].aff[a] * kBrows[o.brows].aff[a] * kMouth[o.mouth].aff[a] * kMoods[o.mood].aff[a]) * ExtraWeight(arch, o);
+				const float w = std::sqrt(kEyes[o.eyes].aff[a] * kBrows[o.brows].aff[a] * kMouth[o.mouth].aff[a] * kMoods[o.mood].aff[a]) * ExtraWeight(arch, o) * OpennessWeight(o);
 				candidates.emplace_back(i, w);
 				total += w;
 			}

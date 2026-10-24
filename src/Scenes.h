@@ -30,7 +30,8 @@ namespace Scenes
 		std::string name;
 		int pos = -1;
 		bool player = false;
-		bool painted = false;        // human and (player or NPCs included)
+		bool painted = false;        // human and (player or NPCs included), and not left alone
+		bool excluded = false;       // on the leave-alone list (Exclusions): nothing of OSIS's is done to this actor
 		bool female = false;
 
 		bool exprOverride = false;   // OActor.HasExpressionOverride, polled

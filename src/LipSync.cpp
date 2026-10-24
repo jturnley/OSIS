@@ -7,6 +7,7 @@
 
 #include "AudioFeatures.h"
 #include "Debug.h"
+#include "Exclusions.h"
 #include "MoanVolume.h"
 
 #include <deque>
@@ -669,6 +670,8 @@ namespace LipSync
 			yieldToLine = Settings::Face::bDialogueMouthYield && (!Compat::DDFActive() || Settings::LipSync::bYieldToDDF);
 			params.gain = Settings::LipSync::fGain;
 			params.maxOpen = Settings::LipSync::fMaxOpen;
+			params.gain *= 1.0f + 0.3f * std::clamp(Settings::Face::fOpenness, 0.0f, 1.0f);  // Face > Openness: a bigger mouth
+			params.maxOpen = std::min(1.0f, params.maxOpen * (1.0f + 0.2f * std::clamp(Settings::Face::fOpenness, 0.0f, 1.0f)));
 			params.attack = Settings::LipSync::fAttack;
 			params.release = Settings::LipSync::fRelease;
 			params.holdEyes = Settings::LipSync::bHoldEyes;
@@ -728,6 +731,10 @@ namespace LipSync
 			}
 			if (!Scenes::InAnyScene(owner)) {
 				++g_stats.notInScene;
+				continue;
+			}
+			if (Exclusions::IsExcluded(owner)) {  // left alone: their voice and their mouth are not ours
+				NoteWait(owner, "left alone (Exclusions)");
 				continue;
 			}
 #if !OSIS_LITE

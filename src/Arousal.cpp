@@ -5,6 +5,7 @@
 
 #include "Arousal.h"
 #include "Debug.h"
+#include "Exclusions.h"
 
 #include "Body.h"
 #include "Compat.h"
@@ -338,6 +339,7 @@ namespace Arousal
 		bool Eligible(RE::Actor* a)
 		{
 			if (!a || !a->Is3DLoaded() || a->IsDead() || a->IsChild()) return false;
+			if (Exclusions::IsExcluded(a)) return false;  // left alone: no morphs, no blush
 			return a->GetActorBase() != nullptr;
 		}
 

@@ -5,6 +5,7 @@
 
 #include "Skin.h"
 #include "Debug.h"
+#include "Exclusions.h"
 
 #include "Arousal.h"
 #include "Compat.h"
@@ -148,6 +149,7 @@ namespace Skin
 		{
 			std::scoped_lock l(Settings::lock);
 			if (Compat::Disabled(Compat::kSkin) || !Settings::Skin::bEnabled || !Settings::General::bEnabled || !a || a->IsDead() || a->IsChild() || !a->Is3DLoaded()) return false;
+			if (Exclusions::IsExcluded(a)) return false;  // left alone: nothing of ours on their face
 			if (Virginity::IsBroken(a)) return false;  // shut down: no blush, no tears, nothing
 			if (!Face::Engine::IsHuman(a)) return false;
 			auto* base = a->GetActorBase();

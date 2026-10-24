@@ -24,6 +24,10 @@ namespace Face::Engine::detail
 
 	namespace
 	{
+		// Face > Openness: how much of the effort is taken out of the faces. Pinch() is what is left of it: 1 at the old look, 0.3 fully open.
+		float Openness() { return ClampF(S::fOpenness, 0.0f, 1.0f); }
+		float Pinch() { return 1.0f - 0.7f * Openness(); }
+
 		void Add(Preset& e, int i, float d, float hi = 1.0f) { e[i] = ClampF(e[i] + d, 0.0f, hi); }
 		void Add2(Preset& e, int i, float d) { Add(e, i, d), Add(e, i + 1, d); }
 		void Mul(Preset& e, int i, float k) { e[i] = e[i] * k; }
@@ -332,6 +336,10 @@ namespace Face::Engine::detail
 			e[30] = k >= 0.3f ? peak[30] : rest[30];  // the mood id cannot be blended, only its strength
 			e[31] = Lerp(rest[31], peak[31], k);
 			e[16] = e[17] = BlinkAmount(v.eyes, ClampF(Scenes::Now() - s.climaxStart, 0.0f, length), k, v.tremor, rapid);
+			if (!v.wide) {  // Face > Openness: the squeeze, the frown and the lids shut hard are the effort that reads as pinched
+				for (const int i : { 18, 19, 20, 21, 28, 29 }) e[i] *= Pinch();
+				if (v.eyes >= kTight) e[16] = e[17] = e[16] * (1.0f - 0.4f * Openness());
+			}
 			if (S::bClimaxChoreo) {
 				if (!v.wide && tension > 0.0f) Add2(e, 28, tension);
 				if (s.rapidRun >= 1) {  // oversensitive: each climax in a rapid run hits harder
@@ -1078,8 +1086,8 @@ namespace Face::Engine::detail
 			for (int i = 24; i <= 29; ++i) e[i] = ClampF(e[i] * eye, 0.0f, 1.0f);
 			if (StyleValue() < 0.5f) {
 				e[27] = ClampF(e[27], 0.0f, 0.22f);
-				e[28] = ClampF(e[28], 0.0f, 0.72f);
-				e[29] = ClampF(e[29], 0.0f, 0.72f);
+				e[28] = ClampF(e[28], 0.0f, 0.72f - 0.30f * Openness());
+				e[29] = ClampF(e[29], 0.0f, 0.72f - 0.30f * Openness());
 			} else if (StyleValue() < 1.5f) {
 				e[27] = ClampF(e[27], 0.0f, 0.42f);
 			}
@@ -1324,11 +1332,12 @@ namespace Face::Engine::detail
 				return;
 			}
 			int wide = arch == 4 ? 60 : (arch == 2 ? 88 : 80);
-			wide = ClampI(wide + tremor, 0, 92);
+			wide = ClampI(wide + tremor + static_cast<int>(10.0f * Openness()), 0, 96);
 			ResetPh(a, 0.4f);
 			SetPh(a, 1, wide, 0.4f);
-			SetMod(a, 28, EyeValue(ClampI(78 + tremor, 0, 95)), 0.4f);
-			SetMod(a, 29, EyeValue(ClampI(78 - tremor, 0, 95)), 0.4f);
+			const int squeeze = static_cast<int>(78.0f * Pinch());
+			SetMod(a, 28, EyeValue(ClampI(squeeze + tremor, 0, 95)), 0.4f);
+			SetMod(a, 29, EyeValue(ClampI(squeeze - tremor, 0, 95)), 0.4f);
 		}
 
 		RE::TESObjectREFR* Marker(Slot& s)
@@ -1652,6 +1661,12 @@ namespace Face::Engine::detail
 		if (usingLib) ApplyEyeScalar(e);
 		else ApplyV2Controls(t, e, dom == kClimax && s.climaxFromPool ? 2 : phrase, dom, yieldMouth, victim, react);  // a clip ripples on its own
 		ApplyPersonalityFace(t, s, e, pers, dom, enjPhase, seed);
+		if (t.consent && dom != kDistress && dom != kClimax && Openness() > 0.0f) {  // Face > Openness: the frown of effort
+			e[18] *= Pinch();
+			e[19] *= Pinch();
+			e[20] *= 1.0f - 0.5f * Openness();
+			e[21] *= 1.0f - 0.5f * Openness();
+		}
 		const bool asleep = IsSleeping(t, s);
 		if (asleep) SleepFace(e);
 
@@ -1874,7 +1889,8 @@ namespace Face::Engine::detail
 			val = crazed ? ClampI(static_cast<int>(16.0f * af), 0, 18) : ClampI(static_cast<int>(6.0f * af), 0, 8);  // crazed: panting, mouth open between the moans
 		}
 
-		const int lidFloor = t.consent && enjEff >= 50 ? ClampI(12 + (enjEff - 50) / 3, 0, 38) : 0;
+		val = ClampI(static_cast<int>(static_cast<float>(val) * (1.0f + 0.35f * Openness())) + static_cast<int>(4.0f * Openness()), 0, 88);  // Face > Openness: a bigger mouth
+		const int lidFloor = t.consent && enjEff >= 50 ? ClampI(static_cast<int>(static_cast<float>(12 + (enjEff - 50) / 3) * Pinch()), 0, 38) : 0;
 		Debug::Log(Debug::Cat::Breath, "{}: beat p={}/{} cycle #{} | moan={} size={} (vocal chance {}%) af={:.2f} | lid floor {} | enj {} | personality {}{}{}", Debug::Label(a), p, cyc, cycleIdx, vocal, val, vchance, af, lidFloor,
 			enjEff, PersonalityName(pers), crazed ? " (crazed breathing)" : "", t.consent ? "" : " (not consensual)");
 
@@ -1907,6 +1923,7 @@ namespace Face::Engine::detail
 			int eye = ph == 1 ? ClampI((val * 12) / 10, 0, 92) : ClampI((val * 9) / 10, 0, 85);
 			if (val < 8) eye = 0;
 			eye = std::max(eye, lidFloor);
+			eye = static_cast<int>(static_cast<float>(eye) * Pinch());
 			ApplyEyeSquint(a, crazed ? eye / 4 : eye, seed);
 			if (p == 2 && val >= 45) {
 				const int bp = ClampI((val - 45) / 2, 0, 16);
@@ -1916,14 +1933,14 @@ namespace Face::Engine::detail
 		} else {
 			const int br = (seed + cycleIdx) % 4;
 			if ((arch == 1 || arch == 3 || enjEff < 45) && br == 0) {
-				SetPh(a, 2, 14, 0.6f);  // lip-press / bite
+				SetPh(a, 2, ClampI(static_cast<int>(14.0f * Pinch()), 0, 14), 0.6f);  // lip-press / bite, less of it the more open
 			} else if (br == 1) {
 				ResetPh(a, 0.55f);
 				SetPh(a, 0, ClampI(6 + enjEff / 12, 0, 16), 0.55f);  // tiny breath between moans
 			} else {
 				ResetPh(a, 0.6f);
 			}
-			ApplyEyeSquint(a, crazed ? 3 : ClampI(std::max(lidFloor, 10), 0, 40), seed);
+			ApplyEyeSquint(a, crazed ? 3 : ClampI(std::max(lidFloor, static_cast<int>(10.0f * Pinch())), 0, 40), seed);
 		}
 		if (crazed) SetPh(a, 5, ClampI(28 + enjEff / 6, 28, 46), 0.6f);  // a grin under the moans and the breaths: the smile does not close between them
 	}

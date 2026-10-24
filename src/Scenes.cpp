@@ -6,6 +6,7 @@
 #include "Scenes.h"
 
 #include "Debug.h"
+#include "Exclusions.h"
 #include "Face/Engine.h"
 #include "MoanVolume.h"
 #include "Face/Output.h"
@@ -72,13 +73,14 @@ namespace Scenes
 				s.player = a->IsPlayerRef();
 				auto* base = a->GetActorBase();
 				s.female = base && base->GetSex() == RE::SEX::kFemale;
-				s.painted = Face::Engine::IsHuman(a) && (s.player || includeNPCs) && !a->IsChild();
+				s.excluded = !s.player && Exclusions::IsExcluded(a);
+				s.painted = Face::Engine::IsHuman(a) && (s.player || includeNPCs) && !a->IsChild() && !s.excluded;
 				next.push_back(std::move(s));
 			}
 			if (Debug::On()) {
 				auto text = [](const std::vector<Slot>& v) {
 					std::string out;
-					for (const auto& sl : v) out += std::format("{}{}: {} {}{}{}", out.empty() ? "" : " | ", sl.pos, Debug::Label(sl.id), sl.female ? "F" : "M", sl.player ? " player" : "", sl.painted ? "" : " (not painted)");
+					for (const auto& sl : v) out += std::format("{}{}: {} {}{}{}", out.empty() ? "" : " | ", sl.pos, Debug::Label(sl.id), sl.female ? "F" : "M", sl.player ? " player" : "", sl.excluded ? " (left alone)" : (sl.painted ? "" : " (not painted)"));
 					return out;
 				};
 				const auto before = text(t.slots), after = text(next);

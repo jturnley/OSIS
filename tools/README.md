@@ -8,6 +8,10 @@ the project; see the comments at the top of the file.
 `sync_mo2.py` then brings the OSIS mod in a Mod Organizer 2 install up to date with what `assemble_mod.py` built (every changed file, not just the DLL, and the voice pack
 if `mods/OSIS Virgin Openers.zip` exists), so a reinstall from the zip is not needed after every build. It refuses to run while the game is open. The default path is the author's.
 
+`tri_morph_strength.py` is a diagnostic for face mods: it reads head `.tri` files and prints how strong each morph (phonemes, brows, lids, moods) is in game units, and how many times that of a reference file, so a bug report about
+a face that looks pinched or slack can say whether the mod that replaced the head's `.tri` (Expressive Facial Animation, Waifu Expression Redux, High Poly Head) made OSIS's weights bigger or smaller.
+`python tools/tri_morph_strength.py --vanilla-female --data "<Skyrim Data>" <the .tri that wins in your mod manager>`; or give two or more `.tri` files, the reference first. It only reads. Python 3, and `pip install lz4` for `--vanilla-*`.
+
 ## Voice tools: unsupported, use at your own risk
 
 The seven scripts below are side projects for people who make their own voice packs. **They are not part of OSIS, are not

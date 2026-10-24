@@ -6,6 +6,7 @@
 #include "UI.h"
 
 #include "Arousal.h"
+#include "Exclusions.h"
 #include "Experience.h"
 #include "Openers.h"
 #include "Body.h"
@@ -377,6 +378,56 @@ namespace
 				ig::EndTable();
 			}
 		}
+		{
+			ig::SeparatorText("Actors OSIS leaves alone");
+			ig::TextWrapped("An actor left alone gets nothing from OSIS: no face, lip-sync, personality (so no rate, limit or control of climax), moan rules, blush or body effects. "
+			                "For an NPC whose voice or face another mod made, which OSIS would otherwise shut out (a unique voice with its own OStim voice set, say). The scene and everyone else in it carry on as usual. "
+			                "The player is never left alone. A change takes effect from the next scene.");
+			{
+				std::scoped_lock l(Settings::lock);
+				using namespace Settings::Exclude;
+				Check("Leave NPCs with a unique voice type alone", bSkipUniqueVoice,
+					"Every NPC whose voice type is a unique one of the base game: Delphine, Maven, Astrid, Karliah, Brynjolf, Vex, Elenwen, Mirabelle... (a voice type whose editor ID has \"Unique\" in it; it needs the editor IDs "
+					"that most installs have). Off by default: the people on that list play fine with OSIS unless a mod gives them something of its own.");
+				Check("Leave NPCs with a voice type from another mod alone", bSkipModVoice,
+					"Every NPC whose voice type is defined by a plugin other than the base game's (Creation Club included). Off by default.");
+			}
+			const auto status = Exclusions::Status();
+			ig::TextDisabled("%s: %s", Exclusions::FilePath(), status.c_str());
+			if (auto* a = TestTarget(); a && !a->IsPlayerRef()) {
+				const auto why = Exclusions::Why(a);
+				ig::Text("%s (%08X)", a->GetDisplayFullName(), a->GetFormID());
+				if (!why.empty()) ig::TextColored(kWarn, "Left alone: %s.", why.c_str());
+				else ig::TextDisabled("Not left alone.");
+				if (ig::Button("Leave this actor alone")) OnGame([]() {
+					auto* t = TestTarget();
+					if (!t || t->IsPlayerRef()) return Papyrus::Notify("OSIS: aim at an NPC, select one in the console, or start a scene");
+					Papyrus::Notify(Exclusions::Add(t) ? std::string("OSIS: leaving ") + t->GetDisplayFullName() + " alone from the next scene" : std::string("OSIS: ") + t->GetDisplayFullName() + " is already on the list");
+				});
+				ig::SameLine();
+				if (ig::Button("Include this actor again")) OnGame([]() {
+					auto* t = TestTarget();
+					if (!t) return;
+					const int n = Exclusions::Remove(t);
+					Papyrus::Notify(n ? std::string("OSIS: ") + t->GetDisplayFullName() + " is taken off the list" : std::string("OSIS: ") + t->GetDisplayFullName() + " was not on the list (a voice type setting above may still apply)");
+				});
+			} else {
+				ig::TextDisabled("Aim at an NPC (or select one in the console, or start a scene) to leave them alone or to take them off the list.");
+			}
+			const auto entries = Exclusions::List();
+			if (!entries.empty() && ig::CollapsingHeader("The list")) {
+				int removeAt = -1;
+				for (size_t i = 0; i < entries.size(); ++i) {
+					ig::PushID(static_cast<int>(i) + 3000);
+					if (entries[i].resolved) ig::Text("%s", entries[i].text.c_str());
+					else ig::TextColored(kWarn, "%s (not in your load order)", entries[i].text.c_str());
+					ig::SameLine();
+					if (ig::Button("Remove")) removeAt = static_cast<int>(i);
+					ig::PopID();
+				}
+				if (removeAt >= 0) Exclusions::RemoveAt(static_cast<std::size_t>(removeAt));
+			}
+		}
 		SaveBar();
 	}
 
@@ -435,6 +486,9 @@ namespace
 			SliderF("Eye strength", fEyeStrength, 0.0f, 1.5f, "%.2f",
 				"The share of an expression that goes to the eyes: lids, squint and brow. Style raises it a little on its own.");
 			ComboI("Profile", iProfile, kProfiles, 3, "A size preset on top of Strength: Subtle 70%, Normal 100%, Expressive 130%.");
+			SliderF("Openness (less pinched)", fOpenness, 0.0f, 1.0f, "%.2f",
+				"Takes the effort out of the faces, which some find pinched: at 0 the lids narrow with excitement, the brows knit, the lips press and the mouth is small, as they were; at 1 the lids stay more open, the brows softer, "
+				"the climax squeeze is lighter and the mouth opens wider (the breath clock, Lip-Sync and the climax). It moves the picks and the strength of those signs, not the personalities.");
 			SliderF("Beat interval (s)", fBaseInterval, 1.0f, 8.0f, "%.1f", "How often the grammar picks a new face. Output is smoothed every frame in between.");
 			SliderF("Interval jitter (s)", fIntervalJitter, 0.0f, 3.0f, "%.1f",
 				"Random variation either way on the beat interval, so the face does not change on a metronome.");
@@ -863,7 +917,7 @@ namespace
 					"balanced, and the scene that does end it can leave them stoic (a bad first time) or balanced, vocal or wild (an extraordinary one). Only a personality OSIS settled on by itself changes.");
 				Check("A male virgin builds excitement faster", bMaleVirginRate,
 					"A man OVirginity Reflowered says is a virgin (the player too; its ovirginity_config.json lists decide some by name, and OVirginity rolls the rest, and keeps the result, the first time it is "
-					"asked) builds excitement this many times as fast as usual in a consensual scene. OVirginity ends his virginity when he takes someone's, and the next scene reads it again.");
+					"asked) builds excitement this many times as fast as usual in a consensual scene. OVirginity never ends a man's by itself, so OSIS tells it when he does a vaginal act; the rate stands for that scene and the next one reads him as not a virgin.");
 				if (bMaleVirginRate) SliderF("Male virgin: excitement rate (x)", fMaleVirginRateMult, 1.0f, 20.0f, "%.1f", "How many times OStim's own rate a male virgin builds excitement at (10 by default).");
 				if (bEnabled) {
 					Check("A virgin tells her partner so", bOpeners,

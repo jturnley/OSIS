@@ -9,6 +9,7 @@
 
 #include "Face/Internal.h"
 
+#include "Exclusions.h"
 #include "Papyrus.h"
 #include "Scheduler.h"
 #include "Pulse.h"
@@ -219,7 +220,7 @@ namespace Face::Engine::detail
 
 		bool IsValidWatcher(RE::Actor* a)
 		{
-			if (!a || a->IsPlayerRef() || InAnyScene(a)) return false;
+			if (!a || a->IsPlayerRef() || InAnyScene(a) || Exclusions::IsExcluded(a)) return false;
 			if (!IsHuman(a) || a->IsChild() || a->IsDead() || !a->Is3DLoaded()) return false;
 			return true;
 		}
