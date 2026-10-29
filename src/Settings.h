@@ -24,7 +24,7 @@ namespace Settings
 		inline bool bAnimationHooks = true;   // per-frame face/toe writes after animation (read at startup)
 		inline bool bDebug = false;           // the debug trace, OSIS-Debug.log (Debug.h): everything the plugin does or decides
 		inline float fDebugSnapshotSeconds = 1.0f;  // how often the trace says where every actor stands
-		inline int iSettingsRevision = 1;     // an INI without it was written by an older version: revision 1 resets the player's personality to Balanced, once
+		inline int iSettingsRevision = 2;     // an INI without it was written by an older version: revision 1 resets the player's personality to Balanced, once; revision 2 turns the passive personalities' moans down
 		inline std::atomic_bool bResetPlayerPin = false;  // set when this run did that: the cosave's automatic personality for the player is dropped on load
 	}
 
@@ -307,12 +307,14 @@ namespace Settings
 		};
 		// rules[personality][phase]. Personality ids are Face::Engine::Pers: 0 balanced, 1 stoic, 2 vocal, 3 shy, 4 dominant, 5 timid, 6 submissive, 7 wild, 8 crazed.
 		// Phases: 0 the first three stages, 1 the fourth stage, 2 the climax. A stage is the voice set's own (the entry the scene's speed picks) where it has stages, else
-		// the scene's speed in quarters. Timid, balanced, dominant and submissive are left as they are.
+		// the scene's speed in quarters. Dominant is left as it is; balanced, timid and submissive moan at the quiet volume, so that vocal's loud volume stands out (OStim's sounds start at full
+		// volume and cannot be made louder, only the others quieter).
 		inline std::array<std::array<MoanRule, 3>, 9> rules = [] {
 			std::array<std::array<MoanRule, 3>, 9> r{};
+			r[0] = r[5] = r[6] = { { { kMoanUnchanged, kLevelQuiet }, { kMoanUnchanged, kLevelQuiet }, { kMoanUnchanged, kLevelQuiet } } };  // balanced, timid, submissive: turned down
 			r[1] = { { { kMoanNone, kLevelNormal }, { kMoanQuiet, kLevelNormal }, { kMoanLoud, kLevelNormal } } };      // stoic: nothing until the fourth stage, then quiet, loud at the climax
 			r[2] = { { { kMoanNormal, kLevelLoud }, { kMoanNormal, kLevelLoud }, { kMoanNormal, kLevelLoud } } };      // vocal: loud volumes always (and a moan right after the last: the takeover)
-			r[3] = { { { kMoanQuiet, kLevelNormal }, { kMoanQuiet, kLevelNormal }, { kMoanLoud, kLevelLoud } } };      // shy: quiet moans, then loud ones, loudly, at the climax
+			r[3] = { { { kMoanQuiet, kLevelQuiet }, { kMoanQuiet, kLevelQuiet }, { kMoanLoud, kLevelLoud } } };      // shy: quiet moans at a quiet volume, then loud ones, loudly, at the climax
 			r[7] = { { { kMoanLoud, kLevelNormal }, { kMoanLoud, kLevelNormal }, { kMoanLoud, kLevelNormal } } };      // wild: loud moans at a normal volume
 			r[8] = { { { kMoanNormal, kLevelNormal }, { kMoanNormal, kLevelNormal }, { kMoanLoud, kLevelHigh } } };    // crazed: normal until the orgasm, then loud and high
 			return r;

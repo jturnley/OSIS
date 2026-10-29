@@ -114,6 +114,7 @@ namespace MoanVolume
 			int stage;
 			bool speaking = false;  // a line is being spoken on this actor: no moan of theirs
 			float duck = 1.0f;      // a line is being spoken by someone else in their scene: their moans are turned down by this
+			float share = 1.0f;     // the share of OStim's moans this personality lets through before the climax; the rest are muted, the same ones for a sound whenever it is looked at
 		};
 		struct Applied
 		{
@@ -241,8 +242,8 @@ namespace MoanVolume
 			return 1 + std::clamp(a_slot.raw / 25, 0, 3);
 		}
 
-		// The stage the actor is at; the voice set's own where it has stages (full edition). The caller holds Scenes::Lock().
-		int StageOfLocked([[maybe_unused]] RE::Actor* a_actor, const Scenes::Thread& a_thread, const Scenes::Slot& a_slot)
+		// The stage the scene puts the actor at; the voice set's own where it has stages (full edition).
+		int StageOfUncapped([[maybe_unused]] RE::Actor* a_actor, const Scenes::Thread& a_thread, const Scenes::Slot& a_slot)
 		{
 #if !OSIS_LITE
 			VoiceModel::Request(a_actor);
@@ -254,6 +255,16 @@ namespace MoanVolume
 			}
 #endif
 			return StageFromScene(a_thread, a_slot);
+		}
+
+		// The stage the actor is at. The caller holds Scenes::Lock().
+		int StageOfLocked(RE::Actor* a_actor, const Scenes::Thread& a_thread, const Scenes::Slot& a_slot)
+		{
+			const int stage = StageOfUncapped(a_actor, a_thread, a_slot);
+			// A stoic's excitement builds at a fifth of the scene's pace, so the scene's speed runs ahead of her: a fast scene put her at the fourth stage
+			// (quiet moans) in the first seconds. Her stages follow her own excitement, so the early ones stay silent until she is actually close.
+			if (a_actor && Face::Engine::Archetype(a_actor) == Face::Engine::Pers::kStoic) return std::min(stage, 1 + std::clamp(a_slot.raw / 25, 0, 3));
+			return stage;
 		}
 
 		// The nodes a sound follows, from the one it follows up to the root, and the sound's id. SEH: nothing with a destructor may live here, because the
@@ -372,7 +383,23 @@ namespace MoanVolume
 			bool line = false;   // muted for a line spoken on this actor
 		};
 
-		Decision Decide(const Target& a_target, bool a_climaxNow, const LipSync::Level& a_level, float a_before)
+		// How many of OStim's moans a personality lets through: OSIS cannot make one more moan, so vocal is the one who moans most by the others moaning less. Wild and crazed come close.
+		float ShareOf(int a_pers)
+		{
+			switch (a_pers) {
+			case Face::Engine::Pers::kVocal: return 1.0f;
+			case Face::Engine::Pers::kWild:
+			case Face::Engine::Pers::kCrazed: return 0.80f;
+			case Face::Engine::Pers::kDominant: return 0.70f;
+			case Face::Engine::Pers::kBalanced: return 0.60f;
+			case Face::Engine::Pers::kShy:
+			case Face::Engine::Pers::kTimid:
+			case Face::Engine::Pers::kSubmissive: return 0.50f;
+			default: return 1.0f;  // stoic: its rules already say when
+			}
+		}
+
+		Decision Decide(const Target& a_target, bool a_climaxNow, const LipSync::Level& a_level, float a_before, std::uint32_t a_soundID)
 		{
 			Decision d;
 			const Mode& m = a_climaxNow ? a_target.climax : a_target.now;
@@ -384,6 +411,11 @@ namespace MoanVolume
 				return d;
 			}
 			if (m.mute) {
+				d.mute = true;
+				d.volume = 0.0f;
+				return d;
+			}
+			if (!a_climaxNow && a_target.share < 0.999f && (a_soundID * 2654435761u >> 12) % 1000u >= static_cast<std::uint32_t>(a_target.share * 1000.0f)) {
 				d.mute = true;
 				d.volume = 0.0f;
 				return d;
@@ -461,7 +493,7 @@ namespace MoanVolume
 				if (!found) return -1.0f;
 				const auto level = LipSync::LevelOf(a_sound->resourceID);
 				const float before = a_sound->volume;
-				const auto d = Decide(target, climaxNow, level, before);
+				const auto d = Decide(target, climaxNow, level, before, id);
 				if (d.volume < 0.0f) return -1.0f;
 				a_sound->volume = d.mute ? 1.0e-5f : d.volume;
 				{
@@ -635,6 +667,7 @@ namespace MoanVolume
 				const Mode plain{};  // the personality rules are off: only the spoken-line rule shapes anything
 				Target target{ nullptr, s.id, c.on ? ModeOf(c, broken ? silent : c.rules[Index(pers)][static_cast<std::size_t>(phase)], scale) : plain,
 					c.on ? ModeOf(c, broken ? silent : c.rules[Index(pers)][2], scale) : plain, s.climaxing, phase, stage };
+				if (c.on && !broken) target.share = ShareOf(pers);
 				if (c.lines) {
 					target.speaking = g_lineUntil.contains(s.id);
 					target.duck = (!target.speaking && talkingThreads.contains(t->id)) ? c.duck : 1.0f;
@@ -740,7 +773,7 @@ namespace MoanVolume
 			if (it == g_byActor.end()) continue;
 			const auto ua = g_climaxUntil.find(owner->GetFormID());
 			const bool climaxNow = it->second.climaxing || (ua != g_climaxUntil.end() && now < ua->second);
-			const auto d = Decide(it->second, climaxNow, level, v.volume);
+			const auto d = Decide(it->second, climaxNow, level, v.volume, v.soundID);
 			auto ap = g_applied.find(v.soundID);
 			if (d.line) {  // a line is being spoken on this actor and one of their moans is still sounding: cut it
 				if (ap == g_applied.end()) g_applied[v.soundID] = { 0.0f, now, true, owner->GetFormID() };

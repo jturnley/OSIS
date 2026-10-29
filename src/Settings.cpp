@@ -543,6 +543,7 @@ namespace Settings
 	{
 		bool migratedStoic = false;
 		bool migratedRevision = false;
+		bool migratedVolumes = false;
 		{
 			std::scoped_lock l(lock);
 			CSimpleIniA ini;
@@ -558,6 +559,15 @@ namespace Settings
 					Face::iPlayerPersonality = 0;
 					migratedRevision = true;
 				}
+				// Revision 2: the passive personalities (balanced, shy before the climax, timid, submissive) moan at the quiet volume, so vocal's loud one is heard as louder; the
+				// loudest a moan can be is OStim's own, so the others have to come down. An INI below revision 2 has those three phases' volumes set once.
+				if (ini.GetLongValue("General", "iSettingsRevision", 0) < 2) {
+					for (const std::size_t p : { std::size_t(0), std::size_t(5), std::size_t(6) })
+						for (auto& rule : Audio::rules[p]) rule.level = Audio::kLevelQuiet;
+					for (std::size_t ph = 0; ph < 2; ++ph) Audio::rules[3][ph].level = Audio::kLevelQuiet;
+					General::iSettingsRevision = 2;
+					migratedVolumes = true;
+				}
 				// A stoic's rate was 0.70 until 2.0 beta 2, hotfix 2, and an INI written by those still says so: 0.70 was the default, not a choice.
 				if (std::abs(Face::fStoicExcitementMult - 0.70f) < 0.0015f) {
 					Face::fStoicExcitementMult = 0.20f;
@@ -570,6 +580,10 @@ namespace Settings
 			General::bResetPlayerPin = true;
 			logger::info("Face: this INI predates the settings revision: the player's personality is Balanced now (Face > Personality changes it)");
 			if (!migratedStoic) SaveIni();
+		}
+		if (migratedVolumes) {
+			logger::info("Audio: balanced, timid, submissive and (before the climax) shy moan at the quiet volume now, so that vocal's loud volume stands out");
+			SaveIni();
 		}
 		if (migratedStoic) {
 			logger::info("Face: fStoicExcitementMult was the old default 0.70; it is 0.20 now, so a stoic takes much more effort to bring to the edge.");
