@@ -145,8 +145,18 @@ namespace Face::Output
 	// anything OStim wrote since. Does no easing and writes only what Update last did. Returns the
 	// reading of the rendered totals before the update, or -1 when debug logging is off.
 	float ReassertFace(RE::BSFaceGenAnimationData* a_data);
+	// Debug logging only: records the keyframes, rendered values and dialogue lip-sync of a face at a stage of one face node update (0 entry, 1 after our put-back, 2 after the
+	// game's read, 3 after a second read), so a one-frame snap in the debug log can be placed.
+	void TraceFace(RE::BSFaceGenAnimationData* a_data, int a_stage, float a_time = 0.0f, std::uint32_t a_flags = 0, std::uint32_t a_arg = 0);
+	// The game's face reset (BSFaceGenAnimationData::Reset) is about to run on this face, called from a_caller. True when the face is OSIS's alone and [Face] bResetGuard
+	// is on: the caller then skips the reset, which would zero the face between two of the game's reads. Logs the caller while debug logging is on.
+	[[nodiscard]] bool KeepOnReset(RE::BSFaceGenAnimationData* a_data, std::uintptr_t a_caller, bool a_expression, bool a_modifiers);
 	// Debug logging only: after that update, did the rendered totals move?
 	void NoteFaceRead(RE::BSFaceGenAnimationData* a_data, float a_pre);
+	// Called right after the game's read. True when a face this mod owns was reset under it - the override flag we set is off, or several channels we wrote have
+	// dropped away - so what it rendered is not ours. The caller then calls ReassertFace and lets the game read the face again; `a_again` marks the check after that
+	// second read, which only counts (for the debug watch line). Off with [Face] bResetGuard.
+	[[nodiscard]] bool FaceResetDuringRead(RE::BSFaceGenAnimationData* a_data, bool a_again = false);
 	// Fallback when the NPC animation hook couldn't be installed: every painted NPC, from
 	// the main-thread heartbeat.
 	void UpdateNPCs(float a_delta);

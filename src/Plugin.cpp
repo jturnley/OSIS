@@ -183,7 +183,7 @@ SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 {
 	InitLogger();
 	// log = false: SKSE::Init would otherwise replace the logger set up above with its own (one file sink, no debug trace), which left OSIS-Debug.log empty and the trace in OSIS.log.
-	SKSE::Init(a_skse, { .log = false, .trampoline = true, .trampolineSize = 64 });
+	SKSE::Init(a_skse, { .log = false, .trampoline = true, .trampolineSize = 1024 });
 	Settings::Load();
 	Settings::EnsureFiles();
 	logger::info("OSIS v{}{}{} loading", SKSE::PluginDeclaration::GetSingleton()->GetVersion().string("."),

@@ -142,6 +142,7 @@ namespace Settings
 				{ "Face", "bWatcher", &Face::bWatcher },
 				{ "Face", "bAhegaoModYield", &Face::bAhegaoModYield },
 				{ "Face", "bAhegaoAutoYield", &Face::bAhegaoAutoYield },
+				{ "Face", "bResetGuard", &Face::bResetGuard },
 				{ "Face", "bAnimeTongue", &Face::bAnimeTongue },
 				{ "Face", "bAnimeTongueFull", &Face::bAnimeTongueFull },
 				{ "Face", "bTongueLife", &Face::bTongueLife },
@@ -938,6 +939,7 @@ namespace Settings
 		bWatcher = false;
 		bAhegaoModYield = false;
 		bAhegaoAutoYield = true;
+		bResetGuard = true;
 		fStyle = 0.0f;
 		fEyeStrength = 0.45f;
 		iMode = kDirector;

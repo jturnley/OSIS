@@ -115,6 +115,7 @@ namespace Settings
 
 		inline bool bAhegaoModYield = false;   // force the yield on, whatever is or is not installed
 		inline bool bAhegaoAutoYield = true;   // Ahegao Expressions installed: the Faces module stands down
+		inline bool bResetGuard = true;        // a face that is reset while the game reads it (another mod, or the game on an event such as a line starting) is put back and read again in the same frame
 		inline bool bAnimeTongue = false;
 		inline bool bAnimeTongueFull = false;
 		inline bool bTongueLife = false;

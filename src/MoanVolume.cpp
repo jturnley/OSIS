@@ -269,9 +269,10 @@ namespace MoanVolume
 
 		// The nodes a sound follows, from the one it follows up to the root, and the sound's id. SEH: nothing with a destructor may live here, because the
 		// audio manager's maps belong to the audio thread.
-		int FollowChain(RE::BSAudioManager* am, RE::BSGameSound* snd, RE::NiAVObject** out, int max, std::uint32_t* a_id) noexcept
+		int FollowChain(RE::BSAudioManager* am, RE::BSGameSound* snd, RE::NiAVObject** out, int max, std::uint32_t* a_id, int* a_why = nullptr) noexcept
 		{
 			int n = 0;
+			if (a_why) *a_why = 0;
 			__try {
 				std::uint32_t id = 0;
 				bool found = false;
@@ -282,10 +283,16 @@ namespace MoanVolume
 						break;
 					}
 				}
-				if (!found) return 0;
+				if (!found) {
+					if (a_why) *a_why = 1;  // the audio manager does not list the sound yet
+					return 0;
+				}
 				*a_id = id;
 				auto it = am->movingSounds.find(id);
-				if (it == am->movingSounds.end()) return 0;
+				if (it == am->movingSounds.end()) {
+					if (a_why) *a_why = 2;  // listed, but it follows no node
+					return 0;
+				}
 				for (RE::NiAVObject* node = it->second.get(); node && n < max; node = node->parent) out[n++] = node;
 			} __except (EXCEPTION_EXECUTE_HANDLER) {
 				return n;
@@ -381,6 +388,7 @@ namespace MoanVolume
 			float gain = 1.0f;
 			int phase = 0;
 			bool line = false;   // muted for a line spoken on this actor
+			bool thinned = false;  // muted because the personality lets only a share of OStim's moans through
 		};
 
 		// How many of OStim's moans a personality lets through: OSIS cannot make one more moan, so vocal is the one who moans most by the others moaning less. Wild and crazed come close.
@@ -417,6 +425,7 @@ namespace MoanVolume
 			}
 			if (!a_climaxNow && a_target.share < 0.999f && (a_soundID * 2654435761u >> 12) % 1000u >= static_cast<std::uint32_t>(a_target.share * 1000.0f)) {
 				d.mute = true;
+				d.thinned = true;
 				d.volume = 0.0f;
 				return d;
 			}
@@ -432,13 +441,20 @@ namespace MoanVolume
 			static void thunk(RE::BSGameSound* a_sound)
 			{
 				float volume = -1.0f;
+				bool retry = false;
 				if (a_sound && LipSync::IsMoanResource(a_sound->resourceID)) {
 					if (LipSync::PlayingOwn()) volume = StartOwn(a_sound);
-					else if (g_active.load(std::memory_order_relaxed)) volume = StartTheirs(a_sound);
+					else if (g_active.load(std::memory_order_relaxed)) {
+						volume = StartTheirs(a_sound, false);
+						retry = true;
+					}
 				} else if (a_sound && g_active.load(std::memory_order_relaxed) && g_lineVol.load(std::memory_order_relaxed) < 0.999f) {
 					volume = StartLine(a_sound);
 				}
 				func(a_sound);
+				// A sound the audio manager did not list, or did not yet have follow a node, before Play() usually does once Play() has returned. Without this it started at OStim's
+				// full volume and was only turned down by the next sweep, up to 50 ms later: a silenced moan was heard as a blip.
+				if (volume < 0.0f && retry && g_active.load(std::memory_order_relaxed)) volume = StartTheirs(a_sound, true);
 				if (volume >= 0.0f) {
 					a_sound->SetVolume(volume);
 					if (volume > 0.0f) g_atStart.fetch_add(1, std::memory_order_relaxed);
@@ -463,14 +479,18 @@ namespace MoanVolume
 
 			// An OStim sound. Sets the volume before Play, and records the sound before Play so the per-tick correction never takes a sound that is starting for
 			// one it missed.
-			static float StartTheirs(RE::BSGameSound* a_sound)
+			static float StartTheirs(RE::BSGameSound* a_sound, bool a_afterPlay)
 			{
 				auto* am = RE::BSAudioManager::GetSingleton();
 				if (!am) return -1.0f;
 				RE::NiAVObject* chain[24];
 				std::uint32_t id = 0;
-				const int n = FollowChain(am, a_sound, chain, 24, &id);
-				if (n <= 0) return -1.0f;
+				int why = 0;
+				const int n = FollowChain(am, a_sound, chain, 24, &id, &why);
+				if (n <= 0) {
+					if (a_afterPlay && Debug::On()) Debug::Log(Debug::Cat::Moan, "voice-set sound not matched to an actor even after Play(): {}", why == 1 ? "the audio manager does not list it" : "it follows no node");
+					return -1.0f;
+				}
 				Target target{};
 				bool climaxNow = false;
 				bool found = false;
@@ -490,7 +510,10 @@ namespace MoanVolume
 						climaxNow = target.climaxing || (it != g_climaxUntil.end() && Scenes::Now() < it->second);
 					}
 				}
-				if (!found) return -1.0f;
+				if (!found) {
+					if (a_afterPlay && Debug::On()) Debug::Log(Debug::Cat::Moan, "voice-set sound {} follows a node that is no scene actor's (chain of {} nodes)", id, n);
+					return -1.0f;
+				}
 				const auto level = LipSync::LevelOf(a_sound->resourceID);
 				const float before = a_sound->volume;
 				const auto d = Decide(target, climaxNow, level, before, id);
@@ -503,7 +526,7 @@ namespace MoanVolume
 				if (d.mute) g_muted.fetch_add(1, std::memory_order_relaxed);
 				const std::string file = Debug::On() ? LipSync::PathOf(a_sound->resourceID) : std::string();
 				Debug::Log(Debug::Cat::Moan, "{:08X}: voice-set sound {} ({}, stage {}): {}{}{}", target.id, id, kPhaseNames[static_cast<std::size_t>(d.phase)], target.stage,
-					d.mute ? std::string(d.line ? "muted: a line is being spoken on them" : "muted: the rule says no moans") : std::format("starts at {:.2f} x{:.2f} = {:.2f}", before, d.factor, d.volume),
+					d.mute ? std::string(d.line ? "muted: a line is being spoken on them" : (d.thinned ? "muted: left out by the personality's share of moans" : "muted: the rule says no moans")) : std::format("starts at {:.2f} x{:.2f} = {:.2f}", before, d.factor, d.volume),
 					level.known ? std::format(" | the file measures {:.1f} dBFS, {}{}", level.db, kClassNames[static_cast<std::size_t>(level.cls)], d.gain != 1.0f ? std::format(", leveling gain x{:.2f}", d.gain) : std::string())
 								: std::string(" | the file's loudness is not known"),
 								file.empty() ? std::string() : " | file " + file);

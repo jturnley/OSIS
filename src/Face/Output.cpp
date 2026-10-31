@@ -5,8 +5,10 @@
 
 #include "Face/Output.h"
 #include "Debug.h"
+#include "FaceWatch.h"
 
 #include "Scenes.h"
+#include "Settings.h"
 
 namespace Face::Output
 {
@@ -68,6 +70,25 @@ namespace Face::Output
 			int jumps = 0, reversals = 0, snaps = 0;
 		};
 
+		// Debug trace of one face node update: the keyframe (what is asked for), the final (what the game rendered) and the dialogue lip-sync (the game's own second mouth) of
+		// every mouth and eyes/brows channel, at the stages the hook sees - before our put-back, after it, after the game's read, after a second read. A one-frame snap in the
+		// rendered values is looked up here to see at which stage the channel went to zero and who was asking for what at that moment.
+		struct StageSnap
+		{
+			std::array<float, kModifiers> mk{}, mf{}, md{};
+			std::array<float, kPhonemes> pk{}, pf{}, pd{};
+			bool ovr = false;
+		};
+		struct FaceTrace
+		{
+			std::uint32_t tid = 0;
+			float time = 0.0f;           // the face node update's NiUpdateData
+			std::uint32_t flags = 0;
+			std::uint32_t arg = 0;       // its third argument
+			int stages = 0;
+			std::array<StageSnap, 4> s{};
+		};
+
 		// What one actor's face did between two probe lines. "Ours" is what we wrote last frame,
 		// compared at the start of the next frame against what is in the face data by then.
 		struct Probe
@@ -93,6 +114,14 @@ namespace Face::Output
 			int movedInside = 0, preChecked = 0;
 			int restores = 0;       // times an outside change to an owned face was put back before render
 			float restoreWorst = 0.0f;
+			int guardRepairs = 0;   // resets found after the game's read, repaired by a second read in the same frame
+			int guardStill = 0;     // of those, still reset after the second read
+			std::array<FaceTrace, 3> trace{};  // the last three face node updates (TraceFace)
+			int traceHead = 0, traceN = 0;
+			// Where the face's value arrays were last frame. At scene and stage changes the face gets new, zeroed arrays (a 2.0 write watch saw no zero written,
+			// only the address move); OSIS fills them before the game's next read, so the zeros are never drawn and are not counted as snaps.
+			std::array<const void*, 6> storage{};
+			int storageSwaps = 0;
 		};
 
 		struct BlinkPulse
@@ -109,6 +138,9 @@ namespace Face::Output
 			std::array<Channel, kExpressions> expr{};
 			bool mouthOwned = true;
 			bool reseedMouth = true;   // copy live phonemes before the first write
+			float lineSum = 0.0f;      // the game's line lip-sync (phoneme1) last frame, summed
+			float lineSeen = -10.0f;   // when it last moved, or the face last had dialogue data
+			bool lineMouth = false;    // a line has the mouth now: no phonemes written, and the expression override let go
 			float mouthFloor = 0.0f;   // a tongue is out: never close the jaw past this
 			bool suspended = false;    // another mod owns this face; write nothing
 			bool layered = false;      // OStim's writer is on: add to its face, never write over it
@@ -142,6 +174,36 @@ namespace Face::Output
 		std::atomic<std::size_t> g_count{ 0 };
 
 		float Val(const RE::BSFaceGenKeyframeMultiple& kf, std::uint32_t i) { return kf.values && i < kf.count ? kf.values[i] : 0.0f; }
+
+		// The write watch (FaceWatch, debug logging only) on the closed-lips mouth shape, the channel seen zeroed most: the player's face in slots 0-1, one other
+		// scene face in slots 2-3.
+		RE::FormID g_watchNpc = 0;
+
+		void Watch(RE::Actor* a, RE::BSFaceGenAnimationData& fg)
+		{
+			constexpr std::uint32_t kBMPChannel = 2;
+			if (!fg.phenomeKeyFrame.values || fg.phenomeKeyFrame.count <= kBMPChannel || !fg.phoneme3.values || fg.phoneme3.count <= kBMPChannel) return;
+			const auto id = a->GetFormID();
+			const bool player = a->IsPlayerRef();
+			if (!player && g_watchNpc != 0 && g_watchNpc != id) return;
+			if (!player) g_watchNpc = id;
+			const int base = player ? 0 : 2;
+			FaceWatch::Want(base, &fg.phenomeKeyFrame.values[kBMPChannel], id, "closed-lips mouth keyframe");
+			FaceWatch::Want(base + 1, &fg.phoneme3.values[kBMPChannel], id, "closed-lips mouth rendered");
+		}
+
+		void UnWatch(RE::FormID id)
+		{
+			const auto* player = RE::PlayerCharacter::GetSingleton();
+			if (player && player->GetFormID() == id) {
+				FaceWatch::Want(0, nullptr, 0, "");
+				FaceWatch::Want(1, nullptr, 0, "");
+			} else if (g_watchNpc == id) {
+				g_watchNpc = 0;
+				FaceWatch::Want(2, nullptr, 0, "");
+				FaceWatch::Want(3, nullptr, 0, "");
+			}
+		}
 
 		int Top(const RE::BSFaceGenKeyframeMultiple& kf, std::uint32_t n, float& v)
 		{
@@ -178,7 +240,28 @@ namespace Face::Output
 			return s;
 		}
 
-		void ScanGroup(RE::Actor* a, Probe& p, Series& s, const char* name, const RE::BSFaceGenKeyframeMultiple& fin,
+		// A snapped channel against the traces of the last face node updates: at which stage did the rendered value go down, and what was asked for then.
+		void DumpTrace(RE::Actor* a, const Probe& p, int kind, std::uint32_t i)
+		{
+			if (kind > 1 || p.traceN == 0) return;
+			const int n = std::min(p.traceN, static_cast<int>(p.trace.size()));
+			for (int r = n - 1; r >= 0; --r) {
+				const auto& t = p.trace[static_cast<std::size_t>((p.traceHead - r + 3 * 3) % 3)];
+				if (t.stages == 0) continue;
+				static constexpr const char* kStage[4] = { "entry", "after ours", "after read", "after 2nd read" };
+				std::string line;
+				for (int k = 0; k < t.stages && k < 4; ++k) {
+					const auto& g = t.s[static_cast<std::size_t>(k)];
+					const float key = kind == 0 ? g.pk[i] : g.mk[i];
+					const float fin = kind == 0 ? g.pf[i] : g.mf[i];
+					const float dlg = kind == 0 ? g.pd[i] : g.md[i];
+					line += std::format(" | {}: key {:.2f} final {:.2f} dialogue {:.2f}{}", kStage[k], key, fin, dlg, g.ovr ? "" : " (override off)");
+				}
+				Debug::Log(Debug::Cat::Face, "{}:   face update {} back, thread {} (update time {:.4f} flags {:X} arg {:X}){}", Debug::Label(a), r, t.tid, t.time, t.flags, t.arg, line);
+			}
+		}
+
+		void ScanGroup(RE::Actor* a, Probe& p, Series& s, const char* name, int kind, const RE::BSFaceGenKeyframeMultiple& fin,
 				const RE::BSFaceGenKeyframeMultiple& key, std::uint32_t first, std::uint32_t end, const float* ours, std::uint32_t mask)
 		{
 			std::array<float, 17> now{};
@@ -201,6 +284,7 @@ namespace Face::Output
 					++p.snapsLogged;
 					Debug::Log(Debug::Cat::Face, "{}: SNAP {} #{} {:.2f} -> {:.2f} in one frame; keyframe now {:.2f}; we wrote {}", Debug::Label(a), name, i, s.fin[i], now[i], Val(key, i),
 						(ours && (mask & (1u << i))) ? std::format("{:.2f}", ours[i]) : std::string("nothing last frame"));
+					DumpTrace(a, p, kind, i);
 				}
 			}
 			s.fin = now;
@@ -212,9 +296,25 @@ namespace Face::Output
 		void ProbeEntry(RE::Actor* a, Probe& p, const RE::BSFaceGenAnimationData& fg)
 		{
 			++p.frames;
-			ScanGroup(a, p, p.ser[0], "mouth", fg.phoneme3, fg.phenomeKeyFrame, 0, kPhonemes, p.ph.data(), p.valid ? p.phMask : 0u);
-			ScanGroup(a, p, p.ser[1], "eyes/brows", fg.modifier3, fg.modifierKeyFrame, kBrowDownL, kModifiers, p.mod.data(), p.valid ? p.modMask : 0u);
-			ScanGroup(a, p, p.ser[2], "mood", fg.expression3, fg.expressionKeyFrame, 0, kExpressions, p.expr.data(),
+			const std::array<const void*, 6> storage{ fg.phenomeKeyFrame.values, fg.phoneme3.values, fg.modifierKeyFrame.values, fg.modifier3.values,
+				fg.expressionKeyFrame.values, fg.expression3.values };
+			if (storage != p.storage) {
+				const bool first = !p.storage[0];
+				if (!first) {
+					++p.storageSwaps;
+					int moved = 0;
+					for (std::size_t i = 0; i < storage.size(); ++i) moved += storage[i] != p.storage[i];
+					Debug::Log(Debug::Cat::Face, "{}: face storage replaced ({} of 6 value arrays new, mouth keyframe {} -> {}): filled again before the game's next read, not counted as a snap",
+						Debug::Label(a), moved, p.storage[0], storage[0]);
+				}
+				p.storage = storage;
+				// Start the frame-to-frame series and the outside-change check over: the new arrays are empty until this update writes them.
+				for (auto& s : p.ser) s.have = false;
+				if (!first) p.valid = false;
+			}
+			ScanGroup(a, p, p.ser[0], "mouth", 0, fg.phoneme3, fg.phenomeKeyFrame, 0, kPhonemes, p.ph.data(), p.valid ? p.phMask : 0u);
+			ScanGroup(a, p, p.ser[1], "eyes/brows", 1, fg.modifier3, fg.modifierKeyFrame, kBrowDownL, kModifiers, p.mod.data(), p.valid ? p.modMask : 0u);
+			ScanGroup(a, p, p.ser[2], "mood", 2, fg.expression3, fg.expressionKeyFrame, 0, kExpressions, p.expr.data(),
 					p.valid && p.exprWritten ? 0x1FFFFu : 0u);
 			if (p.exprWritten && !fg.exprOverride) ++p.overrideOff;
 			for (std::uint32_t i = 0; i < kPhonemes; ++i) p.dlgPh = std::max(p.dlgPh, Val(fg.phoneme1, i));
@@ -261,9 +361,9 @@ namespace Face::Output
 			std::string out = std::format(
 				"{} frames | changed by something else between our writes: mood {} brows {} mouth {} frames, override found off {} | rendered frame to frame (jumps/reversals/snaps): "
 				"mouth {}/{}/{} eyes+brows {}/{}/{} mood {}/{}/{} | the game's final values changed inside the face node update in {} of {} | outside changes put back before render: {} (largest {:.2f}) | "
-				"dialogue lip-sync max {:.2f} | lip-sync clips started {}",
+				"dialogue lip-sync max {:.2f} | lip-sync clips started {} | second face pass: {} reset(s) repaired, {} still reset after it | face storage replaced {}",
 				p.frames, p.hitExpr, p.hitMod, p.hitPh, p.overrideOff, p.ser[0].jumps, p.ser[0].reversals, p.ser[0].snaps, p.ser[1].jumps, p.ser[1].reversals, p.ser[1].snaps,
-				p.ser[2].jumps, p.ser[2].reversals, p.ser[2].snaps, p.movedInside, p.preChecked, p.restores, p.restoreWorst, p.dlgPh, p.trackStarts);
+				p.ser[2].jumps, p.ser[2].reversals, p.ser[2].snaps, p.movedInside, p.preChecked, p.restores, p.restoreWorst, p.dlgPh, p.trackStarts, p.guardRepairs, p.guardStill, p.storageSwaps);
 			if (p.chExpr >= 0 || p.chMod >= 0 || p.chPh >= 0) {
 				out += std::format(" | largest outside changes: mood #{} {:.2f} where we wrote {:.2f}; modifier #{} {:.2f} where we wrote {:.2f}; phoneme #{} {:.2f} where we wrote {:.2f}",
 					p.chExpr, p.foundExpr, p.oursExpr, p.chMod, p.foundMod, p.oursMod, p.chPh, p.foundPh, p.oursPh);
@@ -283,6 +383,10 @@ namespace Face::Output
 			p.exprWritten = keep.exprWritten;
 			p.valid = keep.valid;
 			p.countsLogged = true;
+			p.storage = keep.storage;
+			p.trace = keep.trace;
+			p.traceHead = keep.traceHead;
+			p.traceN = keep.traceN;
 			return out;
 		}
 
@@ -635,6 +739,7 @@ namespace Face::Output
 	void Forget(RE::FormID id)
 	{
 		std::scoped_lock l(g_lock);
+		UnWatch(id);
 		g_states.erase(id);
 		g_count = g_states.size();
 	}
@@ -688,6 +793,7 @@ namespace Face::Output
 		const bool probing = Debug::On();  // the face is watched frame by frame while debug logging is on
 		auto& pr = st.probe;
 		if (probing) {
+			if constexpr (FaceWatch::kEnabled) Watch(a, *fg);
 			LogKeyframeSizes(a, pr, *fg);
 			ProbeEntry(a, pr, *fg);
 			pr.phMask = pr.modMask = 0;
@@ -767,6 +873,28 @@ namespace Face::Output
 		st.trackBlend += (blendTarget - st.trackBlend) * (1.0f - std::exp(-dt / 0.08f));
 		if (std::abs(blendTarget - st.trackBlend) < 0.01f) st.trackBlend = blendTarget;
 
+		// A line is being spoken on this face (the game's lip data, phoneme1, is moving): the mouth is the line's from the first frame. The engine hands the mouth over
+		// too, but a debug log showed it 2.5 s after a virgin opener started, and until then the game rendered the line's mouth and ours on alternate face updates.
+		{
+			float lineSum = 0.0f;
+			for (std::uint32_t i = 0; i < kPhonemes; ++i) lineSum += Val(fg->phoneme1, i);
+			if (fg->dialogueData || std::abs(lineSum - st.lineSum) > 0.005f) st.lineSeen = now;
+			st.lineSum = lineSum;
+		}
+		const bool lineMouth = Settings::Face::bDialogueMouthYield && now - st.lineSeen < 0.3f;
+		if (lineMouth != st.lineMouth) {
+			st.lineMouth = lineMouth;
+			// The line's lip data was copied into the mouth keyframe (ReassertFace); clear what it left there before the mouth is ours again.
+			if (!lineMouth) {
+				for (std::uint32_t i = 0; i < kPhonemes; ++i) Write(fg->phenomeKeyFrame, i, 0.0f);
+				for (std::uint32_t i = kBrowDownL; i < kModifiers; ++i) {
+					if (!st.mod[i].used) Write(fg->modifierKeyFrame, i, 0.0f);
+				}
+			}
+			Debug::Log(Debug::Cat::Mouth, "{}: {}", Debug::Label(a),
+				lineMouth ? "a line is being spoken: the mouth and the expression override are the line's" : "the line is over: mouth and mood ours again");
+		}
+
 		for (int i = 0; i < kPhonemes; ++i) {
 			auto& c = st.ph[i];
 			c.Step(dt);
@@ -819,6 +947,7 @@ namespace Face::Output
 					write = write || v > 0.0f;
 				}
 			}
+			if (lineMouth) write = false;
 			// Nothing of ours left in this channel: give it back as OStim has it, once.
 			bool handBack = false;
 			if (st.layered && !write && c.engaged) {
@@ -902,7 +1031,13 @@ namespace Face::Output
 			// Look modifiers stop eye blinking while non-zero, and a blink we write is the lids' to own; hand both back once at rest.
 			if (c.used && IsGated(i) && c.cur <= 0.0f && c.target <= 0.0f && !(IsBlink(i) && st.blinkHold)) c.used = false;
 		}
-		if (st.exprUsed) {
+		if (st.exprUsed && lineMouth) {
+			// The game blends a line's lip-sync differently while the expression override is on: a debug trace with the mouth already handed over showed the line's
+			// mouth rendered on two face updates and closed on the third, all through two virgin openers. The mood is let go for the line, as vanilla dialogue does,
+			// and keeps easing underneath so it comes back where it would have been.
+			for (auto& c : st.expr) c.Step(dt);
+			fg->exprOverride = false;
+		} else if (st.exprUsed) {
 			for (int i = 0; i < kExpressions; ++i) {
 				auto& c = st.expr[i];
 				c.Step(dt);
@@ -934,6 +1069,7 @@ namespace Face::Output
 				for (int i = 0; i < kExpressions; ++i) Write(fg->expressionKeyFrame, i, 0.0f);
 				fg->ClearExpressionOverride();
 			}
+			UnWatch(it->first);
 			g_states.erase(it);
 			g_count = g_states.size();
 		}
@@ -977,7 +1113,18 @@ namespace Face::Output
 			for (int i = kBlinkL; i < kModifiers; ++i) {
 				if (st.mod[i].used && st.mod[i].engaged) check(data->modifierKeyFrame, i, st.mod[i].last);
 			}
-			if (st.exprUsed) {
+			// A line has the mouth: its lip data goes into the mouth keyframe too, just before the read. The game renders the line's mouth from its own lip data on two
+			// face updates of three and the (empty) keyframe on the third - with the override off as well - so the line's mouth jittered closed every other frame.
+			if (st.lineMouth) {
+				for (std::uint32_t i = 0; i < kPhonemes; ++i) Write(data->phenomeKeyFrame, i, Val(data->phoneme1, i));
+				// A line's lip data moves the brows too (modifier1), and the same third update rendered them from our keyframe alone: the brow jumped between the line's
+				// lift and ours. The keyframe holds the larger of the two while the line lasts.
+				for (std::uint32_t i = kBrowDownL; i < kModifiers; ++i) {
+					const float line = Val(data->modifier1, i);
+					if (line > Val(data->modifierKeyFrame, i)) Write(data->modifierKeyFrame, i, line);
+				}
+			}
+			if (st.exprUsed && !st.lineMouth) {
 				for (int i = 0; i < kExpressions; ++i) check(data->expressionKeyFrame, i, st.expr[i].cur);
 				data->exprOverride = true;
 			}
@@ -1022,6 +1169,88 @@ namespace Face::Output
 		return pre;
 	}
 
+	void TraceFace(RE::BSFaceGenAnimationData* data, int stage, float time, std::uint32_t flags, std::uint32_t arg)
+	{
+		if (!data || stage < 0 || stage > 3 || g_count.load(std::memory_order_relaxed) == 0 || !Debug::On()) return;
+		std::scoped_lock l(g_lock);
+		for (auto& [id, st] : g_states) {
+			if (st.fg != data) continue;
+			auto& pr = st.probe;
+			if (stage == 0) {
+				pr.traceHead = (pr.traceHead + 1) % 3;
+				pr.traceN = std::min(pr.traceN + 1, 3);
+				pr.trace[static_cast<std::size_t>(pr.traceHead)] = FaceTrace{};
+				auto& fresh = pr.trace[static_cast<std::size_t>(pr.traceHead)];
+				fresh.tid = ::GetCurrentThreadId();
+				fresh.time = time;
+				fresh.flags = flags;
+				fresh.arg = arg;
+			}
+			auto& t = pr.trace[static_cast<std::size_t>(pr.traceHead)];
+			if (stage != t.stages) return;  // a stage out of order (the hook began mid-update): leave the record as it is
+			RE::BSSpinLockGuard guard(data->lock);
+			auto& g = t.s[static_cast<std::size_t>(stage)];
+			for (std::uint32_t i = 0; i < kPhonemes; ++i) {
+				g.pk[i] = Val(data->phenomeKeyFrame, i);
+				g.pf[i] = Val(data->phoneme3, i);
+				g.pd[i] = Val(data->phoneme1, i);
+			}
+			for (std::uint32_t i = 0; i < kModifiers; ++i) {
+				g.mk[i] = Val(data->modifierKeyFrame, i);
+				g.mf[i] = Val(data->modifier3, i);
+				g.md[i] = Val(data->modifier1, i);
+			}
+			g.ovr = data->exprOverride;
+			t.stages = stage + 1;
+			return;
+		}
+	}
+
+	bool KeepOnReset(RE::BSFaceGenAnimationData* data, std::uintptr_t caller, bool expression, bool modifiers)
+	{
+		if (!data || g_count.load(std::memory_order_relaxed) == 0) return false;
+		RE::FormID who = 0;
+		bool keep = false;
+		bool ours = false;
+		{
+			std::scoped_lock l(g_lock);
+			for (auto& [id, st] : g_states) {
+				if (st.fg != data) continue;
+				who = id;
+				ours = !st.suspended && !st.layered && !st.releasing;
+				keep = ours && Settings::Face::bResetGuard;
+				break;
+			}
+		}
+		if (!who) return false;  // not a face in a scene of ours
+		if (Debug::On()) {
+			// Named per caller: the address in SkyrimSE.exe, or the module it is in when it is not the game's.
+			static std::mutex s_lock;
+			static std::unordered_map<std::uintptr_t, int> s_seen;
+			int n;
+			{
+				std::scoped_lock l(s_lock);
+				n = ++s_seen[caller];
+			}
+			if (n <= 20 || n % 100 == 0) {
+				const auto base = REL::Module::get().base();
+				std::string where;
+				HMODULE mod = nullptr;
+				if (::GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS | GET_MODULE_HANDLE_EX_FLAG_UNCHANGED_REFCOUNT, reinterpret_cast<LPCWSTR>(caller), &mod) &&
+					reinterpret_cast<std::uintptr_t>(mod) != base) {
+					wchar_t path[MAX_PATH]{};
+					::GetModuleFileNameW(mod, path, MAX_PATH);
+					where = std::format("{}+{:X}", std::filesystem::path(path).filename().string(), caller - reinterpret_cast<std::uintptr_t>(mod));
+				} else {
+					where = std::format("SkyrimSE+{:X}", caller - base);
+				}
+				Debug::Log(Debug::Cat::Face, "{}: face reset called from {} (expression {}, phonemes and modifiers {}; call {} from there): {}", Debug::Label(who), where, expression,
+					modifiers, n, keep ? "skipped, the face is ours" : (ours ? "let through, [Face] bResetGuard is off" : "let through, OSIS does not own this face alone now"));
+			}
+		}
+		return keep;
+	}
+
 	void NoteFaceRead(RE::BSFaceGenAnimationData* data, float pre)
 	{
 		if (pre < 0.0f || !data) return;
@@ -1032,6 +1261,48 @@ namespace Face::Output
 			if (std::abs(FinalSum(*data) - pre) > 0.02f) ++st.probe.movedInside;
 			return;
 		}
+	}
+
+	bool FaceResetDuringRead(RE::BSFaceGenAnimationData* data, bool again)
+	{
+		if (!data || g_count.load(std::memory_order_relaxed) == 0 || !Settings::Face::bResetGuard) return false;
+
+		std::scoped_lock l(g_lock);
+		State* found = nullptr;
+		for (auto& [id, st] : g_states) {
+			if (st.fg == data) {
+				found = &st;
+				break;
+			}
+		}
+		// Only a face that is ours alone and not on its way out: with OStim's writer on (layered) the values are shared and a drop may be OStim's.
+		if (!found || found->suspended || found->layered || found->releasing) return false;
+		auto& st = *found;
+
+		RE::BSSpinLockGuard guard(data->lock);
+		// What a reset looks like from here: the flag that says the expression is overridden is off again (we set it before the read), or channels we had written well above
+		// zero are at the bottom. Three or more keyframe channels dropping at once is the whole face.
+		bool reset = st.exprUsed && !st.lineMouth && !data->exprOverride;
+		if (!reset) {
+			int dropped = 0;
+			const auto drop = [&](const RE::BSFaceGenKeyframeMultiple& kf, int i, float want) {
+				if (want >= 0.25f && Val(kf, static_cast<std::uint32_t>(i)) <= want - 0.25f) ++dropped;
+			};
+			if (st.mouthFloor <= 0.0f) {
+				for (int i = 0; i < kPhonemes; ++i) {
+					if (st.ph[i].engaged) drop(data->phenomeKeyFrame, i, st.ph[i].last);
+				}
+			}
+			for (int i = kBlinkL; i < kModifiers; ++i) {
+				if (st.mod[i].used && st.mod[i].engaged) drop(data->modifierKeyFrame, i, st.mod[i].last);
+			}
+			reset = dropped >= 3;
+		}
+		if (reset && Debug::On()) {
+			if (again) ++st.probe.guardStill;
+			else ++st.probe.guardRepairs;
+		}
+		return reset;
 	}
 
 	void UpdateNPCs(float dt)

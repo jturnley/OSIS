@@ -812,9 +812,10 @@ namespace LipSync
 				const bool fresh = clip.soundID != p.soundID;
 				const bool jumped = !fresh && reported - clip.start > 0.35f;
 				const bool midClip = pos >= 0.10f && pos < env->Duration();
-				if (jumped && Debug::On()) {
-					Debug::Log(Debug::Cat::Mouth, "{}: lip-sync position read {:.2f} s, {:.2f} s after the clip began - {}", Debug::Label(owner),
-						pos, now - clip.start, midClip ? "following it" : "ignored, the clip has finished");
+				// Only a real desync is written out. A clip that has just finished reports a position near zero, which is ignored, and does so for most short moans.
+				if (jumped && midClip && Debug::On()) {
+					Debug::Log(Debug::Cat::Mouth, "{}: lip-sync position read {:.2f} s, {:.2f} s after the clip began - following it", Debug::Label(owner),
+						pos, now - clip.start);
 				}
 				if (fresh || (jumped && midClip)) {
 					clip.soundID = p.soundID;

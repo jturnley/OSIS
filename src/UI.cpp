@@ -570,6 +570,8 @@ namespace
 				"arousal - so sharing a face with it only produces a fight. It also paints its own face blush, "
 				"which competes for the same RaceMenu face overlay slots. While it is installed the Faces module is off (General page, Modules) and "
 				"this mod writes no faces and no face blush; it keeps to the body: arousal morphs, body blush, climax. Untick to drive faces anyway.");
+			Check("Repair a face that is reset while the game reads it", bResetGuard,
+				"On by default. Something besides this mod - another mod's script, or the game itself when an NPC starts a line or an animation changes - can wipe a whole face for one frame, which shows as a flicker: the eyes and brows let go and come back, as though the expression were about to change and did not. This notices it just after the game reads the face and, when it happened, puts the face back and lets the game read it again in the same frame. It also skips the game's face reset on a face this mod owns alone, which otherwise zeroes it between two frames. Only a face this mod owns is touched. With debug logging on, the snapshot says how many resets were repaired, and each skipped reset is logged with its caller.");
 			Check("Always yield to an ahegao mod", bAhegaoModYield,
 				"The same stand-down, forced on whether or not Ahegao Expressions is detected. For any other mod that drives "
 				"faces and fights with this one.");

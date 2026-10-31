@@ -5,8 +5,11 @@
 
 #include "Hooks.h"
 
+#include <intrin.h>
+
 #include "Body.h"
 #include "Face/Output.h"
+#include "FaceWatch.h"
 #include "MoanVolume.h"
 #include "Settings.h"
 #if !OSIS_LITE
@@ -69,12 +72,64 @@ namespace Hooks
 			static void thunk(RE::BSFaceGenNiNode* a_this, RE::NiUpdateData& a_data, std::uint32_t a_arg2)
 			{
 				auto* data = a_this ? a_this->GetRuntimeData().animationData.get() : nullptr;
+				Face::Output::TraceFace(data, 0, a_data.time, a_data.flags.underlying(), a_arg2);
 				const float pre = Face::Output::ReassertFace(data);
+				Face::Output::TraceFace(data, 1);
 				func(a_this, a_data, a_arg2);
+				Face::Output::TraceFace(data, 2);
 				Face::Output::NoteFaceRead(data, pre);
+				// A face this mod owns that was reset under that read (the 1.8.2 probe saw whole faces zeroed for one frame, and a 2.0 debug log shows it every few seconds on an
+				// NPC): put it back and let the game read it again, so the frame shows ours and not a neutral face.
+				if (Face::Output::FaceResetDuringRead(data)) {
+					Face::Output::ReassertFace(data);
+					func(a_this, a_data, a_arg2);
+					Face::Output::TraceFace(data, 3);
+					(void)Face::Output::FaceResetDuringRead(data, true);
+				}
 			}
 			static inline REL::Relocation<decltype(thunk)> func;
 		};
+
+		// The game's face reset. A 2.0 debug trace caught faces OSIS owns going to zero between two face node updates - after the game had read them correctly and
+		// before the next animation update - one channel or several at a time; the reset is the game's way to do that. The reset itself is hooked (the game's calls and
+		// any mod's), so the debug log names the caller, and a reset of a face that is OSIS's alone is skipped (it would only show for a frame: OSIS writes the face again next update).
+		struct FaceReset
+		{
+			static void thunk(RE::BSFaceGenAnimationData* a_this, float a_timer, bool a_expression, bool a_modifiers, bool a_custom, bool a_closeEyes)
+			{
+				if (Face::Output::KeepOnReset(a_this, reinterpret_cast<std::uintptr_t>(_ReturnAddress()), a_expression, a_modifiers)) return;
+				func(a_this, a_timer, a_expression, a_modifiers, a_custom, a_closeEyes);
+			}
+			static inline REL::Relocation<decltype(thunk)> func;
+		};
+
+		// The reset is hooked at its entry, so a mod calling it through a pointer is caught as well as the game's own calls. Its first instruction (mov [rsp+8], rbx, 5 bytes,
+		// seen in 1.6.1170) is replaced by a jump to the thunk; the original runs from a gateway that holds that instruction and jumps back after it. Any other first
+		// instruction - another runtime, or another mod hooking the reset already - and nothing is patched.
+		void InstallFaceReset()
+		{
+			REL::Relocation<std::uintptr_t> reset{ RELOCATION_ID(25977, 26586) };
+			const auto target = reset.address();
+			const auto base = REL::Module::get().base();
+			const auto* b = reinterpret_cast<const std::uint8_t*>(target);
+			static constexpr std::uint8_t kFirst[5] = { 0x48, 0x89, 0x5C, 0x24, 0x08 };
+			if (std::memcmp(b, kFirst, sizeof(kFirst)) != 0) {
+				logger::warn("Face reset hook not installed: the reset at SkyrimSE+{:X} begins {:02X} {:02X} {:02X} {:02X} {:02X}, not the instruction expected", target - base, b[0], b[1],
+					b[2], b[3], b[4]);
+				return;
+			}
+			auto& tramp = SKSE::GetTrampoline();
+			auto* gate = static_cast<std::uint8_t*>(tramp.allocate(sizeof(kFirst) + 14));
+			std::memcpy(gate, kFirst, sizeof(kFirst));
+			gate[5] = 0xFF;  // jmp [rip+0]
+			gate[6] = 0x25;
+			std::memset(gate + 7, 0, 4);
+			const std::uintptr_t back = target + sizeof(kFirst);
+			std::memcpy(gate + 11, &back, sizeof(back));
+			FaceReset::func = reinterpret_cast<std::uintptr_t>(gate);
+			tramp.write_branch<5>(target, FaceReset::thunk);
+			logger::info("Installed face reset hook at its entry, SkyrimSE+{:X}", target - base);
+		}
 
 		void InstallNPC()
 		{
@@ -123,6 +178,8 @@ namespace Hooks
 			REL::Relocation<std::uintptr_t> faceNode{ RE::VTABLE_BSFaceGenNiNode[0] };
 			FaceNodeUpdate::func = faceNode.write_vfunc(0x2C, FaceNodeUpdate::thunk);
 			logger::info("Installed face node update hook");
+			InstallFaceReset();
+			if constexpr (FaceWatch::kEnabled) FaceWatch::Start();
 		} else {
 			logger::warn("Animation hooks are off (bAnimationHooks): faces are written at 20 Hz from the main thread, toe/finger curl is off");
 		}

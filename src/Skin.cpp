@@ -163,8 +163,13 @@ namespace Skin
 			ClaimFaceSlots(a, st);
 			int slot = st.slot[effect];
 			if (path.empty()) {
+				// An effect with no texture set (the saliva one, by default) is off; said once, not at every toggle of the blush beside it.
 				const auto msg = std::format("no texture for effect {}", effect);
-				if (g_status != msg) Debug::Log(Debug::Cat::Skin, "{}: {}", Debug::Label(a), msg);
+				static unsigned s_told = 0;
+				if (!(s_told & (1u << effect))) {
+					s_told |= 1u << effect;
+					Debug::Log(Debug::Cat::Skin, "{}: {} (it stays off; the texture path is empty)", Debug::Label(a), msg);
+				}
 				g_status = msg;
 				return;
 			}
