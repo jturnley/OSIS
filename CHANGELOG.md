@@ -1,6 +1,8 @@
 # Changelog
 
-## 2.0 beta 3, hotfix 1 (plugin version 2.0.16)
+## 2.0 (plugin version 2.0.17)
+
+The final 2.0 release: beta 3 with everything below (hotfix 1, 2.0.16, was never released on its own).
 
 ### Added
 - **Actors OSIS leaves alone** (General > "Actors OSIS leaves alone"; the list is `Data/SKSE/Plugins/OSIS/excluded_actors.txt`; two switches in the INI's `[Exclude]` section). Reported on the Nexus page: "Is there or will there be an option to blacklist NPCs from being utilized by this mod? It seems that it currently breaks some unique voiced npcs like Maven and Delphine, preventing facial animations and custom voices from playing." The reporter's logs show what happened: both had been given the stoic personality from their vanilla AI values, so the stoic rule "no moans in stages 1-3" muted Delphine's own voice-set moan (`Sound/fx/OStim/actor/moan/female/Delphine/Moan25.wav`: "muted: the rule says no moans"), and the Director had switched OStim's own face writer off for both, so whatever expression OStim or another mod would have given them was not played. Nothing was broken as such; OSIS treated two NPCs like everyone else. An actor that is left alone gets nothing from OSIS: no face (OStim keeps its face writer), no lip-sync, no personality (so no excitement rate, scene limit, hold on their climax or growth), no moan rules, leveling or line ducking, no first-time rules or opener, no body, blush or arousal effects. The scene and everyone else in it carry on as usual, and the player is never left alone. A change takes effect from the next scene.
