@@ -482,7 +482,7 @@ namespace
 					"most of the gap), the afterglow is skipped or cut short, and the face between orgasms carries a tension that grows with each "
 					"one and fades over this window. Orgasms further apart than this are treated as separate.");
 			}
-			SliderF("Style (realistic > cinematic > anime)", fStyle, 0.0f, 2.0f, "%.2f", "Above 1.5 enables the anime climax accents and tongue options.");
+			SliderF("Style (realistic > cinematic > anime)", fStyle, 0.0f, 2.0f, "%.2f", "1.5 or more turns on the anime accents and the tongue options (the Anime section further down this page).");
 			SliderF("Eye strength", fEyeStrength, 0.0f, 1.5f, "%.2f",
 				"The share of an expression that goes to the eyes: lids, squint and brow. Style raises it a little on its own.");
 			ComboI("Profile", iProfile, kProfiles, 3, "A size preset on top of Strength: Subtle 70%, Normal 100%, Expressive 130%.");
@@ -542,29 +542,33 @@ namespace
 				"scenes only.");
 
 			ig::SeparatorText("Anime");
+			// Everything in this section waits on the Style slider near the top of the page; say so here, where the options are, with its value and a way to set it.
+			if (fStyle < 1.5f) {
+				const bool tongue = bAnimeTongue || bTongueLife || bAnimeTongueFull;
+				const char* msg = "Off until \"Style (realistic > cinematic > anime)\", at the top of this page, is 1.5 or more. It is %.2f now%s.";
+				if (tongue) ig::TextColored(kWarn, msg, fStyle, ", so no tongue will come out");
+				else ig::TextDisabled(msg, fStyle, "");
+				ig::SameLine();
+				if (ig::Button("Set Style to 1.6")) {
+					fStyle = 1.6f;
+					g_dirty = true;
+				}
+				ig::SetItemTooltip("Style 1.5 and above turns on the anime accents and the tongue: stronger eyes and a fuller mouth as well. "
+					"The tongue is for female actors in a consensual scene, with nothing else holding the mouth.");
+			}
 			SliderF("Anime accent starts at excitement", fAnimeStart, 50.0f, 100.0f, "%.0f",
-				"Where the anime accents begin. A climax starts them whatever this says. Needs Style above 1.5.");
+				"Where the anime accents begin. A climax starts them whatever this says. Needs \"Style (realistic > cinematic > anime)\", at the top of this page, at 1.5 or more.");
 			SliderF("Anime accent ends below", fAnimeEnd, 40.0f, 100.0f, "%.0f",
 				"Once started they hold until excitement falls below this. Keep it under the start value, or the face flickers "
 				"on and off at the boundary.");
 			Check("Tongue at the peak (anime style)", bAnimeTongue,
-				"The tongue comes out at the peak of a consensual scene, for female actors. Needs Style above 1.5, and nothing else holding the mouth.");
+				"The tongue comes out at the peak of a consensual scene, for female actors. Needs \"Style (realistic > cinematic > anime)\" at 1.5 or more, and nothing else holding the mouth.");
 			Check("Full tongue mode", bAnimeTongueFull,
 				"Out sooner and for longer: from excitement 90 rather than 95, held about twice as long, and able to happen "
 				"again after half the wait.");
 			Check("Tongue life (rare small pulses)", bTongueLife,
 				"Occasional small tongue flashes between the peaks, not only at them. Needs the peak tongue above, and runs "
 				"the face on a faster tick.");
-			if ((bAnimeTongue || bTongueLife || bAnimeTongueFull) && fStyle < 1.5f) {
-				ig::TextColored(kWarn, "The tongue options need Style above 1.5 and Style is %.2f, so no tongue will come out.", fStyle);
-				ig::SameLine();
-				if (ig::Button("Set Style to 1.6")) {
-					fStyle = 1.6f;
-					g_dirty = true;
-				}
-				ig::SetItemTooltip("Style 1.5 and above turns on the anime accents the tongue belongs to: stronger eyes and a fuller mouth as well. "
-					"The tongue is for female actors in a consensual scene, with nothing else holding the mouth.");
-			}
 			Check("Switch the Faces module off while Ahegao Expressions is installed", bAhegaoAutoYield,
 				"On by default. Ahegao Expressions drives the whole face on its own schedule - its tongue can come out at half "
 				"arousal - so sharing a face with it only produces a fight. It also paints its own face blush, "
